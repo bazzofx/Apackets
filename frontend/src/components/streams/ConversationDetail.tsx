@@ -1,19 +1,15 @@
-import { useQuery } from '@tanstack/react-query'
-import clsx from 'clsx'
 import { Layers, X } from 'lucide-react'
 import CopyButton from '@/components/CopyButton'
-import EmptyState from '@/components/EmptyState'
-import ErrorState from '@/components/ErrorState'
-import LoadingState from '@/components/LoadingState'
-import MonoCell from '@/components/MonoCell'
 import Panel from '@/components/Panel'
 import { DetailGrid, DetailItem, SectionNote } from '@/components/protocols/ProtocolDetail'
-import type { PacketListParamsWithStream } from '@/components/packets/PacketFilters'
-import { packetsApi } from '@/services/api'
-import type { Conversation, SortOrder, StreamMode, Transport } from '@/types'
+import type { Conversation, StreamMode } from '@/types'
 import { formatBytes, formatDuration, formatNumber, formatTimestamp } from '@/utils/format'
+import { ConversationPackets } from './ConversationPackets'
+import type { ConversationTarget } from './ConversationPackets'
 import { StreamViewer } from './StreamViewer'
 import { StateChip, conversationKey } from './ConversationTable'
+
+export type { ConversationTarget }
 
 /**
  * Everything that belongs to one selected conversation: the indexed row, the
@@ -24,14 +20,6 @@ import { StateChip, conversationKey } from './ConversationTable'
  * endpoint matches `tcp_stream` *or* `udp_stream`, while a capture can easily
  * have a TCP stream 0 and a UDP stream 0 at the same time.
  */
-
-/** How many stream packets are listed inline before deferring to the browser. */
-const PACKET_PREVIEW_LIMIT = 50
-
-export interface ConversationTarget {
-  transport: Transport
-  streamId: number
-}
 
 export interface ConversationDetailProps {
   analysisId: string
@@ -57,24 +45,6 @@ export function ConversationDetail({
   onOpenPacket,
   onClose,
 }: ConversationDetailProps) {
-  const params: PacketListParamsWithStream = {
-    stream_id: target.streamId,
-    transport: target.transport,
-    page: 1,
-    page_size: PACKET_PREVIEW_LIMIT,
-    sort: 'number',
-    order: 'asc' as SortOrder,
-  }
-
-  const packets = useQuery({
-    queryKey: ['conversation-packets', analysisId, target.transport, target.streamId],
-    queryFn: () => packetsApi.list(analysisId, params),
-    retry: false,
-  })
-
-  const items = packets.data?.items ?? []
-  const total = packets.data?.total ?? 0
-
   return (
     <div className="flex flex-col gap-3">
       <Panel
@@ -175,98 +145,12 @@ export function ConversationDetail({
         </div>
       </Panel>
 
-      <Panel
-        title="Packets in this conversation"
-        subtitle={
-          total > items.length
-            ? `first ${formatNumber(items.length)} of ${formatNumber(total)} frames — open the packet browser for the rest`
-            : `${formatNumber(total)} frame(s) indexed for this stream`
-        }
-        flush
-      >
-        {packets.isLoading ? (
-          <LoadingState label="Loading the stream's packets..." rows={5} />
-        ) : packets.error ? (
-          <ErrorState
-            error={packets.error}
-            title="Could not load the packets of this conversation"
-            onRetry={() => void packets.refetch()}
-          />
-        ) : items.length === 0 ? (
-          <EmptyState
-            variant="plain"
-            icon={Layers}
-            title="No indexed packets for this stream"
-            description={
-              <span>
-                The conversation has no matching rows in the packet index
-                This can happen for a
-                stream the conversation analyzer derived from a single frame.
-              </span>
-            }
-            action={
-              <button type="button" className="btn" onClick={onOpenPackets}>
-                <Layers size={13} aria-hidden />
-                Open the packet browser
-              </button>
-            }
-          />
-        ) : (
-          <div className="max-h-[40vh] overflow-auto">
-            <table className="dt">
-              <thead>
-                <tr>
-                  <th className="text-right">#</th>
-                  <th>time</th>
-                  <th>source</th>
-                  <th className="text-right">sport</th>
-                  <th>destination</th>
-                  <th className="text-right">dport</th>
-                  <th>protocol</th>
-                  <th className="text-right">len</th>
-                  <th className="w-full">info</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((packet) => (
-                  <tr
-                    key={packet.number}
-                    className={clsx('', onOpenPacket && 'cursor-pointer')}
-                    onClick={onOpenPacket ? () => onOpenPacket(packet.number) : undefined}
-                    title={onOpenPacket ? 'Open this packet in the packet browser' : undefined}
-                  >
-                    <td className="text-right tabular-nums">{formatNumber(packet.number)}</td>
-                    <td>{formatTimestamp(packet.time_epoch)}</td>
-                    <td>
-                      <MonoCell maxWidth={190}>{packet.src_ip}</MonoCell>
-                    </td>
-                    <td className="text-right tabular-nums">
-                      {packet.src_port === null ? <span className="text-faint">—</span> : formatNumber(packet.src_port)}
-                    </td>
-                    <td>
-                      <MonoCell maxWidth={190}>{packet.dst_ip}</MonoCell>
-                    </td>
-                    <td className="text-right tabular-nums">
-                      {packet.dst_port === null ? <span className="text-faint">—</span> : formatNumber(packet.dst_port)}
-                    </td>
-                    <td>
-                      <MonoCell maxWidth={140}>{packet.protocol}</MonoCell>
-                    </td>
-                    <td className="text-right tabular-nums">
-                      {formatNumber(packet.frame_len ?? packet.length ?? null)}
-                    </td>
-                    <td>
-                      <MonoCell maxWidth={900} title={packet.info ?? undefined}>
-                        {packet.info}
-                      </MonoCell>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Panel>
+      <ConversationPackets
+        analysisId={analysisId}
+        target={target}
+        onOpenPacket={onOpenPacket}
+        onOpenPackets={onOpenPackets}
+      />
 
       <StreamViewer
         analysisId={analysisId}

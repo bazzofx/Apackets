@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
@@ -33,6 +34,24 @@ interface NavItem {
   badge?: string
   badgeTone?: 'default' | 'danger'
   title?: string
+  /** A subsection label rendered immediately above this item. */
+  section?: string
+}
+
+/**
+ * A labelled subsection in the sidebar.
+ *
+ * The rule is always drawn, so the grouping still reads on the icon-only rail below
+ * `lg`, where there is no room for the words.
+ */
+function NavSection({ label }: { label: string }) {
+  return (
+    <div className="mt-1.5 border-t border-border px-3 pb-1 pt-2">
+      <span className="hidden text-2xs font-semibold uppercase tracking-wider text-faint lg:inline">
+        {label}
+      </span>
+    </div>
+  )
 }
 
 function TsharkStatus() {
@@ -145,20 +164,8 @@ export function AppLayout() {
   const navItems: NavItem[] = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/info', label: 'Info', icon: Info, title: 'Full reference view for this capture' },
-    {
-      to: '/files',
-      label: 'PCAP Files',
-      icon: FolderOpen,
-      badge: analyses.length > 0 ? String(analyses.length) : undefined,
-      title: 'Uploaded captures',
-    },
-    { to: '/packets', label: 'Packets', icon: List },
     { to: '/conversations', label: 'Conversations', icon: ArrowLeftRight },
-    { to: '/http', label: 'HTTP', icon: Globe },
-    { to: '/dns', label: 'DNS', icon: Search },
-    { to: '/tls', label: 'TLS', icon: Lock },
     { to: '/hosts', label: 'Hosts', icon: Server },
-    { to: '/objects', label: 'Files and Objects', icon: Package },
     {
       to: '/findings',
       label: 'Findings',
@@ -168,6 +175,20 @@ export function AppLayout() {
       title: counts
         ? `high ${counts.high} · medium ${counts.medium} · low ${counts.low} · info ${counts.informational}`
         : undefined,
+    },
+    { to: '/objects', label: 'Files and Objects', icon: Package },
+    { to: '/packets', label: 'Packets', icon: List },
+    /* The protocol browsers are their own subsection: they answer "what did this
+       protocol say", where everything above answers "what is in this capture". */
+    { to: '/http', label: 'HTTP', icon: Globe, section: 'Protocols' },
+    { to: '/dns', label: 'DNS', icon: Search },
+    { to: '/tls', label: 'TLS', icon: Lock },
+    {
+      to: '/files',
+      label: 'PCAP Files',
+      icon: FolderOpen,
+      badge: analyses.length > 0 ? String(analyses.length) : undefined,
+      title: 'Uploaded captures',
     },
     { to: '/settings', label: 'Settings', icon: SettingsIcon },
   ]
@@ -191,36 +212,38 @@ export function AppLayout() {
 
         <nav className="flex-1 overflow-y-auto py-1">
           {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              title={item.label}
-              className={({ isActive }) =>
-                clsx(
-                  'flex items-center gap-2 border-l-2 px-3 py-1.5 text-xs transition-colors',
-                  isActive
-                    ? 'border-accent bg-accent/10 text-text'
-                    : 'border-transparent text-muted hover:bg-surface2 hover:text-text',
-                )
-              }
-            >
-              <item.icon size={15} className="shrink-0" aria-hidden />
-              <span className="hidden flex-1 truncate lg:inline">{item.label}</span>
-              {item.badge !== undefined ? (
-                <span
-                  className={clsx(
-                    'chip hidden shrink-0 lg:inline-flex',
-                    item.badgeTone === 'danger'
-                      ? 'border-danger/50 bg-danger/15 text-red-300'
-                      : 'border-border2 bg-surface2 text-muted',
-                  )}
-                  title={item.title}
-                >
-                  {item.badge}
-                </span>
-              ) : null}
-            </NavLink>
+            <Fragment key={item.to}>
+              {item.section !== undefined ? <NavSection label={item.section} /> : null}
+              <NavLink
+                to={item.to}
+                end={item.to === '/'}
+                title={item.label}
+                className={({ isActive }) =>
+                  clsx(
+                    'flex items-center gap-2 border-l-2 px-3 py-1.5 text-xs transition-colors',
+                    isActive
+                      ? 'border-accent bg-accent/10 text-text'
+                      : 'border-transparent text-muted hover:bg-surface2 hover:text-text',
+                  )
+                }
+              >
+                <item.icon size={15} className="shrink-0" aria-hidden />
+                <span className="hidden flex-1 truncate lg:inline">{item.label}</span>
+                {item.badge !== undefined ? (
+                  <span
+                    className={clsx(
+                      'chip hidden shrink-0 lg:inline-flex',
+                      item.badgeTone === 'danger'
+                        ? 'border-danger/50 bg-danger/15 text-red-300'
+                        : 'border-border2 bg-surface2 text-muted',
+                    )}
+                    title={item.title}
+                  >
+                    {item.badge}
+                  </span>
+                ) : null}
+              </NavLink>
+            </Fragment>
           ))}
         </nav>
 

@@ -1,13 +1,23 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
-import { ArrowDownRight, ArrowUpRight, Ban, Clock, Info, Lightbulb, ListTree, Scale } from 'lucide-react'
+import {
+  ArrowDownRight,
+  ArrowLeftRight,
+  ArrowUpRight,
+  Ban,
+  Clock,
+  Info,
+  Lightbulb,
+  ListTree,
+  Scale,
+} from 'lucide-react'
 import CopyButton from '@/components/CopyButton'
 import EntityChips from '@/components/findings/EntityChips'
 import MonoCell from '@/components/MonoCell'
 import Panel from '@/components/Panel'
 import SeverityBadge from '@/components/SeverityBadge'
-import { formatClockTime, formatDuration, formatNumber, formatTimestamp } from '@/utils/format'
+import { formatBytes, formatClockTime, formatDuration, formatNumber, formatTimestamp } from '@/utils/format'
 import type { FindingContext } from '@/types'
 
 export interface FindingOverviewProps {
@@ -76,7 +86,18 @@ function EndpointCard({
 export function FindingOverview({ context, onSelectRelated }: FindingOverviewProps) {
   const navigate = useNavigate()
   const [showRule, setShowRule] = useState(false)
-  const { finding, rule, analysis, endpoints, related, timeline, counts, truncated } = context
+  const {
+    finding,
+    rule,
+    analysis,
+    endpoints,
+    packets,
+    conversations,
+    related,
+    timeline,
+    counts,
+    truncated,
+  } = context
 
   const evidence = (finding.evidence ?? {}) as Record<string, unknown>
   const matches = Array.isArray(evidence.matches)
@@ -84,6 +105,38 @@ export function FindingOverview({ context, onSelectRelated }: FindingOverviewPro
     : []
   const basis = typeof evidence.match_basis === 'string' ? evidence.match_basis : null
   const buffers = Array.isArray(evidence.buffers) ? (evidence.buffers as unknown[]).map(String) : []
+
+  /**
+   * The conversation the matched evidence belongs to.
+   *
+   * A matched row is a packet, and every packet records the stream it was
+   * reassembled into, so the first match that resolves names the conversation
+   * without guessing from addresses. When a finding spans several streams the
+   * backend's own correlation is the fallback, which it orders largest first. Null
+   * means genuinely nothing to follow - no stream was recorded for these packets -
+   * and the button says so rather than jumping somewhere unrelated.
+   */
+  const follow = useMemo(() => {
+    const streamOf = new Map<number, { transport: string; streamId: number }>()
+    for (const packet of packets) {
+      const streamId = packet.transport === 'tcp' ? packet.tcp_stream : packet.udp_stream
+      if (packet.transport && typeof streamId === 'number') {
+        streamOf.set(packet.number, { transport: packet.transport, streamId })
+      }
+    }
+    for (const match of matches) {
+      const number = typeof match.packet === 'number' ? match.packet : null
+      if (number === null) continue
+      const stream = streamOf.get(number)
+      if (stream === undefined) continue
+      const hit = conversations.find(
+        (conversation) =>
+          conversation.transport === stream.transport && conversation.stream_id === stream.streamId,
+      )
+      if (hit !== undefined) return hit
+    }
+    return conversations.length > 0 ? conversations[0] : null
+  }, [packets, conversations, matches])
 
   return (
     <div className="flex flex-col gap-3 p-3">
@@ -144,7 +197,36 @@ export function FindingOverview({ context, onSelectRelated }: FindingOverviewPro
       </Panel>
 
       {matches.length > 0 ? (
-        <Panel flush title="Matched evidence" subtitle={`${matches.length} recorded match(es)`}>
+        <Panel
+          flush
+          title="Matched evidence"
+          subtitle={`${matches.length} recorded match(es)`}
+          actions={
+            <button
+              type="button"
+              className="btn px-1.5 py-0.5"
+              disabled={follow === null}
+              aria-label="Follow conversation"
+              title={
+                follow === null
+                  ? 'None of the matched packets could be tied to a conversation, so there is nothing to follow - open a packet number below instead.'
+                  : `Open ${follow.transport.toUpperCase()} stream ${String(follow.stream_id)} (${formatBytes(follow.bytes_total)}, ${formatNumber(follow.packets_total)} packets) on the Timeline tab of the Conversations page, with this conversation selected.` +
+                    (conversations.length > 1
+                      ? ` ${formatNumber(conversations.length)} conversations are linked to this alert; this is the one the first matched packet belongs to.`
+                      : '')
+              }
+              onClick={() => {
+                if (follow === null) return
+                navigate(
+                  `/conversations?stream=${encodeURIComponent(follow.transport + ':' + String(follow.stream_id))}&tab=timeline`,
+                )
+              }}
+            >
+              <ArrowLeftRight size={12} aria-hidden />
+              Follow conversation
+            </button>
+          }
+        >
           <div className="overflow-auto">
             <table className="dt">
               <thead>

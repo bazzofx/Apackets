@@ -232,15 +232,15 @@ ssh -L 8080:127.0.0.1:8080 user@analyst-workstation
 |---|---|
 | **Dashboard** | The at-a-glance visual overview: KPI tiles (DNS requests, conversations, hosts, findings by severity, packets, bytes, duration), a central **network map** of the endpoints this capture actually talked to, most-data-sent / most-data-received cards, the top 5 domains with direction-split sent/received bars, a protocol mix donut and a traffic sparkline. |
 | **Info** | The reference view: the full summary cards, capture window, protocol distribution, traffic over time, top talkers, top ports, top conversations, protocol hierarchy, findings and the analysis limitations list. |
-| **PCAP Files** | Drag-and-drop upload with live progress; table of analyses with status, packet count, capture window, open/delete/cancel actions. |
+| **Conversations** | Unique conversations with per-direction packet/byte counts and TCP state, shown three ways: a **Flow** alluvial diagram (thickness = bytes), an **Info** table with the full detail pane, and a **Timeline** tab that lays one conversation out over time - the protocol events it carried, every indexed frame, and the reassembled stream's chunk timeline. The *Follow stream* viewer offers ASCII/hex modes, in-stream search and local export; the Alerts filter narrows either tab to the conversations tied to a finding. |
+| **Hosts** | Every observed endpoint with MAC, first/last seen, bytes in and out, top ports, protocols, associated DNS names and TLS SNI, plus a relationship graph built strictly from observed connections. |
+| **Findings** | Explainable, rule-based observations with severity, the exact reason and observed numbers, supporting packet numbers, associated entities, and recommended next steps. |
+| **Files and Objects** | Content recoverable with supported dissectors (HTTP object export), with hashes, size, extraction status and a download action. |
 | **Packets** | The core explorer: dense sortable table, basic filters, advanced Wireshark display-filter mode, next/previous match navigation, CSV export, per-packet detail tree and hex/ASCII viewer. |
-| **Conversations** | Unique conversations with per-direction packet/byte counts, TCP state, and a *Follow stream* viewer with ASCII/hex modes, in-stream search and local export. |
 | **HTTP** | Request/response transactions with methods, hosts, URIs, status codes, user agents, headers and body previews; filters plus investigative lead flags (4xx/5xx, unusual methods, suspicious paths, plaintext credentials, IP-literal hosts, unusual user agents). |
 | **DNS** | Queries and answers, response codes, returned addresses and TTLs; filters by domain, client, type; flags for long/encoded-looking names, repeated NXDOMAIN, unanswered queries and multi-IP answers. |
 | **TLS** | Handshake metadata only: versions, SNI, ALPN, cipher suites, JA3/JA3S/JA4 fingerprints, and certificate subject/issuer/validity where the capture contains them. |
-| **Hosts** | Every observed endpoint with MAC, first/last seen, bytes in and out, top ports, protocols, associated DNS names and TLS SNI, plus a relationship graph built strictly from observed connections. |
-| **Files and Objects** | Content recoverable with supported dissectors (HTTP object export), with hashes, size, extraction status and a download action. |
-| **Findings** | Explainable, rule-based observations with severity, the exact reason and observed numbers, supporting packet numbers, associated entities, and recommended next steps. |
+| **PCAP Files** | Drag-and-drop upload with live progress; table of analyses with status, packet count, capture window, open/delete/cancel actions. |
 | **Settings** | Effective configuration, runtime-editable limits, and analyst-supplied indicators for the indicator-match rule. |
 
 ### Packet filters

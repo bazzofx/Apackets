@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
-import { ArrowLeftRight, Info } from 'lucide-react'
+import { ArrowLeftRight, Clock, Info } from 'lucide-react'
 import AnalysisGuard from '@/components/AnalysisGuard'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
@@ -27,6 +27,7 @@ import {
 } from '@/components/protocols/ProtocolFilters'
 import { digitsOnly } from '@/components/packets/PacketFilters'
 import { ConversationDetail, type ConversationTarget } from '@/components/streams/ConversationDetail'
+import { ConversationTimeline } from '@/components/streams/ConversationTimeline'
 import {
   ConversationTable,
   conversationKey,
@@ -95,7 +96,7 @@ const CONVERSATION_URL_KEYS = [
   'expand',
 ]
 
-type ConversationsTab = 'flow' | 'info'
+type ConversationsTab = 'flow' | 'info' | 'timeline'
 
 const CONVERSATIONS_TABS: { value: ConversationsTab; label: string; hint: string }[] = [
   {
@@ -104,6 +105,11 @@ const CONVERSATIONS_TABS: { value: ConversationsTab; label: string; hint: string
     hint: 'source IP -> source port -> state -> destination port -> destination IP, thickness = bytes',
   },
   { value: 'info', label: 'Info', hint: 'the dense table: sorting, paging and the full detail pane' },
+  {
+    value: 'timeline',
+    label: 'Timeline',
+    hint: 'one conversation over time: its protocol events, its frames and the reassembled chunks',
+  },
 ]
 
 
@@ -162,7 +168,9 @@ function ConversationsContent() {
   const mode: StreamMode = rawMode === 'hex' || rawMode === 'raw' ? rawMode : 'ascii'
 
   /** Flow is the primary tab of this section, so it is the fallback value. */
-  const tab: ConversationsTab = url.get('tab') === 'info' ? 'info' : 'flow'
+  const tabParam = url.get('tab')
+  const tab: ConversationsTab =
+    tabParam === 'info' ? 'info' : tabParam === 'timeline' ? 'timeline' : 'flow'
 
   const selectedNodeId = url.get('node').trim() === '' ? null : url.get('node').trim()
   const expandedSubnets = useMemo(() => parseSubnets(url.get('expand')), [url])
@@ -479,6 +487,44 @@ function ConversationsContent() {
         onClose={closeConversation}
       />
     )
+  /* The Timeline tab follows ONE conversation, so it needs a selection; without one it
+     says so rather than rendering three empty panels. The selection lives in the URL as
+     `?stream=transport:id`, which keeps a timeline shareable. */
+  const timelinePanel =
+    target === null ? (
+      <Panel flush>
+        <EmptyState
+          variant="plain"
+          icon={Clock}
+          title="No conversation selected"
+          description={
+            <span>
+              Pick a row on the Info tab, or a band on the Flow tab, and the timeline of that
+              conversation appears here: the protocol events it carried, every frame the index
+              recorded, and the reassembled stream with its chunk timeline.
+            </span>
+          }
+          action={
+            <button type="button" className="btn" onClick={() => changeTab('info')}>
+              Choose a conversation
+            </button>
+          }
+        />
+      </Panel>
+    ) : (
+      <ConversationTimeline
+        analysisId={analysisId as string}
+        conversation={selectedConversation}
+        target={target}
+        mode={mode}
+        onModeChange={(next) =>
+          url.patch({ smode: next === 'ascii' ? null : next }, { resetPage: false })
+        }
+        onOpenPacket={openPacket}
+        onOpenPackets={openPacketsForStream}
+      />
+    )
+
   const selectedStateNode = selectedNodeId !== null && selectedNodeId.indexOf('state:') === 0
 
   return (
@@ -669,6 +715,8 @@ function ConversationsContent() {
             {target !== null ? detailPanel : null}
           </>
         )
+      ) : tab === 'timeline' ? (
+        timelinePanel
       ) : (
         <>
           {selectedStateNode ? (
