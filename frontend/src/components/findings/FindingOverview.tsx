@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import {
   ArrowDownRight,
+  ArrowRight,
   ArrowUpRight,
   Ban,
   ChevronDown,
-  Clock,
   Info,
   Lightbulb,
   ListTree,
@@ -19,14 +19,14 @@ import { FollowConversationButton } from '@/components/findings/FollowConversati
 import MonoCell from '@/components/MonoCell'
 import Panel from '@/components/Panel'
 import SeverityBadge from '@/components/SeverityBadge'
-import { formatClockTime, formatDuration, formatNumber, formatTimestamp } from '@/utils/format'
+import { formatDuration, formatNumber, formatTimestamp } from '@/utils/format'
 import type { FindingContext } from '@/types'
 
 export interface FindingOverviewProps {
   context: FindingContext
-  onSelectRelated: (id: string) => void
 }
 
+/** One end of the alert: its address, the ports it used, and what it is. */
 function EndpointCard({
   endpoint,
   onPivot,
@@ -36,7 +36,7 @@ function EndpointCard({
 }) {
   const isSource = endpoint.direction === 'source'
   return (
-    <div className="panel flex flex-col gap-1 p-2.5">
+    <div className="panel flex min-w-0 flex-col gap-1 p-2.5">
       <div className="flex items-center gap-1.5">
         {isSource ? (
           <ArrowUpRight size={13} className="text-accent2" aria-hidden />
@@ -50,7 +50,7 @@ function EndpointCard({
       </div>
       <button
         type="button"
-        className="mono text-left text-sm text-text hover:text-accent2"
+        className="mono truncate text-left text-sm text-text hover:text-accent2"
         onClick={() => onPivot(`/packets?ip=${encodeURIComponent(endpoint.ip)}`)}
         title="Show this host's packets"
       >
@@ -71,7 +71,7 @@ function EndpointCard({
         ))}
       </div>
       {endpoint.mac ? (
-        <div className="mono text-2xs text-faint">
+        <div className="mono truncate text-2xs text-faint">
           {endpoint.mac}
           {endpoint.hostnames.length > 0 ? ` · ${endpoint.hostnames.slice(0, 2).join(', ')}` : ''}
         </div>
@@ -84,23 +84,32 @@ function EndpointCard({
   )
 }
 
-/** Why the rule fired, who was involved, and the evidence the backend recorded. */
-export function FindingOverview({ context, onSelectRelated }: FindingOverviewProps) {
+/** A labelled rule between the sections inside a card. */
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 px-3 pt-2">
+      <span className="text-2xs font-semibold uppercase tracking-wider text-muted">{label}</span>
+      <span className="h-px flex-1 bg-border" aria-hidden />
+    </div>
+  )
+}
+
+/**
+ * The Overview tab: the alert itself, who and what it involves, the evidence, the
+ * rule behind it, and the scope of the context.
+ *
+ * The alert's own text leads, minimised, so the first thing on the page is what
+ * fired rather than a wall of prose. Endpoints and artefacts share one card
+ * because they answer the same question - who and what was involved - and the
+ * timeline and related findings are tabs of their own rather than cards here.
+ */
+export function FindingOverview({ context }: FindingOverviewProps) {
   const navigate = useNavigate()
   const [showRule, setShowRule] = useState(false)
   /* The alert's own text is the longest block on this page, so it starts
      minimised and opens on demand. */
   const [alertOpen, setAlertOpen] = useState(false)
-  const {
-    finding,
-    rule,
-    analysis,
-    endpoints,
-    related,
-    timeline,
-    counts,
-    truncated,
-  } = context
+  const { finding, rule, analysis, endpoints, counts, truncated } = context
 
   const evidence = (finding.evidence ?? {}) as Record<string, unknown>
   const matches = Array.isArray(evidence.matches)
@@ -115,25 +124,122 @@ export function FindingOverview({ context, onSelectRelated }: FindingOverviewPro
      rather than the string "null". */
   const reasonPreview = (finding.reason ?? '').replace(/\s+/g, ' ').trim() || undefined
 
+  const sources = endpoints.filter((endpoint) => endpoint.direction === 'source')
+  const destinations = endpoints.filter((endpoint) => endpoint.direction === 'destination')
+
   return (
     <div className="flex flex-col gap-3 p-3">
-      <Panel flush title="Endpoints involved" subtitle="source and destination with the ports this alert used">
-        <div className="grid grid-cols-1 gap-2 p-3 md:grid-cols-2 xl:grid-cols-3">
-          {endpoints.length === 0 ? (
-            <div className="text-2xs text-faint">No endpoints could be derived from this finding.</div>
-          ) : (
-            endpoints.map((endpoint) => (
+      <Panel
+        flush
+        title="Alert"
+        /* Minimised it shows one line of the reason, so the panel says what
+           fired without being opened; expanded it shows the rule and severity. */
+        subtitle={alertOpen ? `${finding.rule_id} · ${finding.severity}` : reasonPreview}
+        actions={
+          <div className="flex items-center gap-1">
+            <SeverityBadge severity={finding.severity} showLabel />
+            <CopyButton value={finding.id} label="Copy finding id" />
+            <button
+              type="button"
+              className="btn px-1.5 py-0.5"
+              onClick={() => setAlertOpen((value) => !value)}
+              aria-expanded={alertOpen}
+              title={alertOpen ? 'Minimise this panel' : 'Expand the alert text'}
+            >
+              <ChevronDown
+                size={12}
+                className={clsx('transition-transform', !alertOpen && '-rotate-90')}
+                aria-hidden
+              />
+              {alertOpen ? 'hide' : 'show'}
+            </button>
+          </div>
+        }
+      >
+        {alertOpen ? (
+          <div className="flex flex-col gap-2 p-3">
+            <div className="text-sm text-text">{finding.title}</div>
+            {finding.description ? (
+              <div className="text-2xs text-muted">{finding.description}</div>
+            ) : null}
+            <div className="whitespace-pre-wrap rounded border border-border bg-bg p-2 text-2xs leading-relaxed text-text">
+              {finding.reason}
+            </div>
+            {finding.recommendation ? (
+              <div className="flex items-start gap-2 text-2xs text-muted">
+                <Lightbulb size={13} className="mt-0.5 shrink-0 text-warn" aria-hidden />
+                <span>{finding.recommendation}</span>
+              </div>
+            ) : null}
+            {basis ? (
+              <div className="flex items-start gap-2 text-2xs text-faint">
+                <Scale size={13} className="mt-0.5 shrink-0" aria-hidden />
+                <span>
+                  Match basis: {basis}
+                  {buffers.length > 0 ? ` · buffers: ${buffers.join(', ')}` : ''}
+                </span>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </Panel>
+
+      <Panel
+        flush
+        title="Endpoints and artefacts"
+        subtitle="who was involved, and every address, name, port and URI this finding mentions"
+      >
+        <SectionLabel label="Endpoints" />
+        {endpoints.length === 0 ? (
+          <div className="px-3 py-2 text-2xs text-faint">
+            No endpoints could be derived from this finding.
+          </div>
+        ) : sources.length === 1 && destinations.length === 1 ? (
+          /* One source and one destination: draw the direction of the traffic
+             rather than leaving the reader to infer it from the card order. */
+          <div className="grid grid-cols-1 items-center gap-2 p-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+            <EndpointCard endpoint={sources[0]} onPivot={(path) => navigate(path)} />
+            <ArrowRight size={18} className="mx-auto shrink-0 text-accent2" aria-hidden />
+            <EndpointCard endpoint={destinations[0]} onPivot={(path) => navigate(path)} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-2 p-3 md:grid-cols-2 xl:grid-cols-3">
+            {endpoints.map((endpoint) => (
               <EndpointCard
                 key={`${endpoint.ip}-${endpoint.direction}`}
                 endpoint={endpoint}
                 onPivot={(path) => navigate(path)}
               />
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
         {truncated.endpoints ? (
           <div className="px-3 pb-2 text-2xs text-faint">More endpoints were involved than are shown.</div>
         ) : null}
+
+        <SectionLabel label="Artefacts" />
+        <div className="flex flex-col gap-1.5 p-3">
+          <EntityChips
+            label="addresses"
+            values={finding.entities?.ips ?? []}
+            onSelect={(value) => navigate(`/packets?ip=${encodeURIComponent(value)}`)}
+          />
+          <EntityChips
+            label="names"
+            values={finding.entities?.hostnames ?? []}
+            onSelect={(value) => navigate(`/packets?search=${encodeURIComponent(value)}`)}
+          />
+          <EntityChips
+            label="ports"
+            values={finding.entities?.ports ?? []}
+            onSelect={(value) => navigate(`/packets?port=${encodeURIComponent(value)}`)}
+          />
+          <EntityChips
+            label="URIs"
+            values={finding.entities?.uris ?? []}
+            onSelect={(value) => navigate(`/packets?search=${encodeURIComponent(value)}`)}
+          />
+        </div>
       </Panel>
 
       {matches.length > 0 ? (
@@ -197,31 +303,6 @@ export function FindingOverview({ context, onSelectRelated }: FindingOverviewPro
           </div>
         </Panel>
       ) : null}
-
-      <Panel flush title="Artefacts" subtitle="everything this finding mentions">
-        <div className="flex flex-col gap-1.5 p-3">
-          <EntityChips
-            label="addresses"
-            values={finding.entities?.ips ?? []}
-            onSelect={(value) => navigate(`/packets?ip=${encodeURIComponent(value)}`)}
-          />
-          <EntityChips
-            label="names"
-            values={finding.entities?.hostnames ?? []}
-            onSelect={(value) => navigate(`/packets?search=${encodeURIComponent(value)}`)}
-          />
-          <EntityChips
-            label="ports"
-            values={finding.entities?.ports ?? []}
-            onSelect={(value) => navigate(`/packets?port=${encodeURIComponent(value)}`)}
-          />
-          <EntityChips
-            label="URIs"
-            values={finding.entities?.uris ?? []}
-            onSelect={(value) => navigate(`/packets?search=${encodeURIComponent(value)}`)}
-          />
-        </div>
-      </Panel>
 
       <div className="mt-1 flex items-center gap-2">
         <span className="text-2xs font-semibold uppercase tracking-wider text-muted">Rules</span>
@@ -288,150 +369,37 @@ export function FindingOverview({ context, onSelectRelated }: FindingOverviewPro
         </Panel>
       ) : null}
 
-      <Panel
-        flush
-        title="Alert"
-        /* Minimised it shows one line of the reason, so the panel says what
-           fired without being opened; expanded it shows the rule and severity. */
-        subtitle={alertOpen ? `${finding.rule_id} · ${finding.severity}` : reasonPreview}
-        actions={
-          <div className="flex items-center gap-1">
-            <SeverityBadge severity={finding.severity} showLabel />
-            <CopyButton value={finding.id} label="Copy finding id" />
-            <button
-              type="button"
-              className="btn px-1.5 py-0.5"
-              onClick={() => setAlertOpen((value) => !value)}
-              aria-expanded={alertOpen}
-              title={alertOpen ? 'Minimise this panel' : 'Expand the alert text'}
-            >
-              <ChevronDown
-                size={12}
-                className={clsx('transition-transform', !alertOpen && '-rotate-90')}
-                aria-hidden
-              />
-              {alertOpen ? 'hide' : 'show'}
-            </button>
-          </div>
-        }
-      >
-        {alertOpen ? (
-          <div className="flex flex-col gap-2 p-3">
-            <div className="text-sm text-text">{finding.title}</div>
-            {finding.description ? (
-              <div className="text-2xs text-muted">{finding.description}</div>
-            ) : null}
-            <div className="whitespace-pre-wrap rounded border border-border bg-bg p-2 text-2xs leading-relaxed text-text">
-              {finding.reason}
-            </div>
-            {finding.recommendation ? (
-              <div className="flex items-start gap-2 text-2xs text-muted">
-                <Lightbulb size={13} className="mt-0.5 shrink-0 text-warn" aria-hidden />
-                <span>{finding.recommendation}</span>
-              </div>
-            ) : null}
-            {basis ? (
-              <div className="flex items-start gap-2 text-2xs text-faint">
-                <Scale size={13} className="mt-0.5 shrink-0" aria-hidden />
-                <span>
-                  Match basis: {basis}
-                  {buffers.length > 0 ? ` · buffers: ${buffers.join(', ')}` : ''}
-                </span>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+      <Panel flush title="Scope of this alert" subtitle="what the context contains">
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 p-3 text-2xs">
+          <dt className="text-faint">Alerting packets</dt>
+          <dd className="mono text-text">{formatNumber(counts.alerting_packets)}</dd>
+          <dt className="text-faint">Conversations</dt>
+          <dd className="mono text-text">{formatNumber(counts.conversations)}</dd>
+          <dt className="text-faint">Streams with content</dt>
+          <dd className="mono text-text">{formatNumber(counts.streams)}</dd>
+          <dt className="text-faint">HTTP / DNS / TLS rows</dt>
+          <dd className="mono text-text">
+            {formatNumber(counts.http)} / {formatNumber(counts.dns)} / {formatNumber(counts.tls)}
+          </dd>
+          <dt className="text-faint">Files</dt>
+          <dd className="mono text-text">{formatNumber(counts.objects)}</dd>
+          <dt className="text-faint">Related findings</dt>
+          <dd className="mono text-text">{formatNumber(counts.related)}</dd>
+          <dt className="text-faint">Capture</dt>
+          <dd className="mono text-text">{analysis.original_filename}</dd>
+          <dt className="text-faint">Capture length</dt>
+          <dd className="mono text-text">{formatDuration(analysis.duration)}</dd>
+          <dt className="text-faint">First packet</dt>
+          <dd className="mono text-text">{formatTimestamp(analysis.capture_start)}</dd>
+        </dl>
+        <div className="flex items-start gap-2 border-t border-border px-3 py-2 text-2xs text-faint">
+          <Info size={12} className="mt-0.5 shrink-0" aria-hidden />
+          <span>
+            A signature match is a lead, not a verdict. Confirm the activity against the host's
+            expected behaviour before acting.
+          </span>
+        </div>
       </Panel>
-
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-        <Panel flush title="Timeline" subtitle="first and last activity of this alert">
-          {timeline.length === 0 ? (
-            <div className="px-3 py-6 text-center text-2xs text-faint">No timestamps recorded.</div>
-          ) : (
-            <ul className="flex flex-col">
-              {timeline.map((entry, index) => (
-                <li key={index} className="flex items-center gap-2 border-b border-border/50 px-3 py-1.5 last:border-0 text-2xs">
-                  <Clock size={11} className="shrink-0 text-faint" aria-hidden />
-                  <span className="mono text-muted">{formatClockTime(entry.t)}</span>
-                  <span className="chip border-border2 bg-surface2 text-faint">{entry.kind}</span>
-                  <span className="min-w-0 flex-1 truncate text-text" title={entry.label}>
-                    {entry.label}
-                  </span>
-                  {entry.packet !== null && entry.packet !== undefined ? (
-                    <button
-                      type="button"
-                      className="mono text-accent2 hover:underline"
-                      onClick={() => navigate(`/packets?sel=${entry.packet}`)}
-                    >
-                      #{entry.packet}
-                    </button>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-
-        <Panel flush title="Scope of this alert" subtitle="what the context contains">
-          <dl className="grid grid-cols-2 gap-x-3 gap-y-1 p-3 text-2xs">
-            <dt className="text-faint">Alerting packets</dt>
-            <dd className="mono text-text">{formatNumber(counts.alerting_packets)}</dd>
-            <dt className="text-faint">Conversations</dt>
-            <dd className="mono text-text">{formatNumber(counts.conversations)}</dd>
-            <dt className="text-faint">Streams with content</dt>
-            <dd className="mono text-text">{formatNumber(counts.streams)}</dd>
-            <dt className="text-faint">HTTP / DNS / TLS rows</dt>
-            <dd className="mono text-text">
-              {formatNumber(counts.http)} / {formatNumber(counts.dns)} / {formatNumber(counts.tls)}
-            </dd>
-            <dt className="text-faint">Files</dt>
-            <dd className="mono text-text">{formatNumber(counts.objects)}</dd>
-            <dt className="text-faint">Related findings</dt>
-            <dd className="mono text-text">{formatNumber(counts.related)}</dd>
-            <dt className="text-faint">Capture</dt>
-            <dd className="mono text-text">{analysis.original_filename}</dd>
-            <dt className="text-faint">Capture length</dt>
-            <dd className="mono text-text">{formatDuration(analysis.duration)}</dd>
-            <dt className="text-faint">First packet</dt>
-            <dd className="mono text-text">{formatTimestamp(analysis.capture_start)}</dd>
-          </dl>
-          <div className="flex items-start gap-2 border-t border-border px-3 py-2 text-2xs text-faint">
-            <Info size={12} className="mt-0.5 shrink-0" aria-hidden />
-            <span>
-              A signature match is a lead, not a verdict. Confirm the activity against the host's
-              expected behaviour before acting.
-            </span>
-          </div>
-        </Panel>
-      </div>
-
-      {related.length > 0 ? (
-        <Panel flush title="Related findings" subtitle={`${related.length} share artefacts with this one`}>
-          <ul className="flex flex-col">
-            {related.map((item) => (
-              <li key={item.id} className="border-b border-border/50 last:border-0">
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-surface2/70"
-                  onClick={() => onSelectRelated(item.id)}
-                >
-                  <SeverityBadge severity={item.severity} showLabel />
-                  <span className="min-w-0 flex-1 truncate text-xs text-text" title={item.title}>
-                    {item.title}
-                  </span>
-                  <span className="flex shrink-0 items-center gap-1">
-                    {item.shared.slice(0, 3).map((value) => (
-                      <span key={value} className="chip border-border2 bg-surface2 text-faint">
-                        {value}
-                      </span>
-                    ))}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      ) : null}
     </div>
   )
 }

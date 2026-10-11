@@ -1,8 +1,9 @@
 # Findings (`/findings`)
 
-The alert workbench: a triage list on the left, and for the selected finding a six-tab detail
-view that ties the alert to the frames that triggered it, the conversation they belong to,
-the application-layer records, any recovered files and the findings that share its artefacts.
+The alert workbench: a triage list on the left, and for the selected finding a seven-tab detail
+view that ties the alert to the frames that triggered it, when its activity happened, the
+conversation they belong to, the application-layer records, any recovered files and the findings
+that share its artefacts.
 
 ---
 

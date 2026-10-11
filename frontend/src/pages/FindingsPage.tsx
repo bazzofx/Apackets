@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import {
   ArrowLeftRight,
+  Clock,
   Files,
   Globe,
   Info,
@@ -27,6 +28,7 @@ import FindingObjects from '@/components/findings/FindingObjects'
 import FindingOverview from '@/components/findings/FindingOverview'
 import FindingPackets from '@/components/findings/FindingPackets'
 import FindingRelated from '@/components/findings/FindingRelated'
+import FindingTimeline from '@/components/findings/FindingTimeline'
 import FindingsList from '@/components/findings/FindingsList'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { findingsApi, suricataApi, toApiError } from '@/services/api'
@@ -34,10 +36,11 @@ import { SECTIONS } from '@/theme/sections'
 import { formatNumber } from '@/utils/format'
 import type { Finding } from '@/types'
 
-type Tab = 'overview' | 'packets' | 'conversation' | 'application' | 'files' | 'related'
+type Tab = 'overview' | 'timeline' | 'packets' | 'conversation' | 'application' | 'files' | 'related'
 
 const TABS: { id: Tab; label: string; icon: typeof Table2 }[] = [
   { id: 'overview', label: 'Overview', icon: Info },
+  { id: 'timeline', label: 'Timeline', icon: Clock },
   { id: 'packets', label: 'Packets', icon: Table2 },
   { id: 'conversation', label: 'Conversation', icon: ArrowLeftRight },
   { id: 'application', label: 'Application', icon: Globe },
@@ -316,7 +319,9 @@ function FindingsWorkbench() {
                               ? context.data.counts.objects
                               : entry.id === 'related'
                                 ? context.data.counts.related
-                                : null
+                                : entry.id === 'timeline'
+                                  ? context.data.timeline.length
+                                  : null
                     return (
                       <button
                         key={entry.id}
@@ -335,9 +340,14 @@ function FindingsWorkbench() {
 
               <div className="min-h-0 flex-1 xl:overflow-auto">
                 {tab === 'overview' ? (
-                  <FindingOverview
-                    context={context.data}
-                    onSelectRelated={(id) => navigate(`/findings/${encodeURIComponent(id)}?tab=overview`)}
+                  <FindingOverview context={context.data} />
+                ) : null}
+                {tab === 'timeline' ? (
+                  <FindingTimeline
+                    timeline={context.data.timeline}
+                    truncated={context.data.truncated.timeline}
+                    limit={context.data.limits.timeline}
+                    onOpenPacket={(packet) => navigate(`/packets?sel=${packet}`)}
                   />
                 ) : null}
                 {tab === 'packets' ? (
