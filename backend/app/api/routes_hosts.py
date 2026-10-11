@@ -21,7 +21,7 @@ from app.api.deps import (
 from app.core.errors import not_found
 from app.core.logging import get_logger
 from app.db import database as db
-from app.services.host_analyzer import is_private_address
+from app.services.host_analyzer import address_scope, is_private_address
 
 log = get_logger("apackets.api.hosts")
 
@@ -53,6 +53,7 @@ JSON_COLUMNS: tuple[str, ...] = ("ports", "protocols", "dns_names", "tls_sni", "
 def _host_row(row) -> dict:
     """Serialise a ``hosts`` row, parsing its JSON columns."""
     data = json_or(dict(row))
+    data["scope"] = address_scope(data.get("ip"))
     return data
 
 
@@ -264,6 +265,9 @@ def host_graph(analysis_id: str) -> dict:
                 "packets": packets,
                 "bytes": byte_count,
                 "is_private": None if private is None else bool(private),
+                # Precise classification (broadcast/multicast/loopback/…), derived
+                # from the address itself so it needs no stored column.
+                "scope": address_scope(ip),
             }
         )
 
@@ -350,6 +354,7 @@ def get_host(analysis_id: str, ip: str) -> dict:
 
     return {
         **json_or(dict(row)),
+        "scope": address_scope(row["ip"]),
         "packet_count": int(packet_row["n"]) if packet_row else 0,
         "conversations": [dict(r) for r in conversations],
         "dns_queries": [dict(r) for r in dns_queries],

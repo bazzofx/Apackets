@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from app.core.logging import get_logger
 from app.db import database as db
 from app.api.deps import Pagination, get_analysis, pagination
 from app.services import capture_parser, pipeline, storage, tshark
+from app.services.host_analyzer import address_scope
 from app.services.jobs import jobs
 
 log = get_logger("apackets.api.analyses")
@@ -39,6 +41,19 @@ KNOWN_PORTS: dict[int, str] = {
 }
 
 MAX_SERIES_BUCKETS = 240
+
+# Per-domain byte attribution is derived from DNS answers plus observed
+# conversations, so it is a real measurement with real caveats. The caveats are
+# returned with the data and shown in the UI: this is attribution, not proof of
+# who a name "belongs" to.
+TOP_DOMAINS_NOTE = (
+    "Domain totals are attributed from the IP addresses this capture observed in DNS "
+    "answers, then summed from the conversations with those addresses. Directions are "
+    "measured from the conversation, not guessed: 'received' is data that arrived from "
+    "the domain's addresses and 'sent' is data sent to them. Names that never appeared "
+    "in a captured answer are absent, CNAME chains are not followed, and a shared or "
+    "CDN address can legitimately carry several names."
+)
 
 
 # --------------------------------------------------------------------------
@@ -211,9 +226,12 @@ def list_jobs(analysis_id: str) -> dict:
 
 
 @router.get("/analyses/{analysis_id}/summary")
-def analysis_summary(analysis_id: str) -> dict:
+def analysis_summary(
+    analysis_id: str,
+    domain_limit: int = Query(5, ge=1, le=50, description="How many top domains to return"),
+) -> dict:
     row = get_analysis(analysis_id)
-    return build_summary(row)
+    return build_summary(row, domain_limit=domain_limit)
 
 
 # --------------------------------------------------------------------------
@@ -283,7 +301,7 @@ def delete_analysis(
 # summary construction
 # --------------------------------------------------------------------------
 
-def build_summary(row) -> dict:
+def build_summary(row, *, domain_limit: int = 5) -> dict:
     analysis_id = row["id"]
 
     totals = _totals(row)
@@ -299,6 +317,9 @@ def build_summary(row) -> dict:
         "top_talkers": _top_talkers(analysis_id),
         "top_ports": _top_ports(analysis_id),
         "top_conversations": _top_conversations(analysis_id),
+        "top_domains": _top_domains(analysis_id, limit=domain_limit),
+        "top_domains_note": TOP_DOMAINS_NOTE,
+        "traffic_extremes": _traffic_extremes(analysis_id),
         "findings_summary": _findings_summary(analysis_id),
         "protocol_hierarchy": pipeline.load_protocol_hierarchy(analysis_id),
         "severity_counts": _severity_counts(analysis_id),
@@ -496,6 +517,152 @@ def _top_conversations(analysis_id: str, limit: int = 10) -> list[dict]:
         (analysis_id, limit),
     )
     return [dict(r) for r in rows]
+
+
+def _traffic_extremes(analysis_id: str) -> dict:
+    """The single busiest sender and busiest receiver, with real host context."""
+    def host(column: str) -> dict | None:
+        row = db.query_one(
+            f"""
+            SELECT ip, mac, bytes_sent, bytes_received, packets_sent, packets_received,
+                   dns_names, is_private, ip_version
+              FROM hosts
+             WHERE analysis_id = ? AND {column} > 0
+             ORDER BY {column} DESC, ip ASC
+             LIMIT 1
+            """,
+            (analysis_id,),
+        )
+        if row is None:
+            return None
+        data = dict(row)
+        names = data.pop("dns_names", None)
+        parsed: list[str] = []
+        if isinstance(names, str) and names:
+            try:
+                value = json.loads(names)
+                if isinstance(value, list):
+                    parsed = [str(item) for item in value][:5]
+            except (json.JSONDecodeError, TypeError):
+                parsed = []
+        return {
+            "ip": data["ip"],
+            "mac": data.get("mac"),
+            "bytes": int(data.get("bytes_sent") if column == "bytes_sent" else data.get("bytes_received") or 0),
+            "packets": int(
+                data.get("packets_sent") if column == "bytes_sent" else data.get("packets_received") or 0
+            ),
+            "bytes_sent": int(data.get("bytes_sent") or 0),
+            "bytes_received": int(data.get("bytes_received") or 0),
+            "is_private": data.get("is_private"),
+            "scope": address_scope(data["ip"]),
+            "ip_version": data.get("ip_version"),
+            "hostnames": parsed,
+        }
+
+    return {"max_sender": host("bytes_sent"), "max_receiver": host("bytes_received")}
+
+
+def _top_domains(analysis_id: str, limit: int = 5) -> list[dict]:
+    """Top domains by total bytes, with direction taken from the conversation.
+
+    Attribution path: DNS answer addresses observed in this capture →
+    conversations involving those addresses → the resolved direction of each
+    conversation. A domain whose addresses were never seen in an answer does not
+    appear, and that is stated in ``top_domains_note``.
+    """
+    # 1. domain -> address set, from answers actually observed in the capture.
+    domain_ips: dict[str, set[str]] = {}
+    for row in db.query_all(
+        """
+        SELECT query_name, answer_ips
+          FROM dns_queries
+         WHERE analysis_id = ? AND answer_ips IS NOT NULL AND answer_ips <> ''
+        """,
+        (analysis_id,),
+    ):
+        name = _normalise_domain(row["query_name"])
+        if not name:
+            continue
+        addresses = {
+            part.strip() for part in str(row["answer_ips"]).split(",") if part.strip()
+        }
+        if addresses:
+            domain_ips.setdefault(name, set()).update(addresses)
+
+    if not domain_ips:
+        return []
+
+    # 2. Conversations, so each direction is measured rather than assumed.
+    conversations = db.query_all(
+        """
+        SELECT ip_a, ip_b, bytes_a_to_b, bytes_b_to_a,
+               packets_a_to_b, packets_b_to_a
+          FROM conversations
+         WHERE analysis_id = ?
+        """,
+        (analysis_id,),
+    )
+
+    totals: dict[str, dict] = {}
+    for name, addresses in domain_ips.items():
+        sent = received = packets = 0
+        clients: set[str] = set()
+        matched: set[str] = set()
+
+        for conv in conversations:
+            ip_a, ip_b = conv["ip_a"], conv["ip_b"]
+            a_is_domain = ip_a in addresses
+            b_is_domain = ip_b in addresses
+            if a_is_domain == b_is_domain:
+                # Neither endpoint, or both (an address-to-itself conversation).
+                continue
+
+            if a_is_domain:
+                received += int(conv["bytes_a_to_b"] or 0)
+                sent += int(conv["bytes_b_to_a"] or 0)
+                clients.add(ip_b)
+                matched.add(ip_a)
+            else:
+                received += int(conv["bytes_b_to_a"] or 0)
+                sent += int(conv["bytes_a_to_b"] or 0)
+                clients.add(ip_a)
+                matched.add(ip_b)
+
+            packets += int(conv["packets_a_to_b"] or 0) + int(conv["packets_b_to_a"] or 0)
+
+        total = sent + received
+        if total <= 0:
+            # A name that resolved but exchanged no observed traffic is noise here.
+            continue
+
+        totals[name] = {
+            "domain": name,
+            "ips": sorted(matched) or sorted(addresses),
+            "address_count": len(matched) or len(addresses),
+            "clients": sorted(clients)[:10],
+            "client_count": len(clients),
+            "bytes_sent": sent,
+            "bytes_received": received,
+            "bytes_total": total,
+            "packets": packets,
+        }
+
+    ranked = sorted(
+        totals.values(),
+        key=lambda item: (-item["bytes_total"], item["domain"]),
+    )
+    return ranked[: max(1, limit)]
+
+
+def _normalise_domain(value: object) -> str:
+    """Lower-case, strip the root dot; reject anything that is not a plausible name."""
+    if not isinstance(value, str):
+        return ""
+    name = value.strip().strip(".").lower()
+    if not name or len(name) > 253 or "." not in name:
+        return ""
+    return name
 
 
 def _findings_summary(analysis_id: str, limit: int = 10) -> list[dict]:

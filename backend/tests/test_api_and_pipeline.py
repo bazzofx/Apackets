@@ -992,3 +992,163 @@ def test_large_capture_processes_and_paginates(client, run_analysis, large_captu
     ).json()
     assert last_page["total"] == detail["packet_count"]
     assert last_page["items"][0]["number"] == detail["packet_count"]
+
+
+# --------------------------------------------------------------------------
+# dashboard summary additions: traffic extremes and per-domain attribution
+# --------------------------------------------------------------------------
+
+def test_summary_exposes_dashboard_fields(client, run_analysis, http_capture):
+    """The visual dashboard reads these fields; they must always be present."""
+    analysis_id, _ = run_analysis(http_capture)
+    summary = client.get(f"/api/analyses/{analysis_id}/summary").json()
+
+    assert "traffic_extremes" in summary
+    assert "top_domains" in summary
+    assert isinstance(summary["top_domains"], list)
+    assert summary["top_domains_note"], "the attribution caveat must be returned with the data"
+
+    # Counters the overview cards show.
+    totals = summary["totals"]
+    for key in ("dns_queries", "conversations", "hosts"):
+        assert key in totals
+
+    extremes = summary["traffic_extremes"]
+    assert set(extremes) == {"max_sender", "max_receiver"}
+
+
+def test_traffic_extremes_report_the_real_busiest_hosts(client, run_analysis, http_capture):
+    analysis_id, _ = run_analysis(http_capture)
+    summary = client.get(f"/api/analyses/{analysis_id}/summary").json()
+    hosts = client.get(f"/api/analyses/{analysis_id}/hosts").json()["items"]
+
+    expected_sender = max(hosts, key=lambda row: row["bytes_sent"])
+    expected_receiver = max(hosts, key=lambda row: row["bytes_received"])
+
+    sender = summary["traffic_extremes"]["max_sender"]
+    receiver = summary["traffic_extremes"]["max_receiver"]
+
+    assert sender["ip"] == expected_sender["ip"]
+    assert sender["bytes"] == expected_sender["bytes_sent"]
+    assert sender["packets"] == expected_sender["packets_sent"]
+
+    assert receiver["ip"] == expected_receiver["ip"]
+    assert receiver["bytes"] == expected_receiver["bytes_received"]
+    assert receiver["packets"] == expected_receiver["packets_received"]
+
+
+def test_top_domains_attributes_bytes_in_the_right_direction(
+    client, run_analysis, http_capture
+):
+    """Domain traffic must be measured from the conversations, not guessed.
+
+    The HTTP fixture talks to 10.0.0.20. Injecting a DNS answer that resolves a
+    name to that address creates the exact real-world case: a name whose host we
+    can then measure traffic against.
+    """
+    from app.db import database as db
+
+    analysis_id, _ = run_analysis(http_capture)
+    expectations = generators.expected("http")
+    server_ip = expectations["server_ip"]
+
+    with db.get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO dns_queries (analysis_id, dns_id, time_epoch, packet_number,
+                client_ip, server_ip, query_name, query_type, is_response, rcode,
+                rcode_name, answers, answer_ips, name_length, label_count,
+                longest_label, entropy, flags)
+            VALUES (?, 1, 1700000000.0, 1, ?, '8.8.8.8', 'attributed.example.com', 'A',
+                    0, 0, 'NOERROR', '[]', ?, 22, 3, 10, 3.1, '[]')
+            """,
+            (analysis_id, expectations["client_ip"], server_ip),
+        )
+
+    summary = client.get(f"/api/analyses/{analysis_id}/summary").json()
+    domains = {entry["domain"]: entry for entry in summary["top_domains"]}
+    assert "attributed.example.com" in domains, summary["top_domains"]
+
+    entry = domains["attributed.example.com"]
+    assert entry["ips"] == [server_ip]
+    assert entry["bytes_total"] == entry["bytes_sent"] + entry["bytes_received"]
+
+    # Independently derive the expected per-direction totals from conversations:
+    # the server is endpoint_b here, so bytes_b_to_a arrived from the domain.
+    conversations = client.get(
+        f"/api/analyses/{analysis_id}/conversations", params={"page_size": 100}
+    ).json()["items"]
+    involved = [
+        row for row in conversations if server_ip in {row["ip_a"], row["ip_b"]}
+    ]
+    assert involved, "the fixture must have conversations with the server"
+
+    expected_received = sum(
+        (row["bytes_b_to_a"] or 0) if row["ip_b"] == server_ip else (row["bytes_a_to_b"] or 0)
+        for row in involved
+    )
+    expected_sent = sum(
+        (row["bytes_a_to_b"] or 0) if row["ip_b"] == server_ip else (row["bytes_b_to_a"] or 0)
+        for row in involved
+    )
+
+    assert entry["bytes_received"] == expected_received, (
+        f"received should be data arriving FROM {server_ip}: "
+        f"{entry['bytes_received']} vs {expected_received}"
+    )
+    assert entry["bytes_sent"] == expected_sent
+    assert entry["client_count"] >= 1
+    assert expectations["client_ip"] in entry["clients"]
+
+
+def test_top_domains_is_empty_when_no_resolved_host_was_contacted(
+    client, run_analysis, dns_capture
+):
+    """A DNS-only capture resolves names but exchanges no traffic with them.
+
+    The honest answer is no attribution at all, with the caveat still supplied —
+    never an invented byte count.
+    """
+    analysis_id, _ = run_analysis(dns_capture)
+    summary = client.get(f"/api/analyses/{analysis_id}/summary").json()
+
+    assert summary["totals"]["dns_queries"] > 0
+    assert summary["top_domains"] == []
+    assert summary["top_domains_note"]
+
+
+def test_top_domains_respects_the_limit(client, run_analysis, http_capture):
+    from app.db import database as db
+
+    analysis_id, _ = run_analysis(http_capture)
+    expectations = generators.expected("http")
+    server_ip = expectations["server_ip"]
+
+    with db.get_conn() as conn:
+        for index in range(4):
+            conn.execute(
+                """
+                INSERT INTO dns_queries (analysis_id, dns_id, time_epoch, packet_number,
+                    client_ip, server_ip, query_name, query_type, is_response, rcode,
+                    rcode_name, answers, answer_ips, name_length, label_count,
+                    longest_label, entropy, flags)
+                VALUES (?, ?, 1700000000.0, 1, ?, '8.8.8.8', ?, 'A', 0, 0, 'NOERROR',
+                        '[]', ?, 20, 3, 9, 3.0, '[]')
+                """,
+                (
+                    analysis_id,
+                    index + 10,
+                    expectations["client_ip"],
+                    f"limit-{index}.example.com",
+                    server_ip,
+                ),
+            )
+
+    limited = client.get(
+        f"/api/analyses/{analysis_id}/summary", params={"domain_limit": 2}
+    ).json()
+    assert len(limited["top_domains"]) == 2
+    assert all(entry["bytes_total"] > 0 for entry in limited["top_domains"])
+
+    bad = client.get(f"/api/analyses/{analysis_id}/summary", params={"domain_limit": 0})
+    assert bad.status_code == 422

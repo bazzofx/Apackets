@@ -455,7 +455,8 @@ skipped; only extraction failure of packets fails the whole analysis.
   columns plus `job_status`.
 * `GET /api/analyses/{id}` — analysis object plus `job` (latest job row) plus
   `progress`, `stage`.
-* `GET /api/analyses/{id}/summary` — see §6.
+* `GET /api/analyses/{id}/summary` — see §6. Accepts `?domain_limit=N`
+  (default 5, 1–50) controlling how many entries `top_domains` returns.
 * `DELETE /api/analyses/{id}` — requires `?confirm=true`, else `400 confirmation_required`.
   Deletes DB rows (cascade) and the analysis directory. Returns `{"ok":true,"id":...}`.
 * `POST /api/analyses/{id}/cancel` — requests cancellation; `409 not_cancellable`
@@ -595,6 +596,16 @@ when not derivable.
   "top_ports": [{"port":443,"protocol":"TCP","packets":40,"service":"https"}],
   "top_conversations": [{"conv_id":"...","endpoint_a":"...","endpoint_b":"...",
                           "transport":"tcp","bytes_total":1234,"packets_total":10}],
+  "top_domains": [{"domain":"example.com","ips":["93.184.216.34"],"address_count":1,
+                    "clients":["10.0.0.5"],"client_count":1,"bytes_sent":1200,
+                    "bytes_received":8400,"bytes_total":9600,"packets":42}],
+  "top_domains_note": "attribution caveat shown to the analyst",
+  "traffic_extremes": {
+    "max_sender": {"ip":"10.0.0.5","mac":"...","bytes":5000,"packets":50,
+                    "bytes_sent":5000,"bytes_received":10,"is_private":1,
+                    "ip_version":4,"hostnames":["example.com"]},
+    "max_receiver": {"...same shape...": null}
+  },
   "findings_summary": [{"id":"...","severity":"high","title":"...","rule_id":"..."}],
   "protocol_hierarchy": [{"protocol":"frame","frames":5,"bytes":425,"depth":0}],
   "severity_counts": {"high":1,"medium":0,"low":2,"informational":1},
@@ -614,6 +625,21 @@ when not derivable.
   Use the `stats_cache` table (`analysis_id`, `kind`, `json`, `created_at`).
 * `notes` must state real limitations, e.g. `"HTTPS payloads are not decrypted"`
   when TLS sessions exist and no keys were supplied.
+* `traffic_extremes` reports the single busiest sender and receiver from the
+  `hosts` table, ordered by `bytes_sent` / `bytes_received` respectively. Either
+  member is `null` when nothing was sent/received. `bytes`/`packets` mirror the
+  relevant direction; `bytes_sent`/`bytes_received` carry both.
+* `top_domains` attributes bytes to a domain by taking the addresses observed in
+  that domain's captured DNS answers and summing the conversations involving
+  those addresses. **Direction must come from the conversation**, not be
+  assumed: bytes arriving from a matched address are `bytes_received` and bytes
+  sent to it are `bytes_sent`. Ranked by `bytes_total` desc, capped at
+  `domain_limit`. A domain whose addresses never exchanged traffic is omitted —
+  an empty list is the correct answer for a DNS-only capture.
+* `top_domains_note` must be returned alongside `top_domains` and displayed
+  wherever those numbers are shown: it states that attribution depends on
+  captured DNS answers, that CNAME chains are not followed, and that a shared or
+  CDN address can legitimately carry several names.
 
 ---
 

@@ -220,6 +220,43 @@ def is_private_address(value: object) -> int | None:
     return 1 if any(address in network for network in networks) else 0
 
 
+def address_scope(value: object) -> str | None:
+    """Classify an address for display: what kind of endpoint it actually is.
+
+    ``is_private_address`` is a boolean, so broadcast and multicast addresses
+    (``255.255.255.255``, ``239.255.255.250``, LLMNR/mDNS groups) fall through to
+    it as "not private" and would be presented as if they were public internet
+    hosts. That is misleading on a network map, so the scope is classified
+    separately and precisely.
+
+    Returns ``None`` when the value is not an address.
+    """
+    address = parse_address(value)
+    if address is None:
+        return None
+
+    if address.version == 6 and address.ipv4_mapped is not None:
+        address = address.ipv4_mapped
+
+    # Order matters: 255.255.255.255 is also "reserved", and 239.0.0.0/8 is
+    # multicast rather than private, so the specific checks come first.
+    if address.is_multicast:
+        return "multicast"
+    if address.version == 4 and address == ipaddress.IPv4Address("255.255.255.255"):
+        return "broadcast"
+    if address.is_unspecified:
+        return "unspecified"
+    if address.is_loopback:
+        return "loopback"
+    if address.is_link_local:
+        return "link_local"
+    if address.is_reserved:
+        return "reserved"
+    if is_private_address(address) == 1:
+        return "private"
+    return "public"
+
+
 # --------------------------------------------------------------------------
 # helpers
 # --------------------------------------------------------------------------

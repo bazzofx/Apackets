@@ -6,6 +6,7 @@ import {
   Database,
   FolderOpen,
   Globe,
+  Info,
   LayoutDashboard,
   List,
   Lock,
@@ -143,6 +144,7 @@ export function AppLayout() {
 
   const navItems: NavItem[] = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/info', label: 'Info', icon: Info, title: 'Full reference view for this capture' },
     {
       to: '/files',
       label: 'PCAP Files',

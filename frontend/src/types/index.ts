@@ -259,6 +259,47 @@ export interface SeverityCounts {
   informational: number
 }
 
+/**
+ * Busiest host by bytes on one direction, from the `hosts` table.
+ * `null` in `traffic_extremes` means nothing was sent (or received).
+ */
+export interface SummaryTrafficExtreme {
+  ip: string
+  mac: string | null
+  bytes: number
+  packets: number
+  bytes_sent: number
+  bytes_received: number
+  is_private: number | null
+  /** Precise endpoint classification; see `HostGraphNode.scope`. */
+  scope?: string | null
+  ip_version: number | null
+  /** Up to 5 names seen for this address on this capture. */
+  hostnames: string[]
+}
+
+/**
+ * Traffic attributed to a domain: the IPs this capture saw in DNS answers, then
+ * the conversations with those addresses. Empty is a legitimate answer - names
+ * that were resolved but never contacted are absent by design.
+ */
+export interface SummaryTopDomain {
+  domain: string
+  ips: string[]
+  address_count: number
+  clients: string[]
+  client_count: number
+  bytes_sent: number
+  bytes_received: number
+  bytes_total: number
+  packets: number
+}
+
+export interface SummaryTrafficExtremes {
+  max_sender: SummaryTrafficExtreme | null
+  max_receiver: SummaryTrafficExtreme | null
+}
+
 export interface AnalysisSummary {
   analysis: Analysis & { job_status?: JobStatus | null }
   totals: SummaryTotals
@@ -273,6 +314,12 @@ export interface AnalysisSummary {
   protocol_hierarchy: ProtocolHierarchyEntry[]
   severity_counts: SeverityCounts
   notes: string[]
+  /** Busiest sender / receiver, ranked by bytes on that direction. */
+  traffic_extremes?: SummaryTrafficExtremes
+  /** Domains this capture actually exchanged traffic with, ranked by bytes. */
+  top_domains?: SummaryTopDomain[]
+  /** Why `top_domains` can be empty - always rendered next to that panel. */
+  top_domains_note?: string | null
 }
 
 /* ------------------------------------------------------------------ */
@@ -687,6 +734,8 @@ export interface Host {
   ip_version: number | null
   peer_count: number | null
   peers: string[] | null
+  /** Precise endpoint classification; see `HostGraphNode.scope`. */
+  scope?: string | null
 }
 
 export type HostsListResponse = Paginated<Host> & {
@@ -710,7 +759,14 @@ export interface HostGraphNode {
   mac: string | null
   packets: number
   bytes: number
-  is_private: boolean
+  is_private: boolean | null
+  /**
+   * Precise endpoint classification from the API: `private`, `public`,
+   * `multicast`, `broadcast`, `loopback`, `link_local`, `unspecified` or
+   * `reserved`. Preferred over `is_private`, which cannot distinguish a
+   * broadcast or multicast address from a public internet host.
+   */
+  scope?: string | null
 }
 
 export interface HostGraphEdge {

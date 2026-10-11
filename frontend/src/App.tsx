@@ -3,6 +3,7 @@ import { FileQuestion } from 'lucide-react'
 import AppLayout from '@/layouts/AppLayout'
 import EmptyState from '@/components/EmptyState'
 import DashboardPage from '@/pages/DashboardPage'
+import InfoPage from '@/pages/InfoPage'
 import PcapFilesPage from '@/pages/PcapFilesPage'
 import PacketsPage from '@/pages/PacketsPage'
 import ConversationsPage from '@/pages/ConversationsPage'
@@ -35,6 +36,7 @@ export function App() {
     <Routes>
       <Route element={<AppLayout />}>
         <Route path="/" element={<DashboardPage />} />
+        <Route path="/info" element={<InfoPage />} />
         <Route path="/files" element={<PcapFilesPage />} />
         <Route path="/packets" element={<PacketsPage />} />
         <Route path="/conversations" element={<ConversationsPage />} />

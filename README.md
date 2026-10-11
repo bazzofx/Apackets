@@ -230,7 +230,8 @@ ssh -L 8080:127.0.0.1:8080 user@analyst-workstation
 
 | Page | What it does |
 |---|---|
-| **Dashboard** | Summary cards, protocol distribution, traffic over time, top talkers, top ports, findings summary, protocol hierarchy, and an explicit list of what the analysis *cannot* show. |
+| **Dashboard** | The at-a-glance visual overview: KPI tiles (DNS requests, conversations, hosts, findings by severity, packets, bytes, duration), a central **network map** of the endpoints this capture actually talked to, most-data-sent / most-data-received cards, the top 5 domains with direction-split sent/received bars, a protocol mix donut and a traffic sparkline. |
+| **Info** | The reference view: the full summary cards, capture window, protocol distribution, traffic over time, top talkers, top ports, top conversations, protocol hierarchy, findings and the analysis limitations list. |
 | **PCAP Files** | Drag-and-drop upload with live progress; table of analyses with status, packet count, capture window, open/delete/cancel actions. |
 | **Packets** | The core explorer: dense sortable table, basic filters, advanced Wireshark display-filter mode, next/previous match navigation, CSV export, per-packet detail tree and hex/ASCII viewer. |
 | **Conversations** | Unique conversations with per-direction packet/byte counts, TCP state, and a *Follow stream* viewer with ASCII/hex modes, in-stream search and local export. |
@@ -412,7 +413,7 @@ Paginated lists return `{ "items": [], "total": 0, "page": 1, "page_size": 100 }
 | `POST` | `/api/analyses` — multipart `file`; returns `202` with the analysis |
 | `GET` | `/api/analyses` |
 | `GET` | `/api/analyses/{id}` |
-| `GET` | `/api/analyses/{id}/summary` |
+| `GET` | `/api/analyses/{id}/summary` — accepts `?domain_limit=N` (default 5); returns the dashboard aggregates, `traffic_extremes` (`max_sender` / `max_receiver`), `top_domains` and the `top_domains_note` attribution caveat |
 | `GET` | `/api/analyses/{id}/jobs` |
 | `POST` | `/api/analyses/{id}/cancel` |
 | `DELETE` | `/api/analyses/{id}?confirm=true` |
@@ -642,18 +643,26 @@ These are real and intentional for a proof of concept:
     that a known pattern was present in the extracted fields. It does not prove
     that the traffic was malicious, and a rule that does not fire does not prove
     that it was not.
-14. **Certificate subject and issuer are often unavailable.** TShark's
+14. **Per-domain byte figures are attribution, not ownership.** The dashboard's
+    top-domains panel sums conversations involving the addresses this capture saw
+    in that domain's DNS answers. Names that never appeared in a captured answer
+    are absent, CNAME chains are not followed, and a shared or CDN address can
+    legitimately carry several names. The caveat is returned with the data
+    (`top_domains_note`) and shown under the panel. A DNS-only capture therefore
+    legitimately shows **no** domains — names resolved, but nothing was exchanged
+    with them.
+15. **Certificate subject and issuer are often unavailable.** TShark's
     `x509af.subject` / `x509af.issuer` fields are ASN.1 CHOICE indices rather
     than distinguished names on the tested build, so the backend stores `NULL`
     instead of a misleading number. Certificate presence is therefore derived
     from the serial and validity columns, and a session can legitimately show a
     certificate with no subject or issuer.
-15. **The host graph is not a topology.** Nodes and edges come only from
+16. **The host graph is not a topology.** Nodes and edges come only from
     conversations observed in the capture, and nodes are built from conversation
     endpoints, so a host that appears solely in non-TCP/UDP frames will not be
     drawn. The UI states this; nothing is inferred about physical or logical
     network layout.
-16. **Very large captures are untested at scale.** A 20,000-packet generated
+17. **Very large captures are untested at scale.** A 20,000-packet generated
     capture is covered by an opt-in test, but the practical ceiling depends on
     the host's disk and CPU. No fixed maximum file size or processing time is
     promised.
