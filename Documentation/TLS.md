@@ -22,18 +22,17 @@ be found together. It describes the handshake and nothing inside it.
 
 ## 2. What is on the screen
 
-### The scope note
+### Lead flag legend
 
-A **What this page can and cannot show** panel. Available: dissected handshake metadata; packet and
-stream references so a handshake can be read in the packet or stream view. Not available: HTTP
-request paths, headers or bodies inside TLS — payloads are **not** decrypted, and nothing on the
-page is derived from them; SNI when the client sent none, when it was concealed with Encrypted
-Client Hello, or when the ClientHello is missing from the capture; certificate details for TLS 1.3
-sessions, incomplete captures, or when TShark's subject/issuer fields were not usable; and any
-filter for "no SNI at all", because the backend filters SNI by substring — sessions without a name
-are found by scanning, by the `sni_absent` flag, or by the certificate column. Its caveat repeats
-that an empty SNI, cipher or certificate cell means the value was not in the file, not that the
-connection used none.
+The first thing on the page, and **collapsed by default**: a **How to read TLS lead flags** panel
+enumerating every TLS flag, with the note that these describe the handshake and the capture and
+that none of them comes from decrypted application data, because there is none. *Show* opens it.
+It is not gated on the view, so it is there for the session and fingerprint views alike.
+
+There is no scope panel on this page. What it used to state still holds and is worth knowing:
+payloads inside TLS are **not** decrypted and nothing on the page is derived from them, and an
+empty SNI, cipher or certificate cell means the value was not in the file, not that the connection
+used none.
 
 ### The view switch
 
@@ -95,7 +94,8 @@ browser-side state rather than filters.
 
 ### The sessions view
 
-**Lead flag legend** — a collapsible panel enumerating every TLS flag, with the note that these
+**Lead flag legend** — the collapsed panel at the top of the page, enumerating every TLS flag,
+with the note that these
 describe the handshake and the capture and that none of them comes from decrypted application data,
 "because there is none".
 
@@ -309,7 +309,7 @@ The detections built on these columns are
   frame's `dns_names`, and `tls_sessions` has no column for it, so subject alternative names are
   not displayed anywhere. Nothing in the app exposes them.
 * **No SNI means no name — and the filter cannot find it.** `sni` is a substring match, so sessions
-  with NULL SNI never match any `sni` value. The page's scope note says this outright; use the
+  with NULL SNI never match any `sni` value. The lead flag legend says this outright; use the
   `sni_absent` flag, scan the SNI column, or filter by `has_cert=false` instead.
 * **`has_cert` is about decoded fields, not trust.** A session counts as having a certificate when
   *any* of the five certificate columns was decoded, including a bare serial and validity window,

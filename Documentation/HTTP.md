@@ -22,15 +22,17 @@ a second look.
 
 ## 2. What is on the screen
 
-### The scope note
+### Lead flag legend
 
-A **What this page can and cannot show** panel at the top. It lists what is available (dissected
-request and response fields; body previews where the stream was reassembled and every message
-aligned with its row; the analyser's lead flags with reasoning) and what is not (HTTPS traffic —
-TLS payloads are not decrypted anywhere in this app; message lengths and bodies for streams that
-could not be reassembled cleanly, which stay empty rather than being estimated; anything past the
-body preview limit, and header fields TShark did not dissect). Its caveat says that an empty table
-means no cleartext HTTP was found, not that the capture is clean.
+The first thing on the page, and **collapsed by default**: a **How to read HTTP lead flags** panel
+enumerating every flag this page can show, with a short meaning for each. *Show* opens it. It
+carries the standing note that status codes are facts about the response while the flags are
+patterns matched in request fields — a single 4xx, or a literal-IP Host header on its own,
+is not evidence of anything.
+
+There is no scope panel on this page. What HTTP can and cannot show is stated where it matters
+instead: an empty table means no cleartext HTTP was found, not that the capture is clean, because
+HTTPS payloads are never decrypted.
 
 ### Status summary
 
@@ -40,13 +42,6 @@ Clicking a chip sets the `status` filter to that class; clicking it again clears
 class also appears as a removable `status = 4xx` chip. Beside the chips the panel states how many
 distinct methods and hosts were observed, and how many rows **on the current page** carry lead
 flags. A refresh button re-reads the list.
-
-### Lead flag legend
-
-A collapsible **How to read HTTP lead flags** panel enumerating every flag this page can show,
-with a short meaning for each, and the standing note that status codes are facts about the
-response while the flags are patterns matched in request fields — a single 4xx, or a literal-IP
-Host header on its own, is not evidence of anything.
 
 ### The transaction table
 

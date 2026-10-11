@@ -12,7 +12,7 @@ import Page from '@/components/Page'
 import Pagination from '@/components/Pagination'
 import Panel from '@/components/Panel'
 import { BodyPreview, HeadersTable } from '@/components/protocols/HeadersTable'
-import { DetailGrid, DetailItem, ScopeNote, SectionNote } from '@/components/protocols/ProtocolDetail'
+import { DetailGrid, DetailItem, SectionNote } from '@/components/protocols/ProtocolDetail'
 import {
   CheckFilter,
   FilterStrip,
@@ -343,23 +343,12 @@ function HttpContent() {
 
   return (
     <div className="flex flex-col gap-3">
-      <ScopeNote
-        title="What this page can and cannot show"
-        items={[
-          { can: true, text: 'Every HTTP request and response TShark dissected from this capture: method, host, URI, version, status, headers and message lengths.' },
-          { can: true, text: 'Request and response body previews where the stream could be reassembled and every message aligned with its row.' },
-          { can: true, text: 'Lead flags recorded by the analyser, with the reasoning for each one.' },
-          { can: false, text: 'HTTPS traffic. TLS payloads are not decrypted anywhere in this app, so encrypted requests and responses never appear on this page.' },
-          { can: false, text: 'Message lengths and bodies for streams that could not be reassembled cleanly: those fields stay empty rather than being estimated.' },
-          { can: false, text: 'Anything past the configured body preview limit, and header fields TShark did not dissect.' },
-        ]}
-        caveat={
-          <>
-            An empty table means no cleartext HTTP was found in this capture — it is not a statement
-            that the capture is clean. Most web traffic is HTTPS, whose payloads this app does not
-            decrypt.
-          </>
-        }
+      <FlagLegend
+        catalog={HTTP_FLAG_CATALOG}
+        keys={HTTP_FLAG_KEYS}
+        title="How to read HTTP lead flags"
+        defaultOpen={false}
+        note={flagLegendNote}
       />
 
       <Panel
@@ -422,7 +411,6 @@ function HttpContent() {
         </div>
       </Panel>
 
-      <FlagLegend catalog={HTTP_FLAG_CATALOG} keys={HTTP_FLAG_KEYS} note={flagLegendNote} />
 
       <Panel
         title="HTTP transactions"

@@ -16,7 +16,6 @@ import {
   ColumnHeader,
   DetailGrid,
   DetailItem,
-  ScopeNote,
   SectionNote,
 } from '@/components/protocols/ProtocolDetail'
 import {
@@ -622,41 +621,12 @@ function TlsContent() {
 
   return (
     <div className="flex flex-col gap-3">
-      <ScopeNote
-        title="What this page can and cannot show"
-        items={[
-          {
-            can: true,
-            text: 'Handshake metadata TShark dissected: versions offered and negotiated, SNI, ALPN offered and selected, cipher suite, JA3/JA3S/JA4 fingerprints, certificate fields when the handshake carried them, and the handshake status or alert.',
-          },
-          {
-            can: true,
-            text: 'Packet and stream references for each session, so the handshake can be read in the packet view or the stream view.',
-          },
-          {
-            can: false,
-            text: 'HTTP request paths, headers or bodies inside TLS. Payloads are NOT decrypted: without valid decryption material (session keys) the application data cannot be read, and nothing on this page is derived from it.',
-          },
-          {
-            can: false,
-            text: 'SNI when the client sent none, when the name was concealed (Encrypted ClientHello / ECH), or when the ClientHello is missing from the capture — the cell stays empty rather than showing a guess.',
-          },
-          {
-            can: false,
-            text: 'Certificate details for TLS 1.3 sessions (the Certificate message is encrypted), for incomplete captures, or when TShark\u2019s subject/issuer fields were not usable.',
-          },
-          {
-            can: false,
-            text: 'Any filter for “no SNI at all”: the backend filters SNI by substring, so sessions without a name are found by scanning, by the sni_absent flag, or by the certificate column.',
-          },
-        ]}
-        caveat={
-          <>
-            Every row here is a statement about the handshake as it appears in this capture. An empty
-            SNI, cipher or certificate cell means the value was not present in the file — not that the
-            connection used none. TLS payloads are never decrypted by this app.
-          </>
-        }
+      <FlagLegend
+        catalog={TLS_FLAG_CATALOG}
+        keys={TLS_FLAG_KEYS}
+        title="How to read TLS lead flags"
+        defaultOpen={false}
+        note="These flags describe the handshake and the capture. None of them comes from decrypted application data, because there is none."
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -670,12 +640,6 @@ function TlsContent() {
 
       {view === 'sessions' ? (
         <>
-          <FlagLegend
-            catalog={TLS_FLAG_CATALOG}
-            keys={TLS_FLAG_KEYS}
-            title="How to read TLS lead flags"
-            note="These flags describe the handshake and the capture. None of them comes from decrypted application data, because there is none."
-          />
 
           <Panel
             title="TLS sessions"

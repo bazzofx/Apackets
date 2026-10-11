@@ -12,7 +12,7 @@ import Page from '@/components/Page'
 import Pagination from '@/components/Pagination'
 import Panel from '@/components/Panel'
 import { DnsAnswers, DnsShapeMetrics } from '@/components/protocols/DnsAnswers'
-import { DetailGrid, DetailItem, ScopeNote, SectionNote } from '@/components/protocols/ProtocolDetail'
+import { DetailGrid, DetailItem, SectionNote } from '@/components/protocols/ProtocolDetail'
 import {
   CheckFilter,
   FilterStrip,
@@ -619,40 +619,19 @@ function DnsContent() {
 
   return (
     <div className="flex flex-col gap-3">
-      <ScopeNote
-        title="What this page can and cannot show"
-        items={[
-          {
-            can: true,
-            text: 'Every DNS query TShark dissected, with the matching response merged into the same row by transaction id and client/server pair.',
-          },
-          {
-            can: true,
-            text: 'Response code, address and CNAME answers, minimum TTL, response delay, and the computed shape of the query name.',
-          },
-          {
-            can: true,
-            text: 'Lead flags recorded by the analyser, each shown with the threshold that produced it.',
-          },
-          {
-            can: false,
-            text: 'Answer data of types other than A, AAAA and CNAME — TXT text and similar record data are not stored on these rows.',
-          },
-          {
-            can: false,
-            text: 'Queries or responses whose packets are not in this capture: a query with no response in the file is reported as unanswered, which can simply mean the response was missed.',
-          },
-          {
-            can: false,
-            text: 'Encrypted DNS (DoH or DoT): those queries travel inside TLS or HTTPS and are not decrypted by this app.',
-          },
-        ]}
-        caveat={
+      <FlagLegend
+        catalog={DNS_FLAG_CATALOG}
+        keys={DNS_FLAG_KEYS}
+        title="How to read DNS lead flags"
+        defaultOpen={false}
+        note={
           <>
-            An unusual-looking name is not a finding. Long labels, random-looking strings, large
-            answer sets and TXT queries are produced by CDNs, cloud platforms, anti-abuse systems and
-            telemetry just as readily as by abuse. Use the flags to decide what to read next, then
-            decide from the evidence.
+            The thresholds quoted here are the defaults this backend uses (
+            <span className="mono">long_label ≥ 40</span>,{' '}
+            <span className="mono">long_name ≥ 100</span>,{' '}
+            <span className="mono">entropy &gt; 3.8</span> with at least 3 labels,{' '}
+            <span className="mono">many_ips ≥ 4</span>). They are configurable, and the detail
+            view always shows which of them actually fired for a row.
           </>
         }
       />
@@ -676,21 +655,6 @@ function DnsContent() {
             onSelect={(clientIp) => filters.patch({ client_ip: clientIp || null })}
           />
 
-          <FlagLegend
-            catalog={DNS_FLAG_CATALOG}
-            keys={DNS_FLAG_KEYS}
-            title="How to read DNS lead flags"
-            note={
-              <>
-                The thresholds quoted here are the defaults this backend uses (
-                <span className="mono">long_label ≥ 40</span>,{' '}
-                <span className="mono">long_name ≥ 100</span>,{' '}
-                <span className="mono">entropy &gt; 3.8</span> with at least 3 labels,{' '}
-                <span className="mono">many_ips ≥ 4</span>). They are configurable, and the detail
-                view always shows which of them actually fired for a row.
-              </>
-            }
-          />
 
           <Panel
             title="DNS queries"

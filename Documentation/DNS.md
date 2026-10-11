@@ -22,15 +22,18 @@ question: which names recur, how many clients asked for them, and what did they 
 
 ## 2. What is on the screen
 
-### The scope note
+### Lead flag legend
 
-A **What this page can and cannot show** panel: dissected queries with their response merged by
-transaction id and client/server pair; response code, address and CNAME answers, minimum TTL,
-response delay and the computed name shape; the analyser's lead flags with the threshold behind
-each. It states plainly what is missing — answer data of types other than A, AAAA and CNAME (TXT
-text and similar record data are not stored), queries or responses whose packets are not in the
-capture, and encrypted DNS (DoH or DoT), which travels inside TLS and is not decrypted. Its caveat
-says an unusual-looking name is not a finding.
+The first thing on the page, and **collapsed by default**: a **How to read DNS lead flags** panel
+listing every DNS flag with its meaning, quoting the backend defaults it mirrors
+(`long_label ≥ 40`, `long_name ≥ 100`, `entropy > 3.8` with at least 3 labels,
+`many_ips ≥ 4`). *Show* opens it. It is not gated on the view, so it is there for the query and
+the domain view alike.
+
+There is no scope panel on this page. The limits it used to state still apply and are worth
+knowing: answer data of types other than A, AAAA and CNAME is not stored, a query whose response
+is missing from the capture reads as unanswered, and encrypted DNS (DoH or DoT) travels inside
+TLS and is not decrypted.
 
 ### The view switch
 
@@ -110,7 +113,8 @@ When any filter is active the page issues a second, tiny request (`page=1&page_s
 read the unfiltered total, so that the Share column states a real proportion rather than a
 proportion of the filtered subset.
 
-**Lead flag legend.** A collapsible panel listing every DNS flag with its meaning, quoting the
+**Lead flag legend.** The collapsed panel at the top of the page lists every DNS flag with its
+meaning, quoting the
 backend defaults it mirrors: `long_label ≥ 40`, `long_name ≥ 100`, `entropy > 3.8` with at least
 3 labels, `many_ips ≥ 4`.
 
