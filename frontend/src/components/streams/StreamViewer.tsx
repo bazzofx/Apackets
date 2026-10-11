@@ -41,8 +41,17 @@ import {
  * ordering, so this viewer says so instead of inventing one.
  */
 
-/** Characters rendered before the payload block has to be expanded. */
-const TEXT_RENDER_LIMIT = 200_000
+/**
+ * Characters rendered before the payload block has to be expanded.
+ *
+ * Every character here is text the browser lays out inside an auto-scrolling
+ * pane, so the default is deliberately small: at 200,000 the Conversations page
+ * was slow to paint on a large stream (one capture held 1,151,148 characters).
+ * 10,000 keeps the first screen instant. Nothing is hidden silently - the strip
+ * under the block always states how many of how many characters are on screen,
+ * and "Render everything" still renders all of them.
+ */
+const TEXT_RENDER_LIMIT = 10_000
 /** Characters of a chunk preview shown before the full preview is revealed. */
 const PREVIEW_LIMIT = 400
 

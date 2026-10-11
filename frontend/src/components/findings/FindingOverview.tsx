@@ -5,6 +5,7 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   Ban,
+  ChevronDown,
   Clock,
   Info,
   Lightbulb,
@@ -87,6 +88,9 @@ function EndpointCard({
 export function FindingOverview({ context, onSelectRelated }: FindingOverviewProps) {
   const navigate = useNavigate()
   const [showRule, setShowRule] = useState(false)
+  /* The alert's own text is the longest block on this page, so it starts
+     minimised and opens on demand. */
+  const [alertOpen, setAlertOpen] = useState(false)
   const {
     finding,
     rule,
@@ -104,6 +108,12 @@ export function FindingOverview({ context, onSelectRelated }: FindingOverviewPro
     : []
   const basis = typeof evidence.match_basis === 'string' ? evidence.match_basis : null
   const buffers = Array.isArray(evidence.buffers) ? (evidence.buffers as unknown[]).map(String) : []
+
+  /* One line of the reason, so a minimised Alert panel still says what fired
+     rather than only naming the rule. Panel truncates it and shows the whole
+     text on hover. The reason is nullable, so an absent one yields no subtitle
+     rather than the string "null". */
+  const reasonPreview = (finding.reason ?? '').replace(/\s+/g, ' ').trim() || undefined
 
   return (
     <div className="flex flex-col gap-3 p-3">
@@ -280,39 +290,57 @@ export function FindingOverview({ context, onSelectRelated }: FindingOverviewPro
 
       <Panel
         flush
-        title="Why this fired"
-        subtitle={`${finding.rule_id} · ${finding.severity}`}
+        title="Alert"
+        /* Minimised it shows one line of the reason, so the panel says what
+           fired without being opened; expanded it shows the rule and severity. */
+        subtitle={alertOpen ? `${finding.rule_id} · ${finding.severity}` : reasonPreview}
         actions={
           <div className="flex items-center gap-1">
             <SeverityBadge severity={finding.severity} showLabel />
             <CopyButton value={finding.id} label="Copy finding id" />
+            <button
+              type="button"
+              className="btn px-1.5 py-0.5"
+              onClick={() => setAlertOpen((value) => !value)}
+              aria-expanded={alertOpen}
+              title={alertOpen ? 'Minimise this panel' : 'Expand the alert text'}
+            >
+              <ChevronDown
+                size={12}
+                className={clsx('transition-transform', !alertOpen && '-rotate-90')}
+                aria-hidden
+              />
+              {alertOpen ? 'hide' : 'show'}
+            </button>
           </div>
         }
       >
-        <div className="flex flex-col gap-2 p-3">
-          <div className="text-sm text-text">{finding.title}</div>
-          {finding.description ? (
-            <div className="text-2xs text-muted">{finding.description}</div>
-          ) : null}
-          <div className="whitespace-pre-wrap rounded border border-border bg-bg p-2 text-2xs leading-relaxed text-text">
-            {finding.reason}
+        {alertOpen ? (
+          <div className="flex flex-col gap-2 p-3">
+            <div className="text-sm text-text">{finding.title}</div>
+            {finding.description ? (
+              <div className="text-2xs text-muted">{finding.description}</div>
+            ) : null}
+            <div className="whitespace-pre-wrap rounded border border-border bg-bg p-2 text-2xs leading-relaxed text-text">
+              {finding.reason}
+            </div>
+            {finding.recommendation ? (
+              <div className="flex items-start gap-2 text-2xs text-muted">
+                <Lightbulb size={13} className="mt-0.5 shrink-0 text-warn" aria-hidden />
+                <span>{finding.recommendation}</span>
+              </div>
+            ) : null}
+            {basis ? (
+              <div className="flex items-start gap-2 text-2xs text-faint">
+                <Scale size={13} className="mt-0.5 shrink-0" aria-hidden />
+                <span>
+                  Match basis: {basis}
+                  {buffers.length > 0 ? ` · buffers: ${buffers.join(', ')}` : ''}
+                </span>
+              </div>
+            ) : null}
           </div>
-          {finding.recommendation ? (
-            <div className="flex items-start gap-2 text-2xs text-muted">
-              <Lightbulb size={13} className="mt-0.5 shrink-0 text-warn" aria-hidden />
-              <span>{finding.recommendation}</span>
-            </div>
-          ) : null}
-          {basis ? (
-            <div className="flex items-start gap-2 text-2xs text-faint">
-              <Scale size={13} className="mt-0.5 shrink-0" aria-hidden />
-              <span>
-                Match basis: {basis}
-                {buffers.length > 0 ? ` · buffers: ${buffers.join(', ')}` : ''}
-              </span>
-            </div>
-          ) : null}
-        </div>
+        ) : null}
       </Panel>
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">

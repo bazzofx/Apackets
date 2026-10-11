@@ -137,9 +137,12 @@ The panels appear in exactly this order, top to bottom:
    *"not evaluable by the matcher"* chip whose tooltip names the unsupported options), and the
    reference when the rule has one. The panel is absent for built-in-engine findings and for a
    Suricata finding whose rule has since been deleted.
-6. **Why this fired** — the title, the rule's description when the rule has one, the `reason`
-   text in a monospace block, the `recommendation` under a lamp icon, and — for findings whose
-   evidence carries them — *"Match basis: … · buffers: …"*.
+6. **Alert** — **minimised by default**, opened by the *show* toggle in its header (the button
+   reports `aria-expanded`). While minimised its subtitle carries one line of the `reason`, so the
+   panel still says what fired without being opened. Opened, it shows the title, the rule's
+   description when the rule has one, the `reason` text in a monospace block, the
+   `recommendation` under a lamp icon, and — for findings whose evidence carries them —
+   *"Match basis: … · buffers: …"*.
 7. Two panels side by side: **Timeline** (*"first and last activity of this alert"*: time,
    kind, label and a clickable frame number for the first and last alerting packet plus every
    correlated HTTP, DNS and TLS row, sorted by time and capped at 60) and **Scope of this

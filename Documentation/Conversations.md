@@ -255,8 +255,10 @@ packets itself.
   `server → client`. The label is derived from the response itself — the per-side
   `direction` field first, then TShark's client node, and only then the two TShark nodes by
   name — so the viewer never guesses which side is the client. A block longer than
-  `TEXT_RENDER_LIMIT = 200_000` characters is rendered in part and says exactly how much,
-  with a button to render everything.
+  `TEXT_RENDER_LIMIT = 10_000` characters is rendered in part and says exactly how many of
+  how many characters are on screen, with a button to render everything. The default is
+  deliberately small: every rendered character has to be laid out by the browser, and at
+  the previous 200,000 a multi-megabyte stream made this page slow to paint.
 * **Chunk timeline** — one row per reassembled payload segment in capture order, which is
   what makes direction changes visible: chunk index, direction chip, byte length and a text
   preview (truncated to `PREVIEW_LIMIT = 400` characters on screen, with the hex preview in
@@ -443,7 +445,7 @@ keys is never overridden by that fallback.
 | `MAX_SUMMARY_BYTES` (backend) | `2 × 1024 × 1024` | Per-direction rendering stored inline |
 | `MAX_CHUNKS` (backend) | `500` | Chunk previews returned inline |
 | `MAX_SEARCH_MATCHES` (backend) | `500` | Hits the stream search returns before it stops and flags `truncated` |
-| `TEXT_RENDER_LIMIT`, `PREVIEW_LIMIT`, `CONTEXT_CHARS` | `200_000`, `400`, `240` | Characters rendered in a payload block, in a chunk preview row, and around each search hit |
+| `TEXT_RENDER_LIMIT`, `PREVIEW_LIMIT`, `CONTEXT_CHARS` | `10_000`, `400`, `240` | Characters rendered in a payload block, in a chunk preview row, and around each search hit |
 
 What the caps do when they bite:
 
