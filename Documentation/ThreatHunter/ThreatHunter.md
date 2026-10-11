@@ -343,3 +343,7 @@ detection logic with the function that implements it, every threshold with its
 exact constant name and value, the indexed fields used, the fields the brief asks
 for that the index does not hold, how to investigate further, what it does not
 prove, and its known limits and false positives.
+
+---
+
+**Related:** [Threat Hunt](../Threat-Hunt.md) · [Architecture](../Architecture.md) · [Findings](../Findings.md)

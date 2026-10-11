@@ -163,3 +163,7 @@ did, by the capture's own standard. The card's own caveat says the same thing:
 * **An empty card is not a flat capture.** It means no bucket held at least 20 packets
   while also exceeding the mean by more than three standard deviations — with the
   active bucket size.
+
+---
+
+**Related:** [Threat Hunt](../Threat-Hunt.md) · [Packets](../Packets.md) · [Conversations](../Conversations.md) · [C2Beaconing](C2Beaconing.md) · [DataStaging](DataStaging.md)

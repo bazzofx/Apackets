@@ -179,3 +179,7 @@ the same thing:
   table shows only the first `TABLE_CAP = 50`.
 * **Direction from one frame.** The source is whoever sent the first captured frame,
   so a capture that starts mid-session can attribute a reply to the wrong side.
+
+---
+
+**Related:** [Threat Hunt](../Threat-Hunt.md) · [Packets](../Packets.md) · [Hosts](../Hosts.md) · [FailedConnections](FailedConnections.md) · [RareCommunicationPairs](RareCommunicationPairs.md)

@@ -1,4 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
+import { ArrowUpRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import clsx from 'clsx'
 import { EMPTY, formatBytes, formatDuration, formatNumber } from '@/utils/format'
 
@@ -14,6 +16,14 @@ export interface KpiTileProps {
   /** Emphasise the tile (used for findings). */
   tone?: 'default' | 'accent' | 'danger'
   className?: string
+  /**
+   * The page that holds the rows behind this number. When set the tile becomes a
+   * link, so a headline can always be opened into the detail it summarises; omit it
+   * where no page owns the figure.
+   */
+  to?: string
+  /** Tooltip override; defaults to `Open <label>`. */
+  title?: string
 }
 
 function render(value: KpiTileProps['value'], format: KpiFormat): string {
@@ -30,7 +40,14 @@ function render(value: KpiTileProps['value'], format: KpiFormat): string {
   }
 }
 
-/** Large at-a-glance tile: big number, quiet label, one icon. */
+/**
+ * Large at-a-glance tile: big number, quiet label, one icon.
+ *
+ * With `to` the whole tile is a link into the page that holds the underlying rows,
+ * and the corner arrow plus the hover border are the only cues added: the figure,
+ * the label and the detail line render identically either way, so a tile that has no
+ * page to open does not look disabled.
+ */
 export function KpiTile({
   label,
   value,
@@ -39,17 +56,14 @@ export function KpiTile({
   detail,
   tone = 'default',
   className,
+  to,
+  title,
 }: KpiTileProps) {
   const missing = value === null || value === undefined
-  return (
-    <div
-      className={clsx(
-        'panel kpi flex flex-col gap-1 px-3 py-3 transition-colors hover:border-border2',
-        tone === 'accent' && 'border-accent/40',
-        tone === 'danger' && 'border-danger/40',
-        className,
-      )}
-    >
+  const linked = to !== undefined && to !== ''
+
+  const body = (
+    <>
       <div className="flex items-center gap-1.5">
         <Icon
           size={14}
@@ -59,9 +73,16 @@ export function KpiTile({
           )}
           aria-hidden
         />
-        <span className="truncate text-2xs font-semibold uppercase tracking-wider text-muted">
+        <span className="min-w-0 flex-1 truncate text-2xs font-semibold uppercase tracking-wider text-muted">
           {label}
         </span>
+        {linked ? (
+          <ArrowUpRight
+            size={12}
+            className="shrink-0 text-faint transition-colors group-hover:text-accent2"
+            aria-hidden
+          />
+        ) : null}
       </div>
       <div
         className={clsx(
@@ -76,7 +97,23 @@ export function KpiTile({
           {detail}
         </div>
       ) : null}
-    </div>
+    </>
+  )
+
+  const shell = clsx(
+    'panel kpi flex flex-col gap-1 px-3 py-3 transition-colors hover:border-border2',
+    tone === 'accent' && 'border-accent/40',
+    tone === 'danger' && 'border-danger/40',
+    linked && 'group h-full cursor-pointer',
+    className,
+  )
+
+  if (!linked) return <div className={shell}>{body}</div>
+
+  return (
+    <Link to={to as string} className={shell} title={title ?? `Open ${label}`} data-kpi-link={to}>
+      {body}
+    </Link>
   )
 }
 

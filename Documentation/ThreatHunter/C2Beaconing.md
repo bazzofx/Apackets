@@ -166,3 +166,7 @@ is compromised. The card's own caveat says the same thing:
 * **An empty card is not a clean capture.** It means no group of four or more
   connections to one destination and port had a mean interval of at least 5 seconds
   with a coefficient of variation at or below 0.35.
+
+---
+
+**Related:** [Threat Hunt](../Threat-Hunt.md) · [Conversations](../Conversations.md) · [Packets](../Packets.md) · [TrafficBursts](TrafficBursts.md) · [RareCommunicationPairs](RareCommunicationPairs.md)

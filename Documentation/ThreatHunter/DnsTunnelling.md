@@ -186,3 +186,7 @@ infrastructure does by design. The card's own caveat says the same thing:
 * **An empty card is not a quiet resolver.** It means no client/domain pair reached
   five distinct names, ten queries, a mean longest label of ten characters and a mean
   entropy of 3.6 at the same time.
+
+---
+
+**Related:** [Threat Hunt](../Threat-Hunt.md) · [DNS](../DNS.md) · [Hosts](../Hosts.md) · [DnsAnomalies](DnsAnomalies.md) · [DataExfiltration](DataExfiltration.md)

@@ -102,32 +102,59 @@ function DashboardOverview() {
             value={totals.dns_queries}
             icon={Search}
             detail="queries seen in this capture"
+            to="/dns"
+            title="Open the DNS queries behind this number"
           />
           <KpiTile
             label="Conversations"
             value={totals.conversations}
             icon={ArrowLeftRight}
             detail="reassembled streams"
+            to="/conversations"
+            title="Open the conversations behind this number"
           />
-          <KpiTile label="Hosts" value={totals.hosts} icon={Server} detail="distinct addresses" />
-          <Link to="/findings" className="min-w-0" title="Open the findings workbench">
-            <KpiTile
-              label="Findings"
-              value={findingsTotal}
-              icon={ShieldAlert}
-              tone={severity.high > 0 ? 'danger' : 'accent'}
-              detail={`high ${severity.high} · medium ${severity.medium} · low ${severity.low} · info ${severity.informational}`}
-              className="h-full hover:border-accent"
-            />
-          </Link>
-          <KpiTile label="Packets" value={totals.packets} icon={List} detail="indexed frames" />
-          <KpiTile label="Bytes" value={totals.bytes} format="bytes" icon={HardDrive} detail="on the wire" />
+          <KpiTile
+            label="Hosts"
+            value={totals.hosts}
+            icon={Server}
+            detail="distinct addresses"
+            to="/hosts"
+            title="Open the host inventory behind this number"
+          />
+          <KpiTile
+            label="Findings"
+            value={findingsTotal}
+            icon={ShieldAlert}
+            tone={severity.high > 0 ? 'danger' : 'accent'}
+            detail={`high ${severity.high} · medium ${severity.medium} · low ${severity.low} · info ${severity.informational}`}
+            to="/findings"
+            title="Open the findings workbench behind this number"
+          />
+          <KpiTile
+            label="Packets"
+            value={totals.packets}
+            icon={List}
+            detail="indexed frames"
+            to="/packets"
+            title="Open the packet browser behind this number"
+          />
+          <KpiTile
+            label="Bytes"
+            value={totals.bytes}
+            format="bytes"
+            icon={HardDrive}
+            detail="on the wire"
+            to="/packets"
+            title="Open the packet browser, where each frame's length is listed"
+          />
         <KpiTile
           label="Duration"
           value={totals.duration}
           format="duration"
           icon={Clock}
-            detail={`${formatNumber(totals.tcp_packets)} TCP · ${formatNumber(totals.udp_packets)} UDP`}
+          detail={`${formatNumber(totals.tcp_packets)} TCP · ${formatNumber(totals.udp_packets)} UDP`}
+          to="/info"
+          title="Open the capture reference view behind this number"
           />
         </div>
       </div>

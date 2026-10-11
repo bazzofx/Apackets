@@ -230,7 +230,7 @@ ssh -L 8080:127.0.0.1:8080 user@analyst-workstation
 
 | Page | What it does |
 |---|---|
-| **Dashboard** | The at-a-glance visual overview: KPI tiles (DNS requests, conversations, hosts, findings by severity, packets, bytes, duration), a central **network map** of the endpoints this capture actually talked to, most-data-sent / most-data-received cards, the top 5 domains with direction-split sent/received bars, a protocol mix donut and a traffic sparkline. |
+| **Dashboard** | The at-a-glance visual overview: KPI tiles (DNS requests, conversations, hosts, findings by severity, packets, bytes, duration), **each one a link into the page that holds the rows behind its number**, a central **network map** of the endpoints this capture actually talked to, most-data-sent / most-data-received cards, the top 5 domains with direction-split sent/received bars, a protocol mix donut and a traffic sparkline. |
 | **Info** | The reference view: the full summary cards, capture window, protocol distribution, traffic over time, top talkers, top ports, top conversations, protocol hierarchy, findings and the analysis limitations list. |
 | **Conversations** | Unique conversations with per-direction packet/byte counts and TCP state, shown three ways: a **Flow** alluvial diagram (thickness = bytes), an **Info** table with the full detail pane, and a **Timeline** tab that lays one conversation out over time - the protocol events it carried, every indexed frame, and the reassembled stream's chunk timeline. The *Follow stream* viewer offers ASCII/hex modes, in-stream search and local export; the Alerts filter narrows either tab to the conversations tied to a finding. |
 | **Hosts** | Every observed endpoint with MAC, first/last seen, bytes in and out, top ports, protocols, associated DNS names and TLS SNI, plus a relationship graph built strictly from observed connections. |
@@ -613,9 +613,10 @@ These are real and intentional for a proof of concept:
    invented. Supplying TLS session keys is not implemented.
 2. **No authentication.** Anyone who can reach the port can read every capture
    and upload files. Keep it on loopback.
-3. **Worker runs in-process.** A crash of the API process loses in-flight jobs
-   (they are marked failed on next start, not resumed). There is no external
-   queue.
+3. **Worker runs in-process.** A crash of the API process loses in-flight jobs.
+   Nothing reconciles them at start-up, so the interrupted analysis stays at its last
+   recorded stage and has to be deleted and uploaded again; there is no external
+   queue and no resume.
 4. **SQLite, single node.** Fine for a workstation; not for concurrent multi-user
    use or very large corpora.
 5. **Display filters re-read the capture.** Each advanced filter runs TShark over

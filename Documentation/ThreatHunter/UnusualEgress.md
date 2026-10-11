@@ -179,3 +179,7 @@ was expected.
 * **An empty card is not a closed network.** It means every public destination reached
   from a private address used one of those 19 ports and already had a name in this
   capture.
+
+---
+
+**Related:** [Threat Hunt](../Threat-Hunt.md) · [Hosts](../Hosts.md) · [Conversations](../Conversations.md) · [DataExfiltration](DataExfiltration.md) · [DataStaging](DataStaging.md)

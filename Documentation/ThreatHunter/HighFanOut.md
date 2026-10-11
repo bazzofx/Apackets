@@ -150,3 +150,7 @@ caveat says the same thing:
   in the empty reason is the median of the top 500 hosts, not of all hosts.
 * **An empty card is not a quiet capture.** It means no host reached ten distinct
   peers in the conversation index.
+
+---
+
+**Related:** [Threat Hunt](../Threat-Hunt.md) · [Hosts](../Hosts.md) · [Conversations](../Conversations.md) · [NetworkScanning](NetworkScanning.md) · [RareCommunicationPairs](RareCommunicationPairs.md)

@@ -168,3 +168,7 @@ says the same thing:
   truncated to four addresses and three hostnames per finding without saying so.
 * **An empty card is not a clean capture.** It means no finding in this analysis has a
   rule id beginning `suricata:`.
+
+---
+
+**Related:** [Threat Hunt](../Threat-Hunt.md) · [Findings](../Findings.md) · [Packets](../Packets.md) · [SuspiciousHttp](SuspiciousHttp.md) · [PossibleMalwareDownload](PossibleMalwareDownload.md)

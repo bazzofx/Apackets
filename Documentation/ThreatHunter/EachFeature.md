@@ -102,3 +102,7 @@ source table never ran.
   does not exist, or the branch was not found — write that it is not established
   rather than guessing.
 * Tables where a table helps; prose otherwise. No marketing language.
+
+---
+
+**Related:** [Threat Hunt](../Threat-Hunt.md) · [Threat Hunter overview](ThreatHunter.md)

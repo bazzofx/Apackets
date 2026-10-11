@@ -252,3 +252,7 @@ does. The card's own caveat says the same thing:
   the code's own tests) but never against real capture data.
 * **An empty card is not a quiet network.** It means no source reached 20 distinct
   destination ports, or probed 20 unanswered addresses, inside ten seconds.
+
+---
+
+**Related:** [Threat Hunt](../Threat-Hunt.md) · [Packets](../Packets.md) · [Hosts](../Hosts.md) · [HighFanOut](HighFanOut.md) · [FailedConnections](FailedConnections.md)

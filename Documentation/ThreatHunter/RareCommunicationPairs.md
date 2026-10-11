@@ -151,3 +151,7 @@ the same thing:
   examined at all, and the table shows only the first `TABLE_CAP = 50` pairs in
   address order — which is not the "top 50 of anything" and may look arbitrary.
 * **`top` does nothing here.** Reducing rows per visual will not shorten this table.
+
+---
+
+**Related:** [Threat Hunt](../Threat-Hunt.md) · [Conversations](../Conversations.md) · [Hosts](../Hosts.md) · [HighFanOut](HighFanOut.md) · [LateralMovement](LateralMovement.md)

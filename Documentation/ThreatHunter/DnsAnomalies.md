@@ -175,3 +175,7 @@ have ordinary explanations. The card's own caveat says the same thing:
   most queries are drawn, so a rare name with two lookups may not appear at all.
 * **An empty card is not clean DNS.** It means no client reached 5 NXDOMAIN answers,
   100 queries, or 3 machine-looking names.
+
+---
+
+**Related:** [Threat Hunt](../Threat-Hunt.md) · [DNS](../DNS.md) · [Packets](../Packets.md) · [DnsTunnelling](DnsTunnelling.md) · [UnusualEgress](UnusualEgress.md)

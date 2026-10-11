@@ -180,3 +180,7 @@ The card's own caveat says the same thing:
 * **An empty card is not a healthy network.** It means no source reached ten unanswered
   attempts against one destination; the reason reports the total number of unanswered
   attempts, which may still be large when spread thinly.
+
+---
+
+**Related:** [Threat Hunt](../Threat-Hunt.md) · [Packets](../Packets.md) · [Conversations](../Conversations.md) · [NetworkScanning](NetworkScanning.md) · [LateralMovement](LateralMovement.md)

@@ -183,3 +183,7 @@ hostile. The card's own caveat says the same thing:
 * **An empty card is not a quiet host.** It means no private-to-public pair sent
   one million bytes, and none sent ten times the capture's median pair volume (with a
   100,000-byte floor).
+
+---
+
+**Related:** [Threat Hunt](../Threat-Hunt.md) · [Conversations](../Conversations.md) · [Hosts](../Hosts.md) · [UnusualEgress](UnusualEgress.md) · [DataStaging](DataStaging.md)

@@ -195,3 +195,7 @@ whether the client intended anything.
 * **An empty card is not a clean capture.** It means no session carried a lead flag,
   no session's version began with `SSL`, `TLS 1.0` or `TLS 1.1`, and every session
   had a server name.
+
+---
+
+**Related:** [Threat Hunt](../Threat-Hunt.md) · [TLS](../TLS.md) · [Hosts](../Hosts.md) · [PossibleMalwareDownload](PossibleMalwareDownload.md) · [C2Beaconing](C2Beaconing.md)

@@ -155,3 +155,7 @@ caveat says the same thing:
 * **An empty card is not a tidy capture.** It means no destination port outside the
   112-port common list was seen exactly once, and the reason reports how many uncommon
   ports there were in total.
+
+---
+
+**Related:** [Threat Hunt](../Threat-Hunt.md) · [Packets](../Packets.md) · [Conversations](../Conversations.md) · [NetworkScanning](NetworkScanning.md) · [HighFanOut](HighFanOut.md)
