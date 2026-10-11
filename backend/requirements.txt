@@ -1,0 +1,10 @@
+# Runtime dependencies for the APackets backend.
+# Versions are pinned to what has actually been tested in this project.
+# TShark itself is a system dependency, not a Python package — see README.
+
+fastapi==0.143.0
+uvicorn[standard]==0.54.0
+python-multipart==0.0.32
+pydantic==2.14.0
+pydantic-settings==2.15.0
+python-dotenv==1.2.4

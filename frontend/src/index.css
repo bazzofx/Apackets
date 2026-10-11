@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-bg text-text font-sans text-sm;
+  }
+
+  ::selection {
+    @apply bg-accent/40;
+  }
+
+  /* Dark, restrained scrollbars for dense tables */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #2c3c5e transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: #2c3c5e;
+    border-radius: 6px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: #3a4d73;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply bg-surface border border-border rounded-md;
+  }
+
+  .panel-header {
+    @apply flex items-center justify-between gap-3 px-3 py-2 border-b border-border;
+  }
+
+  .panel-title {
+    @apply text-xs font-semibold uppercase tracking-wider text-muted;
+  }
+
+  .btn {
+    @apply inline-flex items-center gap-1.5 rounded border border-border bg-surface2 px-2.5 py-1.5
+           text-xs font-medium text-text transition-colors hover:border-border2 hover:bg-[#1b2745]
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply border-accent/60 bg-accent/15 text-accent2 hover:border-accent hover:bg-accent/25;
+  }
+
+  .btn-danger {
+    @apply border-danger/50 bg-danger/10 text-red-300 hover:border-danger hover:bg-danger/20;
+  }
+
+  .btn-ghost {
+    @apply border-transparent bg-transparent hover:border-border hover:bg-surface2;
+  }
+
+  .input {
+    @apply w-full rounded border border-border bg-[#0d1526] px-2.5 py-1.5 text-xs text-text
+           placeholder:text-faint focus:border-accent focus:outline-none;
+  }
+
+  .select {
+    @apply rounded border border-border bg-[#0d1526] px-2 py-1.5 text-xs text-text
+           focus:border-accent focus:outline-none;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-2xs;
+  }
+
+  .kbd {
+    @apply rounded border border-border bg-surface2 px-1 py-0.5 font-mono text-2xs text-muted;
+  }
+
+  /* Dense forensic table */
+  .dt {
+    @apply w-full border-collapse text-xs;
+  }
+
+  .dt thead th {
+    @apply sticky top-0 z-10 select-none whitespace-nowrap border-b border-border bg-surface2
+           px-2 py-1.5 text-left font-semibold text-muted;
+  }
+
+  .dt tbody td {
+    @apply whitespace-nowrap border-b border-border/50 px-2 py-1 font-mono;
+  }
+
+  .dt tbody tr:hover {
+    @apply bg-surface2/70;
+  }
+
+  .dt tbody tr.selected {
+    @apply bg-accent/15;
+  }
+
+  .mono {
+    @apply font-mono;
+  }
+}

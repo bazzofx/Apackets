@@ -1,0 +1,16 @@
+# Keep the build context small and free of secrets/runtime data.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+tests/
+tools/
+*.pcap
+*.pcapng
+*.cap
+data/
+.env
+.env.*

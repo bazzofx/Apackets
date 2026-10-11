@@ -1,0 +1,88 @@
+# APackets — files that must never be committed.
+#
+# Rule of thumb: capture data, derived analysis output, local configuration and
+# build artefacts stay on the machine that produced them. The repository holds
+# source, tests and docs only.
+
+# --- runtime data: never commit captures, objects or databases ---------------
+# data/ holds uploads/, analyses/, exports/, objects/ and apackets.db.
+data/
+*.pcap
+*.pcapng
+*.cap
+!backend/tests/fixtures/*.pcap
+# Safety net in case APACKETS_DATA_DIR is ever pointed inside the repository.
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# --- secrets and local configuration ---------------------------------------
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+
+# --- Python -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+build/
+dist/
+.venv/
+venv/
+.tox/
+.nox/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.coverage
+.coverage.*
+htmlcov/
+
+# --- Node / frontend --------------------------------------------------------
+node_modules/
+.vite/
+.eslintcache
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# --- local tooling scratch (sandbox helpers, probe/test artefacts) ----------
+# .tmp/ is the repository-local scratch root used by the tooling and the test
+# suite; pytest-cache-files-* directories are created by pytest's cache provider.
+.tmp/
+.cache/
+.config/
+.pip-cache/
+.npm-cache/
+.pnpm-store/
+.scapy-cache/
+pytest-cache-files-*/
+_wheelprobe/
+_objtest/
+
+# --- probe artefacts left by manual testing ---------------------------------
+_probe.pcap
+_empty.pcap
+*.orig
+*.rej
+
+# --- editor / OS ------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*~
+Thumbs.db
+desktop.ini
+.DS_Store
+$RECYCLE.BIN/
