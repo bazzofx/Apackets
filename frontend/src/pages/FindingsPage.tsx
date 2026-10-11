@@ -17,6 +17,7 @@ import AnalysisGuard from '@/components/AnalysisGuard'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
 import LoadingState from '@/components/LoadingState'
+import Page from '@/components/Page'
 import Panel from '@/components/Panel'
 import SeverityBadge from '@/components/SeverityBadge'
 import Toolbar from '@/components/Toolbar'
@@ -29,6 +30,7 @@ import FindingRelated from '@/components/findings/FindingRelated'
 import FindingsList from '@/components/findings/FindingsList'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { findingsApi, suricataApi, toApiError } from '@/services/api'
+import { SECTIONS } from '@/theme/sections'
 import { formatNumber } from '@/utils/format'
 import type { Finding } from '@/types'
 
@@ -390,9 +392,13 @@ function FindingsWorkbench() {
 /** Findings workbench: triage list on the left, full context on the right. */
 export function FindingsPage() {
   return (
-    <AnalysisGuard>
-      <FindingsWorkbench />
-    </AnalysisGuard>
+    /* `page-fill` gives the workbench a height to resolve its `h-full min-h-0`
+       panes against; without it they collapse to their content height. */
+    <Page section={SECTIONS.findings} className="page-fill">
+      <AnalysisGuard>
+        <FindingsWorkbench />
+      </AnalysisGuard>
+    </Page>
   )
 }
 

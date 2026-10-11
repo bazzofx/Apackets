@@ -41,12 +41,14 @@ import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
 import LoadingState from '@/components/LoadingState'
 import MonoCell from '@/components/MonoCell'
+import Page from '@/components/Page'
 import Pagination from '@/components/Pagination'
 import Panel from '@/components/Panel'
 import StatCard from '@/components/StatCard'
 import Toolbar from '@/components/Toolbar'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { objectsApi, toApiError, type ObjectListParams } from '@/services/api'
+import { SECTIONS } from '@/theme/sections'
 import type { CaptureObject, ObjectStatus, SortOrder } from '@/types'
 import { formatBytes, formatNumber, truncate } from '@/utils/format'
 
@@ -760,9 +762,11 @@ function ObjectsContent() {
 /** Files and Objects — extracted content, hashes, export and re-extraction. */
 export function ObjectsPage() {
   return (
-    <AnalysisGuard>
-      <ObjectsContent />
-    </AnalysisGuard>
+    <Page section={SECTIONS.objects}>
+      <AnalysisGuard>
+        <ObjectsContent />
+      </AnalysisGuard>
+    </Page>
   )
 }
 

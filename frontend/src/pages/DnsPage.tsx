@@ -8,6 +8,7 @@ import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
 import LoadingState from '@/components/LoadingState'
 import MonoCell from '@/components/MonoCell'
+import Page from '@/components/Page'
 import Pagination from '@/components/Pagination'
 import Panel from '@/components/Panel'
 import { DnsAnswers, DnsShapeMetrics } from '@/components/protocols/DnsAnswers'
@@ -30,6 +31,7 @@ import {
 } from '@/components/protocols/ProtocolFlags'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { dnsApi, type DnsListParams } from '@/services/api'
+import { SECTIONS } from '@/theme/sections'
 import type { DnsDomainRow, DnsQuery, SortOrder } from '@/types'
 import { EMPTY, formatDuration, formatNumber, formatTimestamp } from '@/utils/format'
 
@@ -959,9 +961,11 @@ function DnsContent() {
 /** DNS analysis — queries, answers, name shape and the per-domain aggregation. */
 export function DnsPage() {
   return (
-    <AnalysisGuard>
-      <DnsContent />
-    </AnalysisGuard>
+    <Page section={SECTIONS.dns}>
+      <AnalysisGuard>
+        <DnsContent />
+      </AnalysisGuard>
+    </Page>
   )
 }
 

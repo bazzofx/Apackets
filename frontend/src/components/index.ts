@@ -36,3 +36,6 @@ export type { ChartPanelProps } from './ChartPanel'
 
 export { AnalysisGuard } from './AnalysisGuard'
 export type { AnalysisGuardProps } from './AnalysisGuard'
+
+export { Page } from './Page'
+export type { PageProps } from './Page'

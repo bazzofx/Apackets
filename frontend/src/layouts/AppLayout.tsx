@@ -1,5 +1,5 @@
-import { Fragment } from 'react'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Fragment, type CSSProperties } from 'react'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import {
@@ -26,6 +26,7 @@ import {
 import StatusChip from '@/components/StatusChip'
 import { useAnalysis, useHealth } from '@/hooks/useAnalysis'
 import { findingsApi } from '@/services/api'
+import { sectionForRoute } from '@/theme/sections'
 import { formatNumber } from '@/utils/format'
 
 interface NavItem {
@@ -138,6 +139,13 @@ function AnalysisPicker() {
 export function AppLayout() {
   const { analysisId, analyses, selected, refresh } = useAnalysis()
   const queryClient = useQueryClient()
+  const location = useLocation()
+
+  /* The whole shell takes its hue from the section being viewed, so the sidebar
+     indicator and the page headline agree. Pages set the same variable again
+     themselves, which keeps `Page` correct outside this shell. */
+  const section = sectionForRoute(location.pathname)
+  const shellStyle = { '--s-accent': `var(${section.hueVar})` } as CSSProperties
 
   const ready = analysisId !== null && selected?.status === 'completed'
 
@@ -201,7 +209,7 @@ export function AppLayout() {
   ]
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="min-h-screen bg-bg" style={shellStyle} data-section={section.id}>
       <aside className="fixed inset-y-0 left-0 z-20 flex w-14 flex-col border-r border-border bg-surface lg:w-52">
         <div className="flex h-12 items-center gap-2 border-b border-border px-3">
           <Network size={16} className="shrink-0 text-accent2" aria-hidden />
@@ -226,12 +234,7 @@ export function AppLayout() {
                 end={item.to === '/'}
                 title={item.label}
                 className={({ isActive }) =>
-                  clsx(
-                    'flex items-center gap-2 border-l-2 px-3 py-1.5 text-xs transition-colors',
-                    isActive
-                      ? 'border-accent bg-accent/10 text-text'
-                      : 'border-transparent text-muted hover:bg-surface2 hover:text-text',
-                  )
+                  clsx('nav-link', isActive ? 'nav-link-active' : 'nav-link-idle')
                 }
               >
                 <item.icon size={15} className="shrink-0" aria-hidden />

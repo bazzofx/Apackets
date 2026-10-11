@@ -7,11 +7,13 @@ import AnalysisGuard from '@/components/AnalysisGuard'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
 import LoadingState from '@/components/LoadingState'
+import Page from '@/components/Page'
 import { ScopeNote, SectionNote } from '@/components/protocols/ProtocolDetail'
 import IndicatorCard from '@/components/threat/IndicatorCard'
 import { AVAILABILITY_TONE, availabilityChipLabel } from '@/components/threat/visualKit'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { threatHuntApi } from '@/services/api'
+import { SECTIONS } from '@/theme/sections'
 import { formatNumber, formatRelativeTime } from '@/utils/format'
 import type { ThreatHuntIndicator } from '@/types'
 
@@ -420,9 +422,11 @@ function ThreatHuntContent() {
 /** Threat Hunt — the 17 detections of the contract, grouped into tabs. */
 export function ThreatHuntPage() {
   return (
-    <AnalysisGuard emptyDescription="Upload a PCAP/PCAPNG capture or select an existing analysis in the top bar to hunt across its indexed tables. Threat Hunt reads only tables that already exist, so it needs a finished analysis.">
-      <ThreatHuntContent />
-    </AnalysisGuard>
+    <Page section={SECTIONS.threatHunt}>
+      <AnalysisGuard emptyDescription="Upload a PCAP/PCAPNG capture or select an existing analysis in the top bar to hunt across its indexed tables. Threat Hunt reads only tables that already exist, so it needs a finished analysis.">
+        <ThreatHuntContent />
+      </AnalysisGuard>
+    </Page>
   )
 }
 

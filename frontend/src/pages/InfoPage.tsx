@@ -37,11 +37,13 @@ import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
 import LoadingState from '@/components/LoadingState'
 import MonoCell from '@/components/MonoCell'
+import Page from '@/components/Page'
 import Panel from '@/components/Panel'
 import SeverityBadge from '@/components/SeverityBadge'
 import StatCard from '@/components/StatCard'
 import { useAnalysis, useAnalysisSummary } from '@/hooks/useAnalysis'
 import { useThemeTokens } from '@/theme/ThemeProvider'
+import { SECTIONS } from '@/theme/sections'
 import type { AnalysisSummary, Severity } from '@/types'
 import {
   formatBytes,
@@ -573,9 +575,11 @@ function InfoContent() {
 /** Info — the full reference view for one analysis, built from `GET /api/analyses/{id}/summary`. */
 export function InfoPage() {
   return (
-    <AnalysisGuard>
-      <InfoContent />
-    </AnalysisGuard>
+    <Page section={SECTIONS.info}>
+      <AnalysisGuard>
+        <InfoContent />
+      </AnalysisGuard>
+    </Page>
   )
 }
 

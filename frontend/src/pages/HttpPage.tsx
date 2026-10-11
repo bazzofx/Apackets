@@ -8,6 +8,7 @@ import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
 import LoadingState from '@/components/LoadingState'
 import MonoCell from '@/components/MonoCell'
+import Page from '@/components/Page'
 import Pagination from '@/components/Pagination'
 import Panel from '@/components/Panel'
 import { BodyPreview, HeadersTable } from '@/components/protocols/HeadersTable'
@@ -30,6 +31,7 @@ import {
 } from '@/components/protocols/ProtocolFlags'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { httpApi, type HttpListParams } from '@/services/api'
+import { SECTIONS } from '@/theme/sections'
 import type { HttpTransaction, SortOrder } from '@/types'
 import { EMPTY, formatBytes, formatNumber, formatTimestamp } from '@/utils/format'
 
@@ -674,9 +676,11 @@ function HttpContent() {
 /** HTTP analysis — cleartext request/response transactions. */
 export function HttpPage() {
   return (
-    <AnalysisGuard>
-      <HttpContent />
-    </AnalysisGuard>
+    <Page section={SECTIONS.http}>
+      <AnalysisGuard>
+        <HttpContent />
+      </AnalysisGuard>
+    </Page>
   )
 }
 

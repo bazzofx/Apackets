@@ -13,6 +13,30 @@ const HEIGHT = 620
 const PADDING = 56
 const ITERATIONS = 140
 
+/**
+ * Node label size, in map units.
+ *
+ * The SVG scales a 1000x620 viewBox to fit the panel, so one map unit is not one
+ * CSS pixel - the rendered height of 26rem makes it about 0.67 of one. 17.6 units
+ * is 1.1rem at the browser's default 16px root, which is the size that was asked
+ * for. It is kept as a number rather than a `rem` string so the label placement
+ * below can measure with exactly the value the glyphs are drawn at, instead of a
+ * copy of it that could drift.
+ */
+const LABEL_FONT_SIZE = 17.6
+
+/**
+ * Advance width of one monospace glyph, in ems, used to estimate a label's width.
+ *
+ * The labels are monospace: Consolas advances 0.55em and Cascadia Mono and
+ * JetBrains Mono advance 0.60em, so the widest of the stack is used. Guessing too
+ * wide only moves a label slightly further from the edge, never off it.
+ */
+const MONO_ADVANCE_EM = 0.6
+
+/** Smallest node radius, in map units: the previous minimum of 4 raised by 25%. */
+const MIN_NODE_RADIUS = 5
+
 /** Scope -> colour, resolved from the active theme by the component. */
 export interface MapPalette {
   private: string
@@ -286,13 +310,20 @@ export function NetworkMap({
           {nodes.map((node, position) => {
             const point = positions[position]
             if (!point) return null
-            const radius = 4 + 15 * Math.sqrt((node.bytes || 0) / stats.maxBytes)
+            const radius = MIN_NODE_RADIUS + 15 * Math.sqrt((node.bytes || 0) / stats.maxBytes)
             const colour = nodeColour(node, palette)
             const active = focusId === null || focusId === node.id
             const related =
               focusId !== null &&
               focusId !== node.id &&
               (neighbours.get(focusId) ?? []).some((entry) => entry.id === node.id)
+            const label = node.label || node.id
+            /* Labels are centred on their node, and the layout clamps a node to
+               PADDING (56) units from the edge - closer than half a long IP label
+               at this size, so an unclamped label near the left or right edge was
+               clipped by the panel's overflow-hidden. Shift it back inside. */
+            const halfLabel = (label.length * MONO_ADVANCE_EM * LABEL_FONT_SIZE) / 2
+            const labelX = Math.min(WIDTH - halfLabel - 2, Math.max(halfLabel + 2, point.x))
             return (
               <g
                 key={node.id}
@@ -324,17 +355,17 @@ export function NetworkMap({
                 />
                 {labelled.has(node.id) || focusId === node.id ? (
                   <text
-                    x={point.x}
+                    x={labelX}
                     y={point.y - radius - 5}
                     textAnchor="middle"
                     className="mono"
-                    fontSize={12}
+                    fontSize={LABEL_FONT_SIZE}
                     fill={active ? tokens.text : tokens.faint}
                     stroke={tokens.bg}
                     strokeWidth={3}
                     paintOrder="stroke"
                   >
-                    {node.label || node.id}
+                    {label}
                   </text>
                 ) : null}
               </g>

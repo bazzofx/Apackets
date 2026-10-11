@@ -16,11 +16,13 @@ import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
 import LoadingState from '@/components/LoadingState'
 import MonoCell from '@/components/MonoCell'
+import Page from '@/components/Page'
 import Panel from '@/components/Panel'
 import SuricataRulesPanel from '@/components/SuricataRulesPanel'
 import ThemePanel from '@/components/ThemePanel'
 import Toolbar from '@/components/Toolbar'
 import { settingsApi } from '@/services/api'
+import { SECTIONS } from '@/theme/sections'
 import type { Indicator, IndicatorType, Settings, SettingsUpdate } from '@/types'
 import { formatBytes, formatDuration, formatNumber, formatTimestamp } from '@/utils/format'
 
@@ -544,7 +546,11 @@ function SettingsContent() {
 
 /** Settings: effective configuration, mutable keys and analyst indicators. */
 export function SettingsPage() {
-  return <SettingsContent />
+  return (
+    <Page section={SECTIONS.settings}>
+      <SettingsContent />
+    </Page>
+  )
 }
 
 export default SettingsPage

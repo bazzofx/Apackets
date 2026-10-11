@@ -5,6 +5,7 @@ import AnalysisGuard from '@/components/AnalysisGuard'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
 import LoadingState from '@/components/LoadingState'
+import Page from '@/components/Page'
 import Pagination from '@/components/Pagination'
 import Panel from '@/components/Panel'
 import { useUrlFilters } from '@/components/protocols/ProtocolFilters'
@@ -31,6 +32,7 @@ import { PacketNavigator } from '@/components/packets/PacketNavigator'
 import { PacketTable } from '@/components/packets/PacketTable'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { packetsApi } from '@/services/api'
+import { SECTIONS } from '@/theme/sections'
 import type { PacketDetail, SortOrder } from '@/types'
 import { formatNumber } from '@/utils/format'
 
@@ -315,16 +317,18 @@ function PacketsContent() {
 /** Packet browser. */
 export function PacketsPage() {
   return (
-    <AnalysisGuard
-      emptyDescription={
-        <>
-          The packet browser reads the indexed frames of one analysis. Upload a PCAP/PCAPNG capture
-          or pick an existing analysis in the top bar.
-        </>
-      }
-    >
-      <PacketsContent />
-    </AnalysisGuard>
+    <Page section={SECTIONS.packets}>
+      <AnalysisGuard
+        emptyDescription={
+          <>
+            The packet browser reads the indexed frames of one analysis. Upload a PCAP/PCAPNG capture
+            or pick an existing analysis in the top bar.
+          </>
+        }
+      >
+        <PacketsContent />
+      </AnalysisGuard>
+    </Page>
   )
 }
 

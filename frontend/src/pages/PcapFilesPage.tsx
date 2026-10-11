@@ -15,6 +15,7 @@ import {
 import ErrorState from '@/components/ErrorState'
 import LoadingState from '@/components/LoadingState'
 import MonoCell from '@/components/MonoCell'
+import Page from '@/components/Page'
 import Panel from '@/components/Panel'
 import StatusChip from '@/components/StatusChip'
 import Toolbar from '@/components/Toolbar'
@@ -26,6 +27,7 @@ import {
   uploadAnalysis,
   type UploadProgress,
 } from '@/services/api'
+import { SECTIONS } from '@/theme/sections'
 import type { Analysis } from '@/types'
 import {
   formatBytes,
@@ -207,7 +209,16 @@ export function PcapFilesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <Page
+      section={SECTIONS.files}
+      aside={
+        <span className="chip border-border2 bg-surface2 text-muted">
+          {isLoading
+            ? '…'
+            : `${formatNumber(analyses.length)} capture${analyses.length === 1 ? '' : 's'}`}
+        </span>
+      }
+    >
       <div
         className={clsx(
           'panel flex flex-col items-center justify-center gap-2 border-dashed px-4 py-6 text-center transition-colors',
@@ -451,7 +462,7 @@ export function PcapFilesPage() {
           onConfirm={() => deleteMutation.mutate(pendingDelete.id)}
         />
       ) : null}
-    </div>
+    </Page>
   )
 }
 

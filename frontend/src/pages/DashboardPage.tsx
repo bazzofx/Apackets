@@ -18,6 +18,7 @@ import ChartPanel from '@/components/ChartPanel'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
 import LoadingState from '@/components/LoadingState'
+import Page from '@/components/Page'
 import Panel from '@/components/Panel'
 import SeverityBadge from '@/components/SeverityBadge'
 import DomainBars from '@/components/dashboard/DomainBars'
@@ -28,6 +29,7 @@ import TrafficExtremeCard from '@/components/dashboard/TrafficExtremeCard'
 import TrafficSparkline from '@/components/dashboard/TrafficSparkline'
 import { useAnalysis, useAnalysisSummary } from '@/hooks/useAnalysis'
 import { useThemeTokens } from '@/theme/ThemeProvider'
+import { SECTIONS } from '@/theme/sections'
 import { hostsApi } from '@/services/api'
 import { formatDuration, formatNumber } from '@/utils/format'
 
@@ -281,9 +283,11 @@ function DashboardOverview() {
 /** Visual overview of one analysis: KPIs, the conversation map, domains and shape. */
 export function DashboardPage() {
   return (
-    <AnalysisGuard>
-      <DashboardOverview />
-    </AnalysisGuard>
+    <Page section={SECTIONS.dashboard}>
+      <AnalysisGuard>
+        <DashboardOverview />
+      </AnalysisGuard>
+    </Page>
   )
 }
 

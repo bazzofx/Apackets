@@ -33,7 +33,14 @@ export default {
         danger: token('--c-danger'),
       },
       fontFamily: {
-        sans: ['Inter', 'Segoe UI', 'system-ui', 'sans-serif'],
+        /* Body, table and UI text. Gurajada's Latin is drawn to Telugu
+           proportions, so its @font-face in src/index.css carries a
+           size-adjust that brings it back to a normal footprint; the fallbacks
+           also supply the eight punctuation glyphs it does not contain. */
+        sans: ['Gurajada', 'Segoe UI', 'system-ui', 'sans-serif'],
+        /* Headings only: the page headline and every card title. Metal Mania
+           ships a single weight, so nothing may set font-weight on it. */
+        display: ['Metal Mania', 'Gurajada', 'Segoe UI', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'Cascadia Mono', 'Consolas', 'monospace'],
       },
       fontSize: {

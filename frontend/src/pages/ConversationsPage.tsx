@@ -7,6 +7,7 @@ import AnalysisGuard from '@/components/AnalysisGuard'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
 import LoadingState from '@/components/LoadingState'
+import Page from '@/components/Page'
 import Pagination from '@/components/Pagination'
 import Panel from '@/components/Panel'
 import ConversationFlow from '@/components/conversations/ConversationFlow'
@@ -34,6 +35,7 @@ import {
   parseConversationKey,
 } from '@/components/streams/ConversationTable'
 import { useAnalysis } from '@/hooks/useAnalysis'
+import { SECTIONS } from '@/theme/sections'
 import { alertsApi, conversationsApi, type ConversationListParams } from '@/services/api'
 import type {
   Conversation,
@@ -834,16 +836,18 @@ function ConversationsContent() {
 /** Conversations and stream follow-up view. */
 export function ConversationsPage() {
   return (
-    <AnalysisGuard
-      emptyDescription={
-        <>
-          Conversations are derived per analysis. Upload a PCAP/PCAPNG capture or pick an existing
-          analysis in the top bar to see the TCP/UDP flows it contains.
-        </>
-      }
-    >
-      <ConversationsContent />
-    </AnalysisGuard>
+    <Page section={SECTIONS.conversations}>
+      <AnalysisGuard
+        emptyDescription={
+          <>
+            Conversations are derived per analysis. Upload a PCAP/PCAPNG capture or pick an existing
+            analysis in the top bar to see the TCP/UDP flows it contains.
+          </>
+        }
+      >
+        <ConversationsContent />
+      </AnalysisGuard>
+    </Page>
   )
 }
 

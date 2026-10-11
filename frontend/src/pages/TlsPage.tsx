@@ -8,6 +8,7 @@ import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
 import LoadingState from '@/components/LoadingState'
 import MonoCell from '@/components/MonoCell'
+import Page from '@/components/Page'
 import Pagination from '@/components/Pagination'
 import Panel from '@/components/Panel'
 import { CertificatePanel, certificateSummary, hasCertificate } from '@/components/protocols/CertificatePanel'
@@ -35,6 +36,7 @@ import {
 } from '@/components/protocols/ProtocolFlags'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { tlsApi, type TlsListParams } from '@/services/api'
+import { SECTIONS } from '@/theme/sections'
 import type { SortOrder, TlsFingerprintRow, TlsSession } from '@/types'
 import { EMPTY, formatNumber, formatTimestamp } from '@/utils/format'
 
@@ -997,9 +999,11 @@ function TlsContent() {
 /** TLS analysis — sessions, certificates and JA3/JA3S/JA4 fingerprints. */
 export function TlsPage() {
   return (
-    <AnalysisGuard>
-      <TlsContent />
-    </AnalysisGuard>
+    <Page section={SECTIONS.tls}>
+      <AnalysisGuard>
+        <TlsContent />
+      </AnalysisGuard>
+    </Page>
   )
 }
 

@@ -29,6 +29,7 @@ import AnalysisGuard from '@/components/AnalysisGuard'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
 import LoadingState from '@/components/LoadingState'
+import Page from '@/components/Page'
 import Pagination from '@/components/Pagination'
 import Panel from '@/components/Panel'
 import StatCard from '@/components/StatCard'
@@ -43,6 +44,7 @@ import HostsTable, {
 import NetworkGraph from '@/components/hosts/NetworkGraph'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { hostsApi, type HostListParams } from '@/services/api'
+import { SECTIONS } from '@/theme/sections'
 import type { SortOrder } from '@/types'
 import { formatNumber } from '@/utils/format'
 
@@ -521,9 +523,11 @@ function HostsContent() {
 /** Hosts — inventory, detail and the observed-connection map. */
 export function HostsPage() {
   return (
-    <AnalysisGuard>
-      <HostsContent />
-    </AnalysisGuard>
+    <Page section={SECTIONS.hosts}>
+      <AnalysisGuard>
+        <HostsContent />
+      </AnalysisGuard>
+    </Page>
   )
 }
 
