@@ -1,9 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import {
   ArrowDownRight,
-  ArrowLeftRight,
   ArrowUpRight,
   Ban,
   Clock,
@@ -11,13 +10,15 @@ import {
   Lightbulb,
   ListTree,
   Scale,
+  Target,
 } from 'lucide-react'
 import CopyButton from '@/components/CopyButton'
 import EntityChips from '@/components/findings/EntityChips'
+import { FollowConversationButton } from '@/components/findings/FollowConversationButton'
 import MonoCell from '@/components/MonoCell'
 import Panel from '@/components/Panel'
 import SeverityBadge from '@/components/SeverityBadge'
-import { formatBytes, formatClockTime, formatDuration, formatNumber, formatTimestamp } from '@/utils/format'
+import { formatClockTime, formatDuration, formatNumber, formatTimestamp } from '@/utils/format'
 import type { FindingContext } from '@/types'
 
 export interface FindingOverviewProps {
@@ -91,8 +92,6 @@ export function FindingOverview({ context, onSelectRelated }: FindingOverviewPro
     rule,
     analysis,
     endpoints,
-    packets,
-    conversations,
     related,
     timeline,
     counts,
@@ -105,38 +104,6 @@ export function FindingOverview({ context, onSelectRelated }: FindingOverviewPro
     : []
   const basis = typeof evidence.match_basis === 'string' ? evidence.match_basis : null
   const buffers = Array.isArray(evidence.buffers) ? (evidence.buffers as unknown[]).map(String) : []
-
-  /**
-   * The conversation the matched evidence belongs to.
-   *
-   * A matched row is a packet, and every packet records the stream it was
-   * reassembled into, so the first match that resolves names the conversation
-   * without guessing from addresses. When a finding spans several streams the
-   * backend's own correlation is the fallback, which it orders largest first. Null
-   * means genuinely nothing to follow - no stream was recorded for these packets -
-   * and the button says so rather than jumping somewhere unrelated.
-   */
-  const follow = useMemo(() => {
-    const streamOf = new Map<number, { transport: string; streamId: number }>()
-    for (const packet of packets) {
-      const streamId = packet.transport === 'tcp' ? packet.tcp_stream : packet.udp_stream
-      if (packet.transport && typeof streamId === 'number') {
-        streamOf.set(packet.number, { transport: packet.transport, streamId })
-      }
-    }
-    for (const match of matches) {
-      const number = typeof match.packet === 'number' ? match.packet : null
-      if (number === null) continue
-      const stream = streamOf.get(number)
-      if (stream === undefined) continue
-      const hit = conversations.find(
-        (conversation) =>
-          conversation.transport === stream.transport && conversation.stream_id === stream.streamId,
-      )
-      if (hit !== undefined) return hit
-    }
-    return conversations.length > 0 ? conversations[0] : null
-  }, [packets, conversations, matches])
 
   return (
     <div className="flex flex-col gap-3 p-3">
@@ -159,73 +126,18 @@ export function FindingOverview({ context, onSelectRelated }: FindingOverviewPro
         ) : null}
       </Panel>
 
-      <Panel
-        flush
-        title="Why this fired"
-        subtitle={`${finding.rule_id} · ${finding.severity}`}
-        actions={
-          <div className="flex items-center gap-1">
-            <SeverityBadge severity={finding.severity} showLabel />
-            <CopyButton value={finding.id} label="Copy finding id" />
-          </div>
-        }
-      >
-        <div className="flex flex-col gap-2 p-3">
-          <div className="text-sm text-text">{finding.title}</div>
-          {finding.description ? (
-            <div className="text-2xs text-muted">{finding.description}</div>
-          ) : null}
-          <div className="whitespace-pre-wrap rounded border border-border bg-bg p-2 text-2xs leading-relaxed text-text">
-            {finding.reason}
-          </div>
-          {finding.recommendation ? (
-            <div className="flex items-start gap-2 text-2xs text-muted">
-              <Lightbulb size={13} className="mt-0.5 shrink-0 text-warn" aria-hidden />
-              <span>{finding.recommendation}</span>
-            </div>
-          ) : null}
-          {basis ? (
-            <div className="flex items-start gap-2 text-2xs text-faint">
-              <Scale size={13} className="mt-0.5 shrink-0" aria-hidden />
-              <span>
-                Match basis: {basis}
-                {buffers.length > 0 ? ` · buffers: ${buffers.join(', ')}` : ''}
-              </span>
-            </div>
-          ) : null}
-        </div>
-      </Panel>
-
       {matches.length > 0 ? (
         <Panel
           flush
-          title="Matched evidence"
-          subtitle={`${matches.length} recorded match(es)`}
-          actions={
-            <button
-              type="button"
-              className="btn px-1.5 py-0.5"
-              disabled={follow === null}
-              aria-label="Follow conversation"
-              title={
-                follow === null
-                  ? 'None of the matched packets could be tied to a conversation, so there is nothing to follow - open a packet number below instead.'
-                  : `Open ${follow.transport.toUpperCase()} stream ${String(follow.stream_id)} (${formatBytes(follow.bytes_total)}, ${formatNumber(follow.packets_total)} packets) on the Timeline tab of the Conversations page, with this conversation selected.` +
-                    (conversations.length > 1
-                      ? ` ${formatNumber(conversations.length)} conversations are linked to this alert; this is the one the first matched packet belongs to.`
-                      : '')
-              }
-              onClick={() => {
-                if (follow === null) return
-                navigate(
-                  `/conversations?stream=${encodeURIComponent(follow.transport + ':' + String(follow.stream_id))}&tab=timeline`,
-                )
-              }}
-            >
-              <ArrowLeftRight size={12} aria-hidden />
-              Follow conversation
-            </button>
+          className="border-accent/70 bg-accent/[0.05]"
+          title={
+            <span className="flex items-center gap-1.5">
+              <Target size={12} className="text-accent" aria-hidden />
+              Matched evidence
+            </span>
           }
+          subtitle={`${matches.length} recorded match(es)`}
+          actions={<FollowConversationButton context={context} />}
         >
           <div className="overflow-auto">
             <table className="dt">
@@ -275,6 +187,36 @@ export function FindingOverview({ context, onSelectRelated }: FindingOverviewPro
           </div>
         </Panel>
       ) : null}
+
+      <Panel flush title="Artefacts" subtitle="everything this finding mentions">
+        <div className="flex flex-col gap-1.5 p-3">
+          <EntityChips
+            label="addresses"
+            values={finding.entities?.ips ?? []}
+            onSelect={(value) => navigate(`/packets?ip=${encodeURIComponent(value)}`)}
+          />
+          <EntityChips
+            label="names"
+            values={finding.entities?.hostnames ?? []}
+            onSelect={(value) => navigate(`/packets?search=${encodeURIComponent(value)}`)}
+          />
+          <EntityChips
+            label="ports"
+            values={finding.entities?.ports ?? []}
+            onSelect={(value) => navigate(`/packets?port=${encodeURIComponent(value)}`)}
+          />
+          <EntityChips
+            label="URIs"
+            values={finding.entities?.uris ?? []}
+            onSelect={(value) => navigate(`/packets?search=${encodeURIComponent(value)}`)}
+          />
+        </div>
+      </Panel>
+
+      <div className="mt-1 flex items-center gap-2">
+        <span className="text-2xs font-semibold uppercase tracking-wider text-muted">Rules</span>
+        <span className="h-px flex-1 bg-border" aria-hidden />
+      </div>
 
       {rule ? (
         <Panel
@@ -336,28 +278,40 @@ export function FindingOverview({ context, onSelectRelated }: FindingOverviewPro
         </Panel>
       ) : null}
 
-      <Panel flush title="Artefacts" subtitle="everything this finding mentions">
-        <div className="flex flex-col gap-1.5 p-3">
-          <EntityChips
-            label="addresses"
-            values={finding.entities?.ips ?? []}
-            onSelect={(value) => navigate(`/packets?ip=${encodeURIComponent(value)}`)}
-          />
-          <EntityChips
-            label="names"
-            values={finding.entities?.hostnames ?? []}
-            onSelect={(value) => navigate(`/packets?search=${encodeURIComponent(value)}`)}
-          />
-          <EntityChips
-            label="ports"
-            values={finding.entities?.ports ?? []}
-            onSelect={(value) => navigate(`/packets?port=${encodeURIComponent(value)}`)}
-          />
-          <EntityChips
-            label="URIs"
-            values={finding.entities?.uris ?? []}
-            onSelect={(value) => navigate(`/packets?search=${encodeURIComponent(value)}`)}
-          />
+      <Panel
+        flush
+        title="Why this fired"
+        subtitle={`${finding.rule_id} · ${finding.severity}`}
+        actions={
+          <div className="flex items-center gap-1">
+            <SeverityBadge severity={finding.severity} showLabel />
+            <CopyButton value={finding.id} label="Copy finding id" />
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-2 p-3">
+          <div className="text-sm text-text">{finding.title}</div>
+          {finding.description ? (
+            <div className="text-2xs text-muted">{finding.description}</div>
+          ) : null}
+          <div className="whitespace-pre-wrap rounded border border-border bg-bg p-2 text-2xs leading-relaxed text-text">
+            {finding.reason}
+          </div>
+          {finding.recommendation ? (
+            <div className="flex items-start gap-2 text-2xs text-muted">
+              <Lightbulb size={13} className="mt-0.5 shrink-0 text-warn" aria-hidden />
+              <span>{finding.recommendation}</span>
+            </div>
+          ) : null}
+          {basis ? (
+            <div className="flex items-start gap-2 text-2xs text-faint">
+              <Scale size={13} className="mt-0.5 shrink-0" aria-hidden />
+              <span>
+                Match basis: {basis}
+                {buffers.length > 0 ? ` · buffers: ${buffers.join(', ')}` : ''}
+              </span>
+            </div>
+          ) : null}
         </div>
       </Panel>
 

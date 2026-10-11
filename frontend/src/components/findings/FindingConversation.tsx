@@ -1,18 +1,25 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { ArrowLeftRight, ArrowRight, Info } from 'lucide-react'
 import EmptyState from '@/components/EmptyState'
 import MonoCell from '@/components/MonoCell'
 import Panel from '@/components/Panel'
+import {
+  FollowConversationButton,
+  conversationUrlKey,
+  resolveFollowConversation,
+} from '@/components/findings/FollowConversationButton'
 import { conversationsApi } from '@/services/api'
 import { formatBytes, formatDuration, formatNumber } from '@/utils/format'
-import type { FindingStreamBlock, StreamMode } from '@/types'
+import type { FindingContext, FindingStreamBlock, StreamMode } from '@/types'
 
 const TEXT_PREVIEW = 20_000
 
 export interface FindingConversationProps {
   analysisId: string
+  /** The alert's context, so this tab can offer the same follow button as the Overview. */
+  context: FindingContext
   conversations: {
     conv_id: string
     transport: string
@@ -105,11 +112,20 @@ function StreamContent({ analysisId, streamId, initialMode }: { analysisId: stri
 /** The conversation(s) the alert belongs to, with TShark's reassembled content. */
 export function FindingConversation({
   analysisId,
+  context,
   conversations,
   streams,
   truncated,
   followMode,
 }: FindingConversationProps) {
+  const follow = useMemo(() => resolveFollowConversation(context), [context])
+  const followKey = follow === null ? null : conversationUrlKey(follow)
+  /* The button rides the panel of the conversation the alert's first matched packet
+     belongs to, which is the same conversation the Overview's button follows. With
+     nothing resolvable it rides the first panel, disabled, saying why. */
+  const isFollowTarget = (conversation: { transport: string; stream_id: number }, index: number) =>
+    followKey === null ? index === 0 : conversationUrlKey(conversation) === followKey
+
   if (conversations.length === 0 && streams.length === 0) {
     return (
       <EmptyState
@@ -124,7 +140,7 @@ export function FindingConversation({
 
   return (
     <div className="flex flex-col gap-3 p-3">
-      {conversations.map((conversation) => (
+      {conversations.map((conversation, index) => (
         <Panel
           key={conversation.conv_id}
           flush
@@ -133,9 +149,14 @@ export function FindingConversation({
             conversation.state ?? 'state unknown'
           }${conversation.protocols ? ` · ${conversation.protocols}` : ''}`}
           actions={
-            conversation.duration !== null ? (
-              <span className="text-2xs text-faint">{formatDuration(conversation.duration)}</span>
-            ) : null
+            <>
+              {isFollowTarget(conversation, index) ? (
+                <FollowConversationButton context={context} />
+              ) : null}
+              {conversation.duration !== null ? (
+                <span className="text-2xs text-faint">{formatDuration(conversation.duration)}</span>
+              ) : null}
+            </>
           }
         >
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 px-3 py-2 text-2xs md:grid-cols-[1fr_auto_1fr]">

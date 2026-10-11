@@ -350,6 +350,7 @@ function FindingsWorkbench() {
                 {tab === 'conversation' ? (
                   <FindingConversation
                     analysisId={analysisId as string}
+                    context={context.data}
                     conversations={context.data.conversations}
                     streams={context.data.streams}
                     truncated={context.data.truncated.streams}
