@@ -132,7 +132,7 @@ function SectionPanel({
       <header className="panel-header">
         <div className="min-w-0">
           <div className="panel-title">{title}</div>
-          <div className="mt-0.5 truncate text-2xs text-faint" title={subtitle}>
+          <div className="panel-subtitle" title={subtitle}>
             {subtitle}
           </div>
         </div>

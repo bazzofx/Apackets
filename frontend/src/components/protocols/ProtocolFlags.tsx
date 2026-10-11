@@ -175,7 +175,7 @@ export function FlagLegend({
       <header className="panel-header">
         <div className="min-w-0">
           <div className="panel-title">{title}</div>
-          <div className="mt-0.5 truncate text-2xs text-faint">{subtitle}</div>
+          <div className="panel-subtitle">{subtitle}</div>
         </div>
         <button type="button" className="btn px-1.5 py-0.5" onClick={() => setOpen((value) => !value)}>
           {open ? 'Hide' : 'Show'}

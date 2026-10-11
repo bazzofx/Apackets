@@ -42,7 +42,7 @@ export function ChartPanel({
         <div className="min-w-0">
           <div className="panel-title">{title}</div>
           {subtitle !== undefined ? (
-            <div className="mt-0.5 truncate text-2xs text-faint">{subtitle}</div>
+            <div className="panel-subtitle">{subtitle}</div>
           ) : null}
         </div>
         {actions ? <div className="flex shrink-0 items-center gap-1.5">{actions}</div> : null}

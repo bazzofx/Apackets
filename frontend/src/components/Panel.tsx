@@ -31,7 +31,7 @@ export function Panel({
           <div className="min-w-0">
             {title !== undefined ? <div className="panel-title">{title}</div> : null}
             {subtitle !== undefined ? (
-              <div className="mt-0.5 truncate text-2xs text-faint" title={typeof subtitle === 'string' ? subtitle : undefined}>
+              <div className="panel-subtitle" title={typeof subtitle === 'string' ? subtitle : undefined}>
                 {subtitle}
               </div>
             ) : null}

@@ -179,6 +179,17 @@
     font-weight: 400;
   }
 
+  /* The line under a card headline.
+   *
+   * 0.8rem is set by request, up from 0.6875rem. `leading-tight` keeps the line
+   * box at 16px, which is exactly what the previous text-2xs carried, so every
+   * panel header stays the same height and only the glyphs grow. Four components
+   * had this same six-class string copied into them, so it lives here instead.
+   */
+  .panel-subtitle {
+    @apply mt-0.5 truncate text-[0.8rem] leading-tight text-faint;
+  }
+
   /* KPI tile: hairline accent along the top edge. */
   .kpi {
     position: relative;
