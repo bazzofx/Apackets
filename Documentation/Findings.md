@@ -13,11 +13,11 @@ The page answers two questions in sequence. First, **what fired in this capture,
 it matters most?** — a filterable list of every finding the analysis recorded, ordered by
 severity. Second, for one finding: **why did it fire, where did it happen, and what else do I
 know about it?** The right-hand pane gathers the finding's own text, the endpoints and ports it
-involved, the exact evidence the analyser recorded, the packets themselves, the reassembled
-conversation with TShark's follow output, the HTTP/DNS/TLS rows on those streams, the files
-carried over them, and other findings that share an address, name, URI or frame. A finding is
-presented throughout as a lead to check rather than a verdict, and the page carries that
-sentence itself in the Overview tab.
+involved, the exact evidence the analyser recorded, a timeline of when each recorded event
+happened, the packets themselves, the reassembled conversation with TShark's follow output, the
+HTTP/DNS/TLS rows on those streams, the files carried over them, and other findings that share
+an address, name, URI or frame. A finding is presented throughout as a lead to check rather than
+a verdict, and the page carries that sentence itself in the Overview tab.
 
 ## 2. What is on the screen
 
@@ -60,12 +60,13 @@ current filter, carrying the current `tab`.
 
 ### 2.3 Detail header and tabs
 
-A header row shows the severity badge, the title and the rule id. Below it, six tabs, each
+A header row shows the severity badge, the title and the rule id. Below it, seven tabs, each
 with a count badge:
 
 | Tab | Badge | Contents |
 |---|---|---|
 | **Overview** | none | The panels in §2.4 |
+| **Timeline** | `context.timeline.length` — the number of timeline entries | The alert's activity as a vertical rail, described below |
 | **Packets** | `counts.alerting_packets` — the number of frames the finding recorded | The finding's own frames as a table (#, Time, Source, Destination, Proto, Length, Flags, Info) with previous/next buttons, plus the full dissection of the selected frame |
 | **Conversation** | `counts.conversations` | One panel per correlated conversation, then one panel per stream with TShark's reassembled content |
 | **Application** | `counts.http + counts.dns + counts.tls` | HTTP transactions, DNS queries and TLS sessions on the alert's streams |
@@ -73,6 +74,17 @@ with a count badge:
 | **Related** | `counts.related` | Other findings that share artefacts |
 
 The tab is the only part of the workbench state that lives in the URL (see §3.2).
+
+**Timeline tab.** The alert's activity on a vertical rail, ordered by time: its first and last
+alerting packets plus every correlated HTTP, DNS and TLS row, capped at 60 entries. Each entry
+shows the clock time (`HH:MM:SS`), a `kind` chip (`packet`, `http`, `dns` or `tls`), a `first` /
+`last` marker on the boundary entries, the label (truncated to the row, with the full text on
+hover, or *"no label recorded"*) and a `#<frame>` button that opens `/packets?sel=<frame>` when
+the entry names a frame. The subtitle names the real span — *"HH:MM:SS → HH:MM:SS"*, then
+*"· over `<duration>`"* when the two boundary timestamps differ, then *"· N entries"* — falling
+back to *"first and last activity of this alert · N entries"* when a boundary has no usable
+timestamp. A timeline with nothing to show says *"No timestamps recorded."*, and when the
+60-entry cap bit, a footer reads *"Showing the first 60 of a longer timeline."*
 
 **Packets tab.** The header line reads *"N packet(s) shown [of a cap of C — the rule matched
 more] · A alerting packet(s) in the finding"*, so a cap that bit is visible. `A` is the number
@@ -113,21 +125,42 @@ tab.
 
 The panels appear in exactly this order, top to bottom:
 
-1. **Endpoints involved** — *"source and destination with the ports this alert used"*. One card
-   per endpoint (up to `_CONTEXT_CAPS["endpoints"] = 8`): direction, a `private` chip when
-   `is_private` is 1, the address (a button that opens `/packets?ip=<ip>`), a chip per port
-   (`TRANSPORT/port`, with the local service name when the operating system knows it; clicking
-   opens `/packets?ip=<ip>&port=<port>`), the MAC and up to two hostnames, and *"N packet(s) in
-   this alert · host totals X sent / Y received"*. If more endpoints were involved than are
-   shown, the panel says so.
-2. **Matched evidence** — drawn **only when `evidence.matches` is non-empty**, and it is the
+1. **Alert** — **minimised by default**, opened by the *show* toggle in its header (the button
+   reads *hide* once open, and reports `aria-expanded`). While minimised its subtitle carries one
+   line of the `reason`, so the panel still says what fired without being opened — the subtitle is
+   truncated to that single line, with the whole text on hover, and a finding with no recorded
+   `reason` has no subtitle at all. Opened, the subtitle switches to `<rule_id> · <severity>`. The
+   header also carries the severity badge and a *Copy finding id* button, and the body shows the
+   title, the finding's description when it has one, the `reason` text in a monospace block, the
+   `recommendation` under a lamp icon, and — for findings whose evidence carries them —
+   *"Match basis: … · buffers: …"*.
+2. **Endpoints and artefacts** — **one merged card** (*"who was involved, and every address,
+   name, port and URI this finding mentions"*) that replaces the two separate cards the tab used
+   to draw. It holds two labelled sections, in this order, each introduced by a small uppercase
+   label with a rule beside it — the same treatment as the **Rules** divider further down. The
+   sections are drawn, not collapsible: both are always open.
+   * **Endpoints** — one card per endpoint. The backend returns at most
+     `_CONTEXT_CAPS["endpoints"] = 8` of them. When the finding has **exactly one source and
+     exactly one destination** the two cards are drawn side by side with a right arrow between
+     them; in **every other case** they render as a grid with **no arrow**, including a finding
+     whose endpoints are all sources or all destinations, and a finding with a single endpoint.
+     Each card shows the direction, a `private` chip when `is_private` is 1, the address (a button
+     that opens `/packets?ip=<ip>`), a chip per port (`TRANSPORT/port`, with the local service name
+     when the operating system knows it; clicking opens `/packets?ip=<ip>&port=<port>`), the MAC
+     with up to two hostnames after it — a line that is absent when the endpoint has no MAC — and
+     *"N packet(s) in this alert · host totals X sent / Y received"*. If more endpoints were
+     involved than the backend returned, the section says *"More endpoints were involved than are
+     shown."*; a finding the endpoint builder derived nothing for says *"No endpoints could be
+     derived from this finding."*
+   * **Artefacts** — clickable chips for addresses (`/packets?ip=`), names (`/packets?search=`),
+     ports (`/packets?port=`) and URIs (`/packets?search=`), built from `finding.entities` exactly
+     as before. A row with no values reads *"none"*, and a row of more than 24 values shows the
+     first 24 followed by *"+N more"*.
+3. **Matched evidence** — drawn **only when `evidence.matches` is non-empty**, and it is the
    panel that carries the **Follow conversation** button. A table of Packet, Where, Buffers,
    Excerpt: the frame number (a button that opens `/packets?sel=<frame>`), the
    `src:port -> dst:port` (or `src -> dst (host)`) description, the buffers the rule matched on,
    and a 120-character excerpt.
-3. **Artefacts** — *"everything this finding mentions"*: clickable chips for addresses
-   (`/packets?ip=`), names (`/packets?search=`), ports (`/packets?port=`) and URIs
-   (`/packets?search=`).
 4. A **Rules** divider — a labelled rule, not a panel.
 5. **Suricata rule behind this alert** — drawn **only for a `suricata:<sid>` finding whose sid
    is still present in `suricata_rules`**. Subtitle: `sid <sid> rev <rev> · <source> ·
@@ -138,21 +171,16 @@ The panels appear in exactly this order, top to bottom:
    *"not evaluable by the matcher"* chip whose tooltip names the unsupported options), and the
    reference when the rule has one. The panel is absent for built-in-engine findings and for a
    Suricata finding whose rule has since been deleted.
-6. **Alert** — **minimised by default**, opened by the *show* toggle in its header (the button
-   reports `aria-expanded`). While minimised its subtitle carries one line of the `reason`, so the
-   panel still says what fired without being opened. Opened, it shows the title, the rule's
-   description when the rule has one, the `reason` text in a monospace block, the
-   `recommendation` under a lamp icon, and — for findings whose evidence carries them —
-   *"Match basis: … · buffers: …"*.
-7. Two panels side by side: **Timeline** (*"first and last activity of this alert"*: time,
-   kind, label and a clickable frame number for the first and last alerting packet plus every
-   correlated HTTP, DNS and TLS row, sorted by time and capped at 60) and **Scope of this
-   alert** (alerting packets, conversations, streams with content, HTTP / DNS / TLS row counts,
-   files, related findings, the capture filename, the capture length and the first packet
-   timestamp). The Scope panel repeats the caveat: a signature match is a lead, not a verdict.
-8. **Related findings** — drawn **only when there is at least one**: severity, title and up to
-   three shared-artefact chips per row; clicking one opens that finding (on the Overview tab from
-   this panel, on the Related tab from the Related tab's own list).
+6. **Scope of this alert** — the **last** card, and its contents are unchanged: the
+   definition-list grid of counts (alerting packets, conversations, streams with content, HTTP /
+   DNS / TLS row counts, files, related findings, the capture filename, the capture length and the
+   first packet timestamp), followed by the analyst caution. The panel repeats the caveat: a
+   signature match is a lead, not a verdict.
+
+Two cards that used to sit on this tab are no longer here. The **Timeline** card is the
+**Timeline** tab (§2.3), which gives it the full width, and the **Related findings** card is the
+**Related** tab, where a list of other findings already belonged — so nothing was lost, each view
+simply moved.
 
 ### 2.5 The Follow conversation button
 
@@ -177,7 +205,7 @@ tab rather than dropping the analyst on an unfiltered list. See
 
 Page component `frontend/src/pages/FindingsPage.tsx`; components under
 `frontend/src/components/findings/` (`FindingsList.tsx`, `FindingOverview.tsx`,
-`FindingPackets.tsx`, `PacketDetailView.tsx`, `FindingConversation.tsx`,
+`FindingTimeline.tsx`, `FindingPackets.tsx`, `PacketDetailView.tsx`, `FindingConversation.tsx`,
 `FindingAppLayer.tsx`, `FindingObjects.tsx`, `FindingRelated.tsx`,
 `FollowConversationButton.tsx`, `EntityChips.tsx`). API clients `findingsApi`, `suricataApi`
 and `conversationsApi` in `frontend/src/services/api.ts`. The routes are
@@ -216,7 +244,7 @@ exactly one of them:
 
 | Parameter | Accepted values | Behaviour |
 |---|---|---|
-| `tab` | `overview`, `packets`, `conversation`, `application`, `files`, `related` | Selects the detail tab; absent means `overview`. Any other value is not recognised and leaves the detail area **empty** (§6) |
+| `tab` | `overview`, `timeline`, `packets`, `conversation`, `application`, `files`, `related` | Selects the detail tab; absent means `overview`. Any other value is not recognised and leaves the detail area **empty** (§6) |
 
 plus the route parameter `:findingId` from the path — `/findings/{findingId}` — which is
 percent-encoded when the page builds a link (`encodeURIComponent`), because finding ids contain
@@ -452,12 +480,12 @@ findings counts and the dashboard summary, so everything visible re-reads.
 | Element | Opens |
 |---|---|
 | **Follow conversation** (Overview and Conversation tabs) | `/conversations?stream=<transport>:<stream_id>&tab=timeline` — see [Conversations](Conversations.md) |
-| A frame number on the Matched evidence table, or a Timeline row | `/packets?sel=<frame>` — see [Packets](Packets.md) |
+| A frame number on the Matched evidence table (Overview tab), or a `#<frame>` button on the Timeline tab | `/packets?sel=<frame>` — see [Packets](Packets.md) |
 | An endpoint card address | `/packets?ip=<ip>` |
 | An endpoint port chip | `/packets?ip=<ip>&port=<port>` |
 | Artefact chips | `/packets?ip=`, `/packets?port=`, `/packets?search=` |
 | **edit in settings** on the Suricata rule panel | `/settings?sid=<sid>`, which seeds the Suricata rule panel's search box with that sid — see [Settings](Settings.md) |
-| A related finding (Overview panel or Related tab) | `/findings/<id>?tab=related`; from the Overview the same selection opens `?tab=overview` |
+| A related finding on the Related tab | `/findings/<id>?tab=related` |
 | A file on the Files tab | `GET /api/analyses/{id}/objects/{object_id}/export` — the same download as on [Files-and-Objects](Files-and-Objects.md) |
 | A tab change | The same finding with a different `tab`, so a tab is shareable |
 | The list's rule dropdown | Nothing navigational; it is a filter over the built-in rule catalogue |
@@ -467,7 +495,7 @@ findings counts and the dashboard summary, so everything visible re-reads.
 * **Only `tab` is in the URL.** Severity, search text, rule id and the Suricata-only switch are
   component state, so a link such as `/findings?severity=high` silently shows everything. Use
   `/findings/<id>` (with `?tab=`) to point at a specific finding.
-* **An unrecognised `tab` value blanks the detail area.** Any value other than the six listed
+* **An unrecognised `tab` value blanks the detail area.** Any value other than the seven listed
   renders no tab body at all: the header and the tab strip appear, and nothing under them.
 * **The list is capped at 500 rows.** The page requests `page=1&page_size=500` and has no
   pagination, so on a capture with more than 500 findings the list holds only the first 500 in
@@ -485,10 +513,11 @@ findings counts and the dashboard summary, so everything visible re-reads.
   8 endpoints. The API accepts a limit for most of them (up to 500 packets, 50 streams, 200
   HTTP/DNS/TLS/object rows, 50 related findings) but the page never passes any, and the endpoint
   count has no query parameter at all. Some caps announce themselves — the Packets tab prints its
-  cap and the alerting count, the Endpoints panel says when more were involved, the Conversation
-  tab says more streams belong to the alert, the Files tab appends *"capped, more objects belong
-  to this alert"*, and the Related tab says more findings share artefacts — but the Application
-  tab's three tables (20 rows each) and the Overview's Timeline (60 entries) are cut silently.
+  cap and the alerting count, the Endpoints section of the merged card says when more were
+  involved, the Timeline tab's footer says *"Showing the first 60 of a longer timeline."* when its
+  own cap bit, the Conversation tab says more streams belong to the alert, the Files tab appends
+  *"capped, more objects belong to this alert"*, and the Related tab says more findings share
+  artefacts — but the Application tab's three tables (20 rows each) are cut silently.
 * **Frame numbers are capped before they are used.** Both producers store at most 50 frame
   numbers per finding, so the `alerting_packets` badge on the Packets tab and the length of the
   stored list agree; the tab then draws up to `packets_limit` (default 50) of them and prints both
