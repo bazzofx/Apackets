@@ -124,7 +124,11 @@ export function AppLayout() {
     queryKey: ['findings-counts', analysisId],
     queryFn: () => findingsApi.list(analysisId as string, { page: 1, page_size: 1 }),
     enabled: ready,
-    staleTime: 30_000,
+    staleTime: 10_000,
+    // The badge tracks the same findings the Dashboard shows, so it follows the
+    // analysis finishing (or Suricata rules being re-run) without a reload.
+    refetchOnWindowFocus: true,
+    refetchInterval: ready ? 10_000 : false,
   })
 
   const counts = findingsCounts.data?.counts

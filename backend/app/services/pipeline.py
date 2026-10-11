@@ -32,8 +32,9 @@ BANDS: dict[str, tuple[float, float]] = {
     "dns": (68.0, 8.0),
     "tls": (76.0, 7.0),
     "hosts": (83.0, 7.0),
-    "objects": (90.0, 5.0),
-    "detection": (95.0, 4.0),
+    "objects": (90.0, 4.0),
+    "detection": (94.0, 3.0),
+    "suricata": (97.0, 2.0),
     "finalise": (99.0, 1.0),
 }
 
@@ -160,6 +161,7 @@ def run_analysis(ctx: JobContext, analysis_id: str, capture_path: Path) -> None:
         ("hosts", "host_analyzer", "Building host statistics"),
         ("objects", "object_extractor", "Extracting objects"),
         ("detection", "detection_engine", "Running detection rules"),
+        ("suricata", "suricata_engine", "Matching Suricata rules"),
     ]
 
     for stage, module_name, label in optional_stages:

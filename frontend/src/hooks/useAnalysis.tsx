@@ -61,12 +61,29 @@ export function useAnalysisDetail(analysisId: string | null | undefined) {
   })
 }
 
-/** `GET /api/analyses/{id}/summary` — Dashboard payload. */
-export function useAnalysisSummary(analysisId: string | null | undefined) {
+export interface SummaryOptions {
+  /** Poll interval while the analysis is fresh (a just-finished run, or rules re-run). */
+  refetchInterval?: number | false
+  refetchOnWindowFocus?: boolean
+}
+
+/**
+ * `GET /api/analyses/{id}/summary` — Dashboard payload.
+ *
+ * Refreshes when the window regains focus by default: findings change when an
+ * analysis finishes or when Suricata rules are re-run from Settings, and the
+ * dashboard must not keep showing the previous counts.
+ */
+export function useAnalysisSummary(
+  analysisId: string | null | undefined,
+  options: SummaryOptions = {},
+) {
   return useQuery<AnalysisSummary>({
     queryKey: ['summary', analysisId],
     queryFn: () => analysesApi.summary(analysisId as string),
     enabled: Boolean(analysisId),
+    refetchOnWindowFocus: options.refetchOnWindowFocus ?? true,
+    refetchInterval: options.refetchInterval ?? false,
   })
 }
 

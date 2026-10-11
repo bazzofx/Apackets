@@ -22,6 +22,8 @@ import type {
   DnsQuery,
   ExtractObjectsResponse,
   Finding,
+  FindingContext,
+  FindingRescanResult,
   FindingRulesResponse,
   FindingsListResponse,
   HealthResponse,
@@ -48,6 +50,14 @@ import type {
   SortOrder,
   StreamDetail,
   StreamMode,
+  SuricataConfig,
+  SuricataImportResult,
+  SuricataRule,
+  SuricataRuleStats,
+  SuricataRuleUpdate,
+  SuricataRulesResponse,
+  SuricataAlertsResponse,
+  SuricataRunResult,
   TlsFingerprintsResponse,
   TlsListResponse,
   TlsSession,
@@ -605,6 +615,38 @@ export const findingsApi = {
 
   rules: (analysisId: string) =>
     request<FindingRulesResponse>(`/analyses/${analysisId}/findings/rules`),
+
+  /**
+   * Everything the Findings workbench needs for one alert: the finding, its
+   * packets, the conversations and streams they belong to, the application
+   * layer, transferred files, related findings and a timeline.
+   */
+  context: (analysisId: string, findingId: string, params?: FindingContextParams) =>
+    request<FindingContext>(
+      `/analyses/${analysisId}/findings/${encodeURIComponent(findingId)}/context${buildQuery(
+        params as Record<string, unknown>,
+      )}`,
+    ),
+
+  /**
+   * Re-runs the built-in detection engine. Note: that engine rewrites every
+   * finding row for the analysis, so Suricata matches must be re-run after it
+   * (see `suricataApi.run`) - the Findings page does both.
+   */
+  rescan: (analysisId: string) =>
+    request<FindingRescanResult>(`/analyses/${analysisId}/findings/rescan`, { method: 'POST' }),
+}
+
+export interface FindingContextParams {
+  packets_limit?: number
+  streams_limit?: number
+  http_limit?: number
+  dns_limit?: number
+  tls_limit?: number
+  objects_limit?: number
+  related_limit?: number
+  include_follow?: boolean
+  follow_mode?: StreamMode
 }
 
 /* ------------------------------------------------------------------ */
@@ -657,3 +699,141 @@ export const settingsApi = {
 /* ------------------------------------------------------------------ */
 
 export type { Paginated }
+
+
+/* ------------------------------------------------------------------ */
+/* Suricata rules                                                      */
+/* ------------------------------------------------------------------ */
+
+export interface SuricataRuleParams extends PageParams {
+  enabled?: boolean
+  supported?: boolean
+  severity?: string
+  protocol?: string
+  source?: string
+  category?: string
+  action?: string
+  search?: string
+  /** Adds per-analysis hit counts to each rule. */
+  analysis_id?: string
+}
+
+export interface SuricataAlertParams extends PageParams {
+  severity?: string
+  search?: string
+}
+
+/**
+ * `POST /api/suricata/rules/import` — multipart upload of one or more
+ * `.rules` files. Uses XMLHttpRequest so a large rule set reports progress.
+ */
+export function importSuricataRules(
+  files: File[],
+  options: UploadOptions = {},
+): Promise<SuricataImportResult> {
+  const { onProgress, signal } = options
+  return new Promise<SuricataImportResult>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    const url = apiUrl(`/suricata/rules/import${buildQuery({ enabled: true })}`)
+
+    const onAbort = () => xhr.abort()
+    const cleanup = () => {
+      if (signal) signal.removeEventListener('abort', onAbort)
+    }
+
+    xhr.open('POST', url, true)
+    xhr.setRequestHeader('Accept', 'application/json')
+    xhr.responseType = 'text'
+    xhr.upload.onprogress = (event: ProgressEvent) => {
+      if (!onProgress) return
+      const total = event.lengthComputable ? event.total : 0
+      onProgress({
+        loaded: event.loaded,
+        total,
+        percent: total > 0 ? Math.min(100, (event.loaded / total) * 100) : 0,
+      })
+    }
+    xhr.onload = () => {
+      cleanup()
+      const text = typeof xhr.response === 'string' ? xhr.response : xhr.responseText
+      let body: unknown
+      try {
+        body = text ? JSON.parse(text) : undefined
+      } catch {
+        body = undefined
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(body as SuricataImportResult)
+        return
+      }
+      const parsed = parseErrorEnvelope(body)
+      reject(
+        new ApiError(
+          xhr.status,
+          parsed.code ?? 'http_error',
+          parsed.message ?? `Import failed with status ${xhr.status}`,
+          parsed.details ?? {},
+        ),
+      )
+    }
+    xhr.onerror = () => {
+      cleanup()
+      reject(ApiError.network(NETWORK_ERROR_MESSAGE, { url }))
+    }
+    xhr.onabort = () => {
+      cleanup()
+      reject(new ApiError(0, 'aborted', 'Import cancelled', { url }))
+    }
+    if (signal) {
+      if (signal.aborted) {
+        reject(new ApiError(0, 'aborted', 'Import cancelled', { url }))
+        return
+      }
+      signal.addEventListener('abort', onAbort)
+    }
+
+    const form = new FormData()
+    for (const file of files) form.append('file', file, file.name)
+    xhr.send(form)
+  })
+}
+
+export const suricataApi = {
+  rules: (params?: SuricataRuleParams) =>
+    request<SuricataRulesResponse>(`/suricata/rules${buildQuery(params as Record<string, unknown>)}`),
+
+  stats: () => request<SuricataRuleStats>('/suricata/rules/stats'),
+
+  rule: (sid: number) => request<SuricataRule>(`/suricata/rules/${sid}`),
+
+  createRule: (raw: string, enabled = true) =>
+    request<SuricataRule>('/suricata/rules', { method: 'POST', json: { raw, enabled } }),
+
+  updateRule: (sid: number, payload: SuricataRuleUpdate) =>
+    request<SuricataRule>(`/suricata/rules/${sid}`, { method: 'PUT', json: payload }),
+
+  deleteRule: (sid: number) =>
+    request<{ ok: boolean; sid: number }>(`/suricata/rules/${sid}`, { method: 'DELETE' }),
+
+  /** Import the rule sets vendored under backend/rules/. */
+  seedRules: () =>
+    request<SuricataImportResult & { stats: SuricataRuleStats }>('/suricata/rules/seed', {
+      method: 'POST',
+    }),
+
+  importRules: importSuricataRules,
+
+  config: () => request<SuricataConfig>('/suricata/config'),
+
+  updateConfig: (payload: Partial<SuricataConfig>) =>
+    request<SuricataConfig>('/suricata/config', { method: 'PUT', json: payload }),
+
+  /** Evaluate the enabled rules against an analysed capture. */
+  run: (analysisId: string) =>
+    request<SuricataRunResult>(`/analyses/${analysisId}/suricata/run`, { method: 'POST' }),
+
+  alerts: (analysisId: string, params?: SuricataAlertParams) =>
+    request<SuricataAlertsResponse>(
+      `/analyses/${analysisId}/suricata/alerts${buildQuery(params as Record<string, unknown>)}`,
+    ),
+}

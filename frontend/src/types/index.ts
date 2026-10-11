@@ -428,6 +428,8 @@ export interface Conversation {
 
 export type ConversationsListResponse = Paginated<Conversation> & {
   total_bytes: number
+  /** Total conversations for the current filter (returned alongside `total`). */
+  total_conversations?: number
 }
 
 export interface Stream {
@@ -477,8 +479,9 @@ export interface StreamFollow {
   /** Live-API extras. */
   stream_id?: number
   transport?: Transport
-  client_node?: number
-  server_node?: number
+  /** Which follow node is the client: `'node0'` or `'node1'` (the API sends a string). */
+  client_node?: string | null
+  server_node?: string | null
   client_endpoint?: string | null
   server_endpoint?: string | null
   chunk_count?: number
@@ -905,3 +908,258 @@ export type IndicatorsResponse = ItemsEnvelope<Indicator>
 export type QueryValue = string | number | boolean | null | undefined
 
 export type QueryParams = Record<string, QueryValue>
+
+
+/* ------------------------------------------------------------------ */
+/* suricata rules (analyst editable detection signatures)              */
+/* ------------------------------------------------------------------ */
+
+export interface SuricataRule {
+  sid: number
+  rev: number
+  action: string
+  protocol: string
+  src_net: string
+  src_port: string
+  direction: string
+  dst_net: string
+  dst_port: string
+  msg: string
+  classtype: string | null
+  priority: number | null
+  severity: Severity
+  reference: string | null
+  metadata: string | null
+  /** Parsed, evaluable rule options. */
+  options: unknown[]
+  /** Options the built-in matcher cannot honour (rule is stored but skipped). */
+  unsupported: string[]
+  supported: boolean
+  /** Content had no buffer selector: matched against extracted fields. */
+  approximate: boolean
+  enabled: boolean
+  source: string
+  category: string | null
+  /** Verbatim rule text as stored (editable). */
+  raw: string
+  created_at: number | null
+  updated_at: number | null
+  /** Findings produced by this rule for the requested analysis. */
+  hits?: number | null
+}
+
+export interface SuricataRuleStats {
+  total: number
+  enabled: number
+  supported: number
+  unsupported: number
+  approximate: number
+  severities: SeverityCounts
+  sources: { source: string; rules: number }[]
+  categories: { category: string; rules: number }[]
+}
+
+export interface SuricataEngineInfo {
+  engine: string
+  suricata_binary: string | null
+  note: string
+}
+
+export interface SuricataConfig {
+  home_net: string[]
+  variables: Record<string, string>
+  max_findings_per_rule: number
+  include_unsupported: boolean
+  variables_default?: Record<string, string>
+  bundled_rules_dir?: string
+  bundled_files?: number
+  engine?: SuricataEngineInfo
+}
+
+export interface SuricataImportFileReport {
+  file: string
+  imported: number
+  updated: number
+  errors: number
+}
+
+export interface SuricataImportResult {
+  ok: boolean
+  files: SuricataImportFileReport[]
+  imported: number
+  updated: number
+  skipped_files: number
+  errors: string[]
+  stats: SuricataRuleStats
+}
+
+export interface SuricataRunResult {
+  ok: boolean
+  analysis_id: string
+  rules_evaluated: number
+  rules_packet_scope?: number
+  rules_http_scope?: number
+  rules_matched: number
+  findings: number
+  packets_scanned?: number
+  http_scanned?: number
+  by_severity: SeverityCounts
+  seconds?: number
+  note?: string
+}
+
+export interface SuricataRuleUpdate {
+  raw?: string
+  enabled?: boolean
+}
+
+export type SuricataRulesResponse = Paginated<SuricataRule>
+export type SuricataAlertsResponse = Paginated<Finding>
+
+/* ------------------------------------------------------------------ */
+/* finding context (Findings workbench)                                */
+/* ------------------------------------------------------------------ */
+
+export interface FindingContextAnalysis {
+  id: string
+  original_filename: string
+  status: AnalysisStatus
+  packet_count: number | null
+  bytes_total: number | null
+  capture_start: number | null
+  capture_end: number | null
+  duration: number | null
+  file_type: string | null
+  encapsulation: string | null
+  finished_at: number | null
+}
+
+export interface FindingEndpointPort {
+  port: number
+  transport: string | null
+  /** Service name from the local services database, not capture content. */
+  service: string | null
+  /** Packets of this alert that used the port. */
+  packets: number
+}
+
+export interface FindingEndpoint {
+  ip: string
+  direction: 'source' | 'destination' | string
+  ports: FindingEndpointPort[]
+  packets_in_alert: number
+  mac: string | null
+  hostnames: string[]
+  tls_sni: string[]
+  is_private: number | null
+  first_seen: number | null
+  last_seen: number | null
+  packets_sent: number | null
+  packets_received: number | null
+  bytes_sent: number | null
+  bytes_received: number | null
+}
+
+/** A packet row from the context endpoint: a summary plus why it is here. */
+export interface FindingContextPacket extends PacketSummary {
+  udp_stream?: number | null
+  /** True for every packet returned here - they all come from the finding. */
+  alerting?: boolean
+}
+
+export interface FindingStreamBlock {
+  stream: Stream | null
+  follow: StreamFollow | null
+  /** Present when the stream content could not be reassembled (e.g. capture purged). */
+  unavailable?: { code: string; message: string }
+}
+
+export interface FindingObject extends CaptureObject {
+  /** How the file was tied to this finding. */
+  match?: 'stream' | 'packet' | 'inferred-uri' | string
+}
+
+export interface RelatedFinding {
+  id: string
+  rule_id: string
+  severity: Severity
+  title: string
+  created_at: number | null
+  /** Shared artefacts, e.g. `ip:10.0.0.5`, `uri:/x`, `packet:42`. */
+  shared: string[]
+}
+
+export interface FindingTimelineEntry {
+  t: number
+  kind: 'packet' | 'http' | 'dns' | 'tls' | string
+  packet: number | null
+  label: string
+}
+
+export interface FindingContextCounts {
+  packets: number
+  alerting_packets: number
+  conversations: number
+  streams: number
+  http: number
+  dns: number
+  tls: number
+  objects: number
+  endpoints: number
+  related: number
+}
+
+export interface FindingContextTruncated {
+  packets: boolean
+  streams: boolean
+  http: boolean
+  dns: boolean
+  tls: boolean
+  objects: boolean
+  endpoints: boolean
+  related: boolean
+  timeline: boolean
+}
+
+export interface FindingContextLimits {
+  packets: number
+  streams: number
+  http: number
+  dns: number
+  tls: number
+  objects: number
+  related: number
+  endpoints: number
+  timeline: number
+}
+
+/** `GET /api/analyses/{id}/findings/{finding_id}/context` */
+export interface FindingContext {
+  finding: Finding
+  rule: SuricataRule | null
+  analysis: FindingContextAnalysis
+  endpoints: FindingEndpoint[]
+  packets: FindingContextPacket[]
+  conversations: Conversation[]
+  streams: FindingStreamBlock[]
+  http: HttpTransaction[]
+  dns: DnsQuery[]
+  tls: TlsSession[]
+  objects: FindingObject[]
+  related: RelatedFinding[]
+  timeline: FindingTimelineEntry[]
+  limits: FindingContextLimits
+  counts: FindingContextCounts
+  truncated: FindingContextTruncated
+  follow_mode: StreamMode | string
+  include_follow: boolean
+}
+
+export interface FindingRescanResult {
+  ok: boolean
+  findings: number
+  by_severity: SeverityCounts
+  rules_run: number
+  rule_errors: Record<string, string>
+  seconds: number | null
+}

@@ -1,4 +1,4 @@
-﻿"""TLS session metadata.
+"""TLS session metadata.
 
 TLS payloads are **not** decrypted: this module records what TShark dissects from
 the handshake, plus the built-in JA3/JA3S/JA4 fingerprints (TShark 4.6.8 computes

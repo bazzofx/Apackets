@@ -1,4 +1,4 @@
-﻿"""HTTP endpoints: transaction list, single transaction and filter dropdowns.
+"""HTTP endpoints: transaction list, single transaction and filter dropdowns.
 
 Transactions are read from the persisted ``http_transactions`` rows. The
 ``methods``/``hosts``/``status_classes`` blocks are computed from the same table

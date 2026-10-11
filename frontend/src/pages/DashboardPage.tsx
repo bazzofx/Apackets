@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Area,
@@ -24,6 +24,7 @@ import {
   Layers,
   List,
   Lock,
+  RefreshCw,
   Search,
   ShieldAlert,
   Waypoints,
@@ -87,9 +88,31 @@ function severityCount(counts: AnalysisSummary['severity_counts'], severity: Sev
   return counts?.[severity] ?? 0
 }
 
+/** An analysis stays "fresh" for this long: findings can still be produced by a
+ *  Suricata rule run or by a pipeline that has only just reported completion. */
+const FRESH_WINDOW_S = 300
+const FRESH_POLL_MS = 5000
+
 function DashboardContent() {
-  const { analysisId } = useAnalysis()
-  const summary = useAnalysisSummary(analysisId)
+  const { analysisId, selected } = useAnalysis()
+
+  // Poll the summary while the analysis is recent, so the findings panel updates
+  // on its own when an analysis finishes or rules are re-run. Older analyses are
+  // fetched on demand only (window focus or the refresh button).
+  const [now, setNow] = useState(() => Date.now() / 1000)
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now() / 1000), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const isFresh = useMemo(() => {
+    const stamp = selected?.finished_at ?? selected?.updated_at ?? null
+    if (stamp === null) return false
+    return now - stamp < FRESH_WINDOW_S
+  }, [selected?.finished_at, selected?.updated_at, now])
+
+  const summary = useAnalysisSummary(analysisId, {
+    refetchInterval: isFresh ? FRESH_POLL_MS : false,
+  })
   const [protocolMetric, setProtocolMetric] = useState<'packets' | 'bytes'>('packets')
   const [trafficMetric, setTrafficMetric] = useState<'both' | 'packets' | 'bytes'>('both')
 
@@ -466,10 +489,26 @@ function DashboardContent() {
         }
         flush
         actions={
-          <Link to="/findings" className="btn">
-            <ShieldAlert size={13} aria-hidden />
-            Open findings
-          </Link>
+          <>
+            {summary.isFetching ? (
+              <span className="text-2xs text-faint" aria-live="polite">
+                updating…
+              </span>
+            ) : null}
+            <button
+              type="button"
+              className="btn"
+              onClick={() => void summary.refetch()}
+              title="Re-read the findings for this analysis"
+            >
+              <RefreshCw size={13} aria-hidden />
+              Refresh
+            </button>
+            <Link to="/findings" className="btn">
+              <ShieldAlert size={13} aria-hidden />
+              Open findings
+            </Link>
+          </>
         }
       >
         <div className="flex flex-wrap items-center gap-1.5 px-3 py-2">

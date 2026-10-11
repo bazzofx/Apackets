@@ -39,6 +39,7 @@ ROUTER_SPECS: tuple[tuple[str, str], ...] = (
     ("app.api.routes_tls", "router"),
     ("app.api.routes_findings", "router"),
     ("app.api.routes_objects", "router"),
+    ("app.api.routes_suricata", "router"),
 )
 
 # Static frontend build produced by `npm run build` in ./frontend.

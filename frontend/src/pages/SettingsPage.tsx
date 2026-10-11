@@ -17,6 +17,7 @@ import ErrorState from '@/components/ErrorState'
 import LoadingState from '@/components/LoadingState'
 import MonoCell from '@/components/MonoCell'
 import Panel from '@/components/Panel'
+import SuricataRulesPanel from '@/components/SuricataRulesPanel'
 import Toolbar from '@/components/Toolbar'
 import { settingsApi } from '@/services/api'
 import type { Indicator, IndicatorType, Settings, SettingsUpdate } from '@/types'
@@ -496,6 +497,8 @@ function SettingsContent() {
           </div>
         )}
       </Panel>
+
+      <SuricataRulesPanel />
 
       <Panel
         title="Local-only operation"

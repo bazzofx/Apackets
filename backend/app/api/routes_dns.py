@@ -1,4 +1,4 @@
-﻿"""DNS endpoints: query list, single query, and per-domain aggregation.
+"""DNS endpoints: query list, single query, and per-domain aggregation.
 
 The list endpoint answers from the persisted ``dns_queries`` rows only; the
 ``qtypes``/``rcodes``/``top_clients`` blocks are computed from the same table so
@@ -70,7 +70,7 @@ def list_dns_queries(
     domain: str | None = Query(None, description="Substring match on the query name"),
     client_ip: str | None = Query(None),
     server_ip: str | None = Query(None),
-    qtype: str | None = Query(None, description="A, AAAA, TXT, â€¦ or the numeric type"),
+    qtype: str | None = Query(None, description="A, AAAA, TXT, ... or the numeric type"),
     rcode: str | None = Query(None, description="NXDOMAIN or the numeric rcode"),
     unanswered: bool | None = Query(None),
     nxdomain: bool | None = Query(None),

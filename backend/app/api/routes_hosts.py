@@ -7,6 +7,8 @@ Node attributes are enriched from the ``hosts`` table when that row exists.
 
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import (
@@ -41,6 +43,37 @@ DEFAULT_ORDER = "asc"
 
 DETAIL_LIST_LIMIT = 50
 GRAPH_MAX_PORTS = 5
+
+# Columns stored as JSON text. They are exposed as parsed structures so that
+# hosts responses match the other endpoints (dns ``answers``, http ``flags``,
+# findings ``evidence``), instead of leaking raw JSON strings to clients.
+JSON_COLUMNS: tuple[str, ...] = ("ports", "protocols", "dns_names", "tls_sni", "peers")
+
+
+def _host_row(row) -> dict:
+    """Serialise a ``hosts`` row, parsing its JSON columns."""
+    data = json_or(dict(row))
+    return data
+
+
+def json_or(row: dict) -> dict:
+    """Parse the JSON text columns of a host row in place."""
+    for column in JSON_COLUMNS:
+        if column not in row:
+            continue
+        raw = row[column]
+        if raw is None:
+            row[column] = [] if column != "protocols" else {}
+            continue
+        if not isinstance(raw, str):
+            continue
+        try:
+            row[column] = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            # Malformed capture-derived JSON: expose an empty structure rather
+            # than a string the client would have to re-parse.
+            row[column] = {} if column == "protocols" else []
+    return row
 
 
 def _conditions(
@@ -116,7 +149,7 @@ def list_hosts(
     )
 
     return {
-        **page.envelope([dict(r) for r in rows], total),
+        **page.envelope([_host_row(r) for r in rows], total),
         "total_bytes": int(overall["b"]) if overall else 0,
         "total_hosts": int(overall["n"]) if overall else 0,
     }
@@ -316,7 +349,7 @@ def get_host(analysis_id: str, ip: str) -> dict:
     )
 
     return {
-        **dict(row),
+        **json_or(dict(row)),
         "packet_count": int(packet_row["n"]) if packet_row else 0,
         "conversations": [dict(r) for r in conversations],
         "dns_queries": [dict(r) for r in dns_queries],

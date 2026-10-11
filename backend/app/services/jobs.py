@@ -221,8 +221,12 @@ class JobManager:
             return job_id in self._contexts
 
     def shutdown(self, wait: bool = False) -> None:
+        # Clear the reference as well: the property recreates the pool on next
+        # use, so an application lifecycle that runs more than once in the same
+        # process (uvicorn reload, TestClient per test) can still submit jobs.
         with self._lock:
             pool = self._pool
+            self._pool = None
         if pool is not None:
             pool.shutdown(wait=wait, cancel_futures=True)
 

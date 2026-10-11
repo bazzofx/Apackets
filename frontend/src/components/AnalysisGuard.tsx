@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { Ban, FileWarning, FolderOpen, Upload } from 'lucide-react'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
@@ -31,6 +32,27 @@ function progressPercent(progress: number | null | undefined): number {
 export function AnalysisGuard({ children, emptyDescription }: AnalysisGuardProps) {
   const { analysisId, isLoading, error, refresh } = useAnalysis()
   const detail = useAnalysisDetail(analysisId)
+  const queryClient = useQueryClient()
+  const wasInFlight = useRef(false)
+
+  // The pipeline writes findings (including Suricata matches) right up to the
+  // moment it marks the analysis completed, so anything cached while it was
+  // still running is stale the instant it finishes. Drop it.
+  useEffect(() => {
+    const status = detail.data?.status
+    const inFlight = status === 'pending' || status === 'processing'
+    if (inFlight) {
+      wasInFlight.current = true
+      return
+    }
+    if (wasInFlight.current && status === 'completed' && analysisId) {
+      wasInFlight.current = false
+      for (const key of ['summary', 'findings', 'findings-counts', 'objects', 'conversations']) {
+        void queryClient.invalidateQueries({ queryKey: [key, analysisId] })
+      }
+      void queryClient.invalidateQueries({ queryKey: ['analyses'] })
+    }
+  }, [detail.data?.status, analysisId, queryClient])
 
   if (error) {
     return (

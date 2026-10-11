@@ -221,7 +221,7 @@ def fresh_db(_prepared_database):  # noqa: ARG001
     tables = (
         "packets", "conversations", "streams", "http_transactions", "dns_queries",
         "tls_sessions", "hosts", "findings", "objects", "stats_cache", "jobs",
-        "indicators", "settings", "analyses",
+        "indicators", "settings", "analyses", "suricata_rules",
     )
     with db.get_conn() as conn:
         for table in tables:

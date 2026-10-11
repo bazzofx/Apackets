@@ -20,6 +20,7 @@ functional with networking disabled.
 - [Local development](#local-development)
 - [Configuration](#configuration)
 - [Using the application](#using-the-application)
+- [Suricata rule based detection](#suricata-rule-based-detection)
 - [HTTP API](#http-api)
 - [Security model](#security-model)
 - [Testing](#testing)
@@ -263,6 +264,134 @@ states are never conflated.
 
 ---
 
+## Suricata rule based detection
+
+APackets can evaluate Suricata rules. Two rule sets are vendored with the
+application and an analyst can upload more; matches become ordinary findings,
+alongside the ones the built-in rules produce.
+
+**This is not Suricata.** No Suricata binary is installed and none is required.
+`backend/app/services/suricata_engine.py` is a native Python matcher over the
+fields TShark has already extracted during the packet, HTTP, DNS and TLS stages;
+`backend/app/services/suricata_rules.py` is the parser and storage layer. Rule
+semantics are implemented conservatively - an option that cannot be honoured
+exactly causes the whole rule to be skipped rather than approximated. A rule
+firing here means "this rule's pattern was present in the extracted fields", not
+"Suricata would fire".
+
+### Rule sources (vendored, offline)
+
+| Set | Files | Rules | Licence | Upstream |
+|---|---|---|---|---|
+| `backend/rules/daffainfo/` | 252 | 1,167 | Apache-2.0 | <https://github.com/daffainfo/suricata-rules> at commit `23bfba7e688fdf5fadd8e378f070dae843e14263` |
+| `backend/rules/oisf/` | 32 | 448 | GPL-2.0 | <https://github.com/OISF/suricata> (`rules/` directory) at commit `4badfd13f43e112dd61c5cbab5718765512ed5ad` |
+
+Combined: 284 `.rules` files, 1,615 rules, about 615 KB. The upstream directory
+layout is preserved, so rules keep their context (`http/cves/<year>/`,
+`http/cnvd/<year>/`, `http/default-logins/`, `http/web-attacks/`, ...).
+`backend/rules/PROVENANCE.md` records the upstream URLs and commit SHAs;
+`backend/rules/README.md` describes the import flow.
+
+**The application never downloads rules at runtime.** There is no network access
+by design, for rule updates or for anything else. Rules arrive either from the
+vendored tree or from analyst uploads.
+
+Rules parse into `suricata_rules`, a table defined in `backend/app/db/schema.sql`
+and keyed by SID. The verbatim rule text is stored, so a rule can be shown,
+edited and re-imported unchanged. Of the 1,615 vendored rules, **1,114 are
+evaluable** by the matcher and **501 are skipped** because they need engine
+features APackets cannot honour. A skipped rule is stored, listed and clearly
+flagged in the UI; it is never partially matched.
+
+### What is evaluated
+
+The rule header is evaluated in full: action, protocol, source and destination
+addresses and ports (including `!` negation, CIDR, `[...]` lists, ranges,
+`$HOME_NET`, `$EXTERNAL_NET`, `$HTTP_PORTS` and the other standard variables),
+and the `->` and `<>` directions.
+
+Options evaluated: `flow`, `flags`, `dsize`, `ttl`, `content` (with `nocase`,
+`startswith`, `endswith`, `offset`, `depth`, `fast_pattern`, hex escapes such as
+`|3a|`, and negated content) and `pcre`, which is evaluated with Python's regex
+engine with the `i`, `s`, `m` and `x` flags.
+
+Content is matched against named inspection buffers taken from the reassembled
+HTTP transactions and the packet index: `http.uri`, `http.raw_uri`, `http.host`,
+`http.method`, `http.request_body`, `http.response_body`, `http.header`,
+`http.request_header`, `http.response_header`, `http.user_agent`, `http.cookie`,
+`http.referer`, `http.protocol`, `http.status_code`, `dns.query` and `tls.sni`.
+Both the sticky-buffer form (`http.uri; content:"..."`) and the legacy modifier
+form (`content:"..."; http_uri;`) are handled.
+
+### What is skipped
+
+A rule is skipped, and flagged as skipped in the UI, when it uses `flowbits`,
+`xbits`, `threshold`, `detection_filter`, `byte_test` / `byte_jump` /
+`byte_extract`, engine / app-layer / decode / stream events, content that has no
+buffer selector and needs raw packet payload bytes, PCRE-only flags, or a
+protocol APackets does not dissect (`smb`, `smtp`, `ike`, `mqtt`, `mdns`, `dnp3`,
+`modbus`, `http2`, `pkthdr`).
+
+### Findings and the pipeline
+
+Matches become ordinary findings with `rule_id` set to `suricata:<sid>`, so they
+appear in `GET /api/analyses/{id}/findings`, in the dashboard severity counts and
+in the findings summary, next to the built-in rules. Each finding records the
+sid, rev, classtype, action, rule source, the matched buffers, up to 10 example
+matches with packet numbers, and states the evaluation basis. Findings are
+grouped per rule and per peer pair / URI, capped at 25 grouped findings per rule
+per capture (configurable).
+
+Analysis runs an optional `suricata` stage after `detection`, in the 97-99%
+progress band. Rules can also be re-run on demand for an existing analysis.
+
+### Workflow
+
+1. **Import.** The **Upload .rules** control on the Settings page accepts one or
+   more `.rules` files (multipart, `.rules` only). **Import bundled** imports the
+   vendored sets; it is idempotent, so re-importing refreshes rule text while
+   keeping the enabled/disabled choice.
+2. **Review.** The **Suricata rules** panel shows totals by severity and source,
+   search plus severity / enabled / matcher-support / source filters, and a
+   paginated table of SID, severity, protocol, action, message, category, source,
+   hits and state.
+3. **Enable or disable.** Every rule has an enabled/disabled toggle.
+4. **Edit.** The **Edit** dialog edits the stored signature text. The SID must
+   not change.
+5. **Delete.** Removing a rule asks for confirmation.
+6. **Run.** **Run on capture** re-evaluates every enabled rule against the
+   selected analysis, reports matches per severity and links to the findings.
+
+### Verified behaviour
+
+Running the whole vendored set against `sf19us-MTA-lab-02.pcap` (398 packets, 6
+HTTP transactions) evaluates the 1,114 evaluable rules (577 packet scope, 537
+HTTP scope) in about 0.15 s and produces two high-severity findings:
+
+| Finding | Message | Matched buffer |
+|---|---|---|
+| `suricata:50300004` | Possible SQL Injection attack (Contains singlequote POST data) | `http.request_body` |
+| `suricata:51000006` | Possible JNDI Injection attack (Log4Shell) | `http.header` |
+
+Both appear in the findings endpoint next to the built-in rules' findings. They
+are leads, not verdicts: a signature match reports that a known pattern was
+present in the extracted fields, and does not establish that the traffic was
+malicious.
+
+### Honest limitations
+
+- There is no Suricata binary behind this, so rule behaviour is only as complete
+  as the evaluated options listed above.
+- Rules that need raw packet payload bytes are skipped, never matched against
+  something else.
+- Skipped options and undissected protocols are listed under *What is skipped*; a
+  skipped rule never contributes a finding.
+- PCRE-only flags are not supported.
+- Matching is signature-based and does not prove maliciousness. See
+  [Known limitations](#known-limitations).
+
+---
+
 ## HTTP API
 
 All endpoints are under `/api` and return JSON. Full interactive documentation is
@@ -311,6 +440,28 @@ Paginated lists return `{ "items": [], "total": 0, "page": 1, "page_size": 100 }
 
 `GET|PUT /api/settings`, plus `GET|POST /api/indicators` and
 `DELETE /api/indicators/{id}`.
+
+### Suricata rules
+
+| Method | Path |
+|---|---|
+| `GET` | `/api/suricata/rules` - list rules (filters: `enabled`, `supported`, `severity`, `protocol`, `source`, `category`, `action`, `search`, `analysis_id`, `sort`, `order`; paginated) |
+| `GET` | `/api/suricata/rules/stats` - totals by severity, source and category |
+| `GET` | `/api/suricata/rules/{sid}` - one rule with its parsed options |
+| `POST` | `/api/suricata/rules` - create one rule from its signature text |
+| `PUT` | `/api/suricata/rules/{sid}` - edit the text and/or enable/disable |
+| `DELETE` | `/api/suricata/rules/{sid}` - remove a rule |
+| `POST` | `/api/suricata/rules/import` - upload one or more `.rules` files (multipart, field `file`) |
+| `POST` | `/api/suricata/rules/seed` - import the vendored rule sets |
+| `GET` | `/api/suricata/config` - matcher configuration |
+| `PUT` | `/api/suricata/config` - update `HOME_NET`, variable overrides, finding cap |
+| `GET` | `/api/analyses/{id}/suricata/alerts` - Suricata findings for one analysis |
+| `POST` | `/api/analyses/{id}/suricata/run` - re-evaluate the enabled rules for one analysis |
+
+Configuration defaults: `home_net` is RFC1918 plus loopback, link-local and IPv6
+ULAs; `max_findings_per_rule` is `25`; `include_unsupported` is `false`;
+`variables` holds overrides for `$HOME_NET`, `$EXTERNAL_NET`, `$HTTP_PORTS` and
+the other rule variables (`*_SERVERS` default to `$HOME_NET`).
 
 ### Meta
 
@@ -472,13 +623,40 @@ These are real and intentional for a proof of concept:
 7. **Detection is heuristic and rule-based.** It surfaces investigative leads with
    their reasons. It does not identify malware, does not claim to detect all
    attacks, and deliberately requires no internet or threat-intelligence feed.
-8. **No live capture.** File analysis only.
-9. **Packet-detail byte-range highlighting** in the hex viewer is not
-   implemented; the hex/ASCII dump itself is.
-10. **Certificate metadata depends on the capture.** TLS 1.3 certificates are
+8. **The Suricata matcher is not Suricata.** No Suricata binary is installed or
+   required; rules are evaluated by a native Python matcher against the fields
+   TShark already extracted. Rules whose content needs raw packet payload bytes
+   are skipped rather than approximated, and `flowbits`, `xbits`, `threshold`,
+   `detection_filter`, `byte_test` / `byte_jump` / `byte_extract`, engine /
+   app-layer / decode / stream events and PCRE-only flags are not evaluated. Of
+   the 1,615 vendored rules, 501 are skipped for these reasons; a skipped rule is
+   stored, listed and flagged, and never partially matched.
+9. **No live capture.** File analysis only.
+10. **Packet-detail byte-range highlighting** in the hex viewer is not
+    implemented; the hex/ASCII dump itself is.
+11. **Certificate metadata depends on the capture.** TLS 1.3 certificates are
     usually encrypted and therefore unavailable.
-11. **`APACKETS_RETAIN_UPLOADS=false`** makes packet detail, stream views and
+12. **`APACKETS_RETAIN_UPLOADS=false`** makes packet detail, stream views and
     object export unavailable, because those features re-read the original file.
+13. **A signature match is not a verdict.** A Suricata rule that fires records
+    that a known pattern was present in the extracted fields. It does not prove
+    that the traffic was malicious, and a rule that does not fire does not prove
+    that it was not.
+14. **Certificate subject and issuer are often unavailable.** TShark's
+    `x509af.subject` / `x509af.issuer` fields are ASN.1 CHOICE indices rather
+    than distinguished names on the tested build, so the backend stores `NULL`
+    instead of a misleading number. Certificate presence is therefore derived
+    from the serial and validity columns, and a session can legitimately show a
+    certificate with no subject or issuer.
+15. **The host graph is not a topology.** Nodes and edges come only from
+    conversations observed in the capture, and nodes are built from conversation
+    endpoints, so a host that appears solely in non-TCP/UDP frames will not be
+    drawn. The UI states this; nothing is inferred about physical or logical
+    network layout.
+16. **Very large captures are untested at scale.** A 20,000-packet generated
+    capture is covered by an opt-in test, but the practical ceiling depends on
+    the host's disk and CPU. No fixed maximum file size or processing time is
+    promised.
 
 ---
 
@@ -502,11 +680,16 @@ backend/
       dns_analyzer.py
       tls_analyzer.py
       detection_engine.py   explainable rules
+      suricata_rules.py     Suricata rule parsing, storage and vendored import
+      suricata_engine.py    native header/option/buffer matcher
       object_extractor.py   file recovery with path-traversal protection
       pipeline.py           stage orchestration, progress, cancellation
       jobs.py               background worker + job records
       storage.py            layout, hashing, safe filenames, deletion
     api/                    one router per feature area + shared deps
+                            (routes_suricata.py for the rule endpoints)
+  rules/                    vendored Suricata rule sets (daffainfo, oisf)
+                            + PROVENANCE.md and import notes
   tests/                    pytest suite (Scapy-generated captures)
 frontend/
   src/
@@ -521,13 +704,67 @@ docker-compose.yml  .env.example  README.md
 
 ## Implementation status
 
-Verified working end to end (upload → background processing → dashboard →
-packet explorer → protocol views → findings → export) against real captures.
-See the report accompanying this build for the exact verification evidence, and
-`GET /api/capabilities` for which feature areas are compiled into a given build.
+The product path is implemented and verified end to end: **upload → background
+processing → dashboard → packet explorer → conversations and TCP streams →
+HTTP/DNS/TLS → hosts and graph → files and objects → findings → CSV and object
+export**, with `DELETE`/cancel lifecycle handling throughout.
+
+`GET /api/capabilities` reports which feature areas are compiled into a given
+build, and `GET /api/health` reports whether TShark is usable.
+
+### What was verified, and how
+
+- **Backend test suite:** `python -m pytest backend/tests -q` — see the
+  [Testing](#testing) section. The suite builds its own captures with Scapy and
+  asserts against real TShark output, so it needs no network.
+- **Real captures:** three real 2019 malware-traffic-analysis captures
+  (398 / 164 / 32 packets) were uploaded through the HTTP API and processed to
+  completion. For the 398-packet capture the run produced 37 conversations
+  (22 established, 4 reset, 3 closed), 6 HTTP transactions, 4 DNS queries
+  (2 NXDOMAIN), 7 hosts, 6 extracted HTTP objects and 6 findings — all derived
+  from the capture, with no fabricated values.
+- **Stream reconstruction:** byte-exact against an independent TShark path
+  (`tcp.payload`) for text and binary payloads, including a real SMB2 stream
+  (4,301 B client→server, 1,306 B server→client) and a synthetic stream carrying
+  a retransmission plus an out-of-order segment, where the retransmitted bytes
+  are deduplicated and the out-of-order segment is reordered.
+- **Display-filter semantics:** a valid filter matching nothing returns 0
+  results; an unparsable filter returns `422 invalid_filter` with TShark's
+  reason. The two are never conflated, and unknown sort keys are rejected with
+  `400` rather than reaching SQL.
+- **Extraction and isolation:** extracted objects are stored under
+  `data/analyses/<id>/objects/` under a server-generated identifier; a tampered
+  `stored_path` of `../../evil.txt` yields `403 path_traversal`, and an object
+  larger than the configured limit is recorded as `failed` with an explanatory
+  note instead of being silently dropped.
+- **Static serving:** the built SPA is served by the backend with client-route
+  fallback; encoded traversal probes (`/%2e%2e/…`, `/..%2f…`) return `403`/`404`
+  and never leak a file outside `frontend/dist`.
+
+### Not verified in the build environment
+
+- **Docker.** `docker compose config -q` passes and every `COPY` source in both
+  Dockerfiles was checked against the build context, but the images were **not
+  built or started** here: this machine's Docker engine requires elevated
+  privileges / WSL access that the build sandbox denies
+  (`open //./pipe/docker_engine: Access is denied`). Run
+  `docker compose up --build` and confirm the health checks on a normal host.
+- **Rendered UI.** The frontend was type-checked clean (`tsc` with
+  `noUnusedLocals`/`noUnusedParameters`) and bundled successfully with Vite, and
+  every endpoint each page consumes was verified against the live API — but the
+  pages were never opened in a browser during this build, so visual layout and
+  interactive behaviour have not been observed.
 
 `docs/CONTRACT.md` is the normative interface specification: database schema,
 API shapes, analyzer conventions and security rules. It is written first and the
 code conforms to it, so it doubles as the map for extending the application.
-#   A p a c k e t s  
- 
+
+### Suricata rule based detection
+
+The vendored rule sets import, list, filter and evaluate; matches surface as
+findings through `/api/analyses/{id}/findings` and
+`/api/analyses/{id}/suricata/alerts`, and the whole enabled set runs against a
+capture in well under a second (see
+[Suricata rule based detection](#suricata-rule-based-detection)). The matcher is
+native Python over TShark-extracted fields — it is **not** Suricata — and rules
+it cannot evaluate are stored, listed and flagged rather than approximated.

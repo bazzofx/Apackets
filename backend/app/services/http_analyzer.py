@@ -1,4 +1,4 @@
-﻿"""HTTP request/response transaction analysis.
+"""HTTP request/response transaction analysis.
 
 A single packet carries either a request or a response, so transactions are built
 per ``tcp.stream``: a request frame opens a pending transaction and the next

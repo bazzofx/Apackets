@@ -44,6 +44,7 @@ export function App() {
         <Route path="/hosts" element={<HostsPage />} />
         <Route path="/objects" element={<ObjectsPage />} />
         <Route path="/findings" element={<FindingsPage />} />
+        <Route path="/findings/:findingId" element={<FindingsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

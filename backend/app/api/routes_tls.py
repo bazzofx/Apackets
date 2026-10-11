@@ -1,4 +1,4 @@
-﻿"""TLS endpoints: session list, single session and fingerprint aggregation.
+"""TLS endpoints: session list, single session and fingerprint aggregation.
 
 Only what TShark dissected or fingerprinted is served; nothing is inferred. TLS
 payloads are never decrypted, so the certificate columns are NULL whenever the

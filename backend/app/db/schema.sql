@@ -345,3 +345,41 @@ CREATE TABLE IF NOT EXISTS stats_cache (
     created_at  REAL NOT NULL,
     PRIMARY KEY (analysis_id, kind)
 );
+
+-- Suricata-compatible detection rules (analyst editable).
+-- `sid` is the Suricata signature id and is the primary key: rule files are
+-- identified by SID, so importing a newer revision updates the existing row.
+-- `options` holds the parsed, evaluable rule options as JSON; `unsupported`
+-- lists options the built-in matcher cannot evaluate (a rule with any of them
+-- is stored with supported = 0 and is never silently half-matched).
+CREATE TABLE IF NOT EXISTS suricata_rules (
+    sid         INTEGER PRIMARY KEY,
+    rev         INTEGER NOT NULL DEFAULT 1,
+    action      TEXT    NOT NULL DEFAULT 'alert',
+    protocol    TEXT    NOT NULL,
+    src_net     TEXT    NOT NULL DEFAULT 'any',
+    src_port    TEXT    NOT NULL DEFAULT 'any',
+    direction   TEXT    NOT NULL DEFAULT '->',
+    dst_net     TEXT    NOT NULL DEFAULT 'any',
+    dst_port    TEXT    NOT NULL DEFAULT 'any',
+    msg         TEXT    NOT NULL,
+    classtype   TEXT,
+    priority    INTEGER,
+    severity    TEXT    NOT NULL DEFAULT 'informational',
+    reference   TEXT,
+    metadata    TEXT,
+    options     TEXT    NOT NULL DEFAULT '[]',
+    unsupported TEXT    NOT NULL DEFAULT '[]',
+    supported   INTEGER NOT NULL DEFAULT 1,
+    approximate INTEGER NOT NULL DEFAULT 0,
+    enabled     INTEGER NOT NULL DEFAULT 1,
+    source      TEXT    NOT NULL DEFAULT 'manual',
+    category    TEXT,
+    raw         TEXT    NOT NULL,
+    created_at  REAL,
+    updated_at  REAL
+);
+CREATE INDEX IF NOT EXISTS idx_suricata_enabled  ON suricata_rules(enabled, supported);
+CREATE INDEX IF NOT EXISTS idx_suricata_severity ON suricata_rules(severity);
+CREATE INDEX IF NOT EXISTS idx_suricata_protocol ON suricata_rules(protocol);
+CREATE INDEX IF NOT EXISTS idx_suricata_source   ON suricata_rules(source);
