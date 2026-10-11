@@ -15,11 +15,13 @@ import type {
   Analysis,
   AnalysisDetail,
   AnalysisSummary,
+  ConversationAlertsResponse,
   ConversationsListResponse,
   DeleteAnalysisResult,
   DnsDomainsResponse,
   DnsListResponse,
   DnsQuery,
+  EntityProfile,
   ExtractObjectsResponse,
   Finding,
   FindingContext,
@@ -42,9 +44,10 @@ import type {
   PacketFilterRequest,
   PacketFilterResponse,
   PacketListParams,
-  ConversationAlertsResponse,
   PacketListResponse,
   Paginated,
+  ProfileKind,
+  ProfileSearch,
   Settings,
   SettingsUpdate,
   SettingsUpdateResponse,
@@ -52,13 +55,13 @@ import type {
   SortOrder,
   StreamDetail,
   StreamMode,
+  SuricataAlertsResponse,
   SuricataConfig,
   SuricataImportResult,
   SuricataRule,
   SuricataRuleStats,
   SuricataRuleUpdate,
   SuricataRulesResponse,
-  SuricataAlertsResponse,
   SuricataRunResult,
   ThreatHuntResponse,
   TlsFingerprintsResponse,
@@ -885,4 +888,26 @@ export const threatHuntApi = {
     request<ThreatHuntResponse>(
       `/analyses/${analysisId}/threat-hunt${buildQuery(params as Record<string, unknown>)}`,
     ),
+}
+
+/* ------------------------------------------------------------------ */
+/* Investigate: entity profile (docs/ENTITY_PROFILE.md section 2)        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The two read-only queries the Investigate page runs.
+ *
+ * `search` resolves what the reader typed to the entities that match it - an
+ * address, a domain name, or a URL - and `get` returns everything the capture
+ * recorded about one of them. Both are SQL over the analysis index: nothing is
+ * dissected again, and a question the capture cannot answer comes back as
+ * `availability: "not_applicable"` with a reason rather than a zero.
+ */
+export const profileApi = {
+  search: (analysisId: string, q: string, limit?: number) =>
+    request<ProfileSearch>(
+      `/analyses/${analysisId}/profile${buildQuery({ q, limit } as Record<string, unknown>)}`,
+    ),
+  get: (analysisId: string, kind: ProfileKind, entity: string) =>
+    request<EntityProfile>(`/analyses/${analysisId}/profile/${kind}/${encodeURIComponent(entity)}`),
 }

@@ -30,6 +30,7 @@ import {
   Radar,
   Search,
   Server,
+  ScanSearch,
   Settings as SettingsIcon,
   ShieldAlert,
   type LucideIcon,
@@ -44,8 +45,11 @@ import {
  * * `console` - compact headline, maximum density above the fold.
  * * `ledger`  - full-bleed body for a dense table or diagram.
  * * `split`   - narrow headline, wide left gutter, for forms and card grids.
+ * * `signal`  - centred headline with a spectrum rule, for the Investigate page:
+ *               it is one search box and a field of coloured widgets, so it is
+ *               laid out and coloured unlike every other page on purpose.
  */
-export type PageVariant = 'hero' | 'console' | 'ledger' | 'split'
+export type PageVariant = 'hero' | 'console' | 'ledger' | 'split' | 'signal'
 
 /** The sidebar grouping a page belongs to, used as the eyebrow over its title. */
 export type SectionGroup = 'Overview' | 'Capture' | 'Protocols' | 'System'
@@ -138,6 +142,18 @@ export const SECTIONS = {
     hueVar: '--c-sev-medium',
     variant: 'console',
   },
+  investigate: {
+    id: 'investigate',
+    route: '/investigate',
+    group: 'Capture',
+    label: 'Investigate',
+    purpose:
+      'Look up one address, domain or URL and see everything this capture recorded about it, one question per widget.',
+    icon: ScanSearch,
+    /* Emerald: the only legible hue no other section already uses. */
+    hueVar: '--c-map-local',
+    variant: 'signal',
+  },
   objects: {
     id: 'objects',
     route: '/objects',
@@ -229,6 +245,7 @@ export const SECTION_LIST: SectionIdentity[] = [
   SECTIONS.hosts,
   SECTIONS.findings,
   SECTIONS.threatHunt,
+  SECTIONS.investigate,
   SECTIONS.objects,
   SECTIONS.packets,
   SECTIONS.http,

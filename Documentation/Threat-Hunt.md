@@ -270,7 +270,8 @@ further, what it does not prove, and its known limits and false positives.
 
 [README.md](README.md) · [Architecture.md](Architecture.md) ·
 [Findings.md](Findings.md) · [Dashboard.md](Dashboard.md) ·
-[Conversations.md](Conversations.md) · [Hosts.md](Hosts.md) · [DNS.md](DNS.md) ·
+[Conversations.md](Conversations.md) · [Hosts.md](Hosts.md) · [Investigate.md](Investigate.md) ·
+[DNS.md](DNS.md) ·
 [HTTP.md](HTTP.md) · [TLS.md](TLS.md) · [Packets.md](Packets.md) ·
 [Reference/API.md](Reference/API.md) · [ThreatHunter/](ThreatHunter/ThreatHunter.md) ·
 [docs/THREAT_HUNT.md](../docs/THREAT_HUNT.md) ·

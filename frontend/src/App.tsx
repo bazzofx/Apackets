@@ -13,6 +13,7 @@ import TlsPage from '@/pages/TlsPage'
 import HostsPage from '@/pages/HostsPage'
 import ObjectsPage from '@/pages/ObjectsPage'
 import FindingsPage from '@/pages/FindingsPage'
+import InvestigatePage from '@/pages/InvestigatePage'
 import ThreatHuntPage from '@/pages/ThreatHuntPage'
 import SettingsPage from '@/pages/SettingsPage'
 
@@ -49,6 +50,7 @@ export function App() {
         <Route path="/findings" element={<FindingsPage />} />
         <Route path="/findings/:findingId" element={<FindingsPage />} />
         <Route path="/threat-hunt" element={<ThreatHuntPage />} />
+        <Route path="/investigate" element={<InvestigatePage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

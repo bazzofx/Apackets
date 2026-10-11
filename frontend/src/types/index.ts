@@ -1451,3 +1451,60 @@ export interface ThreatHuntResponse {
   /** The 17 indicators of §1, in contract order. */
   indicators: ThreatHuntIndicator[]
 }
+
+/* ------------------------------------------------------------------ */
+/* Entity profile: the Investigate section (docs/ENTITY_PROFILE.md)     */
+/* ------------------------------------------------------------------ */
+
+/** What was looked up. */
+export type ProfileKind = 'ip' | 'domain' | 'url'
+
+/** One search result. `entity` is the exact value the profile endpoint takes. */
+export interface ProfileMatch {
+  kind: ProfileKind
+  entity: string
+  label: string
+  /** One short line of context. Never a verdict. */
+  hint: string
+  /** Rows behind this match, used for ordering. */
+  count: number
+  to: string
+}
+
+/** `GET /api/analyses/{id}/profile?q=<query>` */
+export interface ProfileSearch {
+  analysis_id: string
+  query: string
+  matches: ProfileMatch[]
+  truncated: boolean
+}
+
+/** The entity's own header facts. */
+export interface ProfileSummary {
+  label: string
+  scope: string | null
+  mac: string | null
+  hostnames: string[]
+  first_seen: number | null
+  last_seen: number | null
+  packets: number
+  bytes: number
+  note: string | null
+}
+
+/**
+ * `GET /api/analyses/{id}/profile/{kind}/{entity}`.
+ *
+ * `questions` deliberately reuses the Threat Map card contract - the same fields,
+ * the same visual kinds - so one set of renderers draws both sections and the two
+ * cannot drift apart.
+ */
+export interface EntityProfile {
+  analysis_id: string
+  kind: ProfileKind
+  entity: string
+  generated_at: number
+  summary: ProfileSummary
+  questions: ThreatHuntIndicator[]
+  truncated: Record<string, boolean>
+}

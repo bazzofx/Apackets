@@ -340,4 +340,4 @@ The detections built on these columns are
 
 ---
 
-**Related:** [HTTP](HTTP.md) · [DNS](DNS.md) · [Hosts](Hosts.md) · [Packets](Packets.md) · [Threat-Hunt.md](Threat-Hunt.md) · [SuspiciousTls](ThreatHunter/SuspiciousTls.md) · [C2Beaconing](ThreatHunter/C2Beaconing.md) · [README.md](README.md)
+**Related:** [HTTP](HTTP.md) · [DNS](DNS.md) · [Hosts](Hosts.md) · [Packets](Packets.md) · [Threat-Hunt.md](Threat-Hunt.md) · [Investigate.md](Investigate.md) · [SuspiciousTls](ThreatHunter/SuspiciousTls.md) · [C2Beaconing](ThreatHunter/C2Beaconing.md) · [README.md](README.md)

@@ -563,6 +563,212 @@
   .nav-link-idle {
     @apply border-transparent text-muted hover:bg-surface2 hover:text-text;
   }
+
+  /* ------------------------------------------------------------------ */
+  /* signal pages: the Investigate section                               */
+  /*                                                                    */
+  /* One page in the app is a lookup rather than a listing - a centred    */
+  /* search box and a field of small coloured charts - so it is built     */
+  /* from the same palette, the same card surface and the same one-size   */
+  /* headline as everywhere else, and differs only in how those are       */
+  /* arranged: a centred head, a spectrum rule where every other page has */
+  /* a single-hue one, and one chart hue per widget. Nothing here is a    */
+  /* colour literal; every hue is a themed custom property.               */
+  /* ------------------------------------------------------------------ */
+
+  .page-signal .page-head {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 2rem 0 1.5rem;
+    text-align: center;
+  }
+
+  .page-signal .page-head-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  .page-signal .page-purpose,
+  .page-signal .page-title {
+    max-width: 46rem;
+  }
+
+  /* One wide, low bloom centred on the head, rather than the top-left wash. */
+  .page-signal .page-head::before {
+    inset: -35% 0 auto 0;
+    height: 260px;
+    background-image: radial-gradient(
+      38% 100% at 50% 0%,
+      rgb(var(--s-accent) / 0.22) 0%,
+      transparent 72%
+    );
+  }
+
+  /* The section rule, as a spectrum: the eight chart hues in order, faded at
+     both ends. It is the one place in the app where the whole palette appears
+     at once, and it previews the colours of the widgets below it. */
+  .page-signal .page-head::after {
+    height: 2px;
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgb(var(--c-chart-1) / 0.85) 10%,
+      rgb(var(--c-chart-2) / 0.85) 22%,
+      rgb(var(--c-chart-3) / 0.85) 34%,
+      rgb(var(--c-chart-4) / 0.85) 46%,
+      rgb(var(--c-chart-5) / 0.85) 58%,
+      rgb(var(--c-chart-6) / 0.85) 70%,
+      rgb(var(--c-chart-7) / 0.85) 82%,
+      rgb(var(--c-chart-8) / 0.85) 92%,
+      transparent 100%
+    );
+  }
+
+  /* The lookup box: the page's single control, so it is the widest element in
+     the head and sits in the middle of it. */
+  .signal-search {
+    position: relative;
+    width: 100%;
+    max-width: 40rem;
+    text-align: left;
+  }
+
+  /* The field is `type="search"`, so WebKit draws its own clear button as soon as
+     there is a value. The page has one of its own, which also clears the profile,
+     so the native one is hidden rather than shown next to it. */
+  .signal-search input::-webkit-search-cancel-button {
+    display: none;
+  }
+
+  /* The results list hangs off the field, directly under it. */
+  .signal-search-results {
+    position: absolute;
+    z-index: 40;
+    left: 0;
+    right: 0;
+    top: calc(100% + 0.25rem);
+    max-height: 20rem;
+    overflow-y: auto;
+    border: 1px solid rgb(var(--c-border2));
+    border-radius: 0.5rem;
+    background-color: rgb(var(--c-surface));
+    box-shadow: 0 18px 40px rgb(var(--c-bg) / 0.55);
+  }
+
+  .signal-match {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.375rem 0.5rem;
+    text-align: left;
+    border-bottom: 1px solid rgb(var(--c-border) / 0.5);
+  }
+
+  .signal-match:last-child {
+    border-bottom: 0;
+  }
+
+  .signal-match:hover,
+  .signal-match[data-active='true'] {
+    background-color: rgb(var(--c-surface2) / 0.9);
+  }
+
+  /* The kind chip on a match takes that kind's own hue, so address, name and
+     URL are told apart by colour before the text is read. */
+  .signal-kind {
+    flex-shrink: 0;
+    border-width: 1px;
+    border-style: solid;
+    border-color: rgb(var(--kind-hue) / 0.5);
+    background-color: rgb(var(--kind-hue) / 0.12);
+    color: rgb(var(--kind-hue));
+  }
+
+  /* The empty state is the question index: all sixteen questions with the
+     number and hue they will carry once an entity is open. */
+  .signal-question-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.375rem;
+    border: 1px solid rgb(var(--tile-hue) / 0.4);
+    border-radius: 0.375rem;
+    padding: 0.25rem 0.5rem;
+    background-color: rgb(var(--tile-hue) / 0.08);
+    color: rgb(var(--c-muted));
+  }
+
+  /* A widget: one question, its charts, its own hue.
+   *
+   * `--tile-hue` is published per tile as an `r g b` triple from the theme's
+   * chart palette, and tints the top rail, the wash behind the tile and the
+   * headline number - so a grid of sixteen widgets reads as sixteen measured
+   * things rather than sixteen identical cards. */
+  .profile-tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid rgb(var(--c-border));
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    background-color: rgb(var(--c-surface));
+    background-image: linear-gradient(
+      180deg,
+      rgb(var(--tile-hue) / 0.1) 0%,
+      transparent 36%
+    );
+  }
+
+  .profile-tile::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--tile-hue) / 0.95) 0%,
+      rgb(var(--tile-hue) / 0.3) 68%,
+      transparent 100%
+    );
+  }
+
+  /* The question number, in the display face, in the tile's own hue: the one
+     piece of ornament on the page, and the thing that makes a grid of sixteen
+     scannable. */
+  .profile-tile-index {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    line-height: 1;
+    color: rgb(var(--tile-hue));
+  }
+
+  .profile-tile-headline {
+    font-family: var(--font-body);
+    font-weight: 600;
+    color: rgb(var(--tile-hue));
+  }
+
+  .profile-tile-rule {
+    border-left: 2px solid rgb(var(--tile-hue) / 0.5);
+    padding-left: 0.5rem;
+  }
+
+  .profile-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem 1.25rem;
+    border: 1px solid rgb(var(--c-border));
+    border-radius: 0.5rem;
+    background-color: rgb(var(--c-surface));
+    padding: 0.75rem 0.875rem;
+  }
 }
 
 /* ------------------------------------------------------------------ */

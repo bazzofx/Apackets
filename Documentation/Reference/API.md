@@ -117,6 +117,7 @@ capture.
 | `routes_findings.py` | `/api/analyses` | `findings` | `GET /{analysis_id}/findings`, `/findings/rules`, `/findings/{finding_id}`, `/findings/{finding_id}/context`, `POST /{analysis_id}/findings/rescan`, `GET /{analysis_id}/alerts/conversations`. Note the prefix stops at `/analyses`, so the analysis id is a path segment of each route. |
 | `routes_objects.py` | `/api/analyses` | `objects` | `GET /{analysis_id}/objects`, `GET /{analysis_id}/objects/{object_id}/export`, `POST /{analysis_id}/objects/extract` (re-run extraction). Same prefix shape as findings. |
 | `routes_threat_hunt.py` | `/api/analyses/{analysis_id}` | `threat-hunt` | `GET /threat-hunt` — the seventeen indicators. See [Threat-Hunt.md](../Threat-Hunt.md). |
+| `routes_profile.py` | `/api/analyses/{analysis_id}` | `profile` | `GET /profile?q=&limit=` (resolve a query to the entities this capture contains) and `GET /profile/{kind}/{entity}` (every question of §4 for one of them). An entity the capture never recorded answers `200` with every question `not_applicable`, so no lookup 404s on a stale link. See [Investigate.md](../Investigate.md). |
 | `routes_settings.py` | `/api` | `settings` | `GET|PUT /settings`, `GET|POST /indicators`, `DELETE /indicators/{id}`. |
 | `routes_suricata.py` | `/api` | `suricata` | Rule CRUD and listing under `/suricata/rules…`, `/suricata/rules/stats`, `/suricata/config` (`GET|PUT`), import and seed, plus the per-analysis `/analyses/{analysis_id}/suricata/alerts` and `/analyses/{analysis_id}/suricata/run`. |
 

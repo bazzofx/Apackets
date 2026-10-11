@@ -382,4 +382,5 @@ on [Findings](Findings.md).
 [DNS](DNS.md) and [TLS](TLS.md) for the application-layer records attributed to a host ·
 [Dashboard](Dashboard.md) for the same graph payload drawn with the precise `scope` labels ·
 [Findings](Findings.md) for alerts raised about these endpoints ·
-[Files-and-Objects](Files-and-Objects.md) for content recovered from them.
+[Files-and-Objects](Files-and-Objects.md) for content recovered from them —
+[Investigate](Investigate.md) to read one of these addresses on its own.

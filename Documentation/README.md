@@ -29,6 +29,7 @@ The order below is the order of the left-hand navigation.
 | Hosts | [Hosts.md](Hosts.md) | `/hosts` |
 | Findings | [Findings.md](Findings.md) | `/findings` |
 | Threat Map | [Threat-Hunt.md](Threat-Hunt.md) | `/threat-hunt` |
+| Investigate | [Investigate.md](Investigate.md) | `/investigate` |
 | Files and Objects | [Files-and-Objects.md](Files-and-Objects.md) | `/objects` |
 | Packets | [Packets.md](Packets.md) | `/packets` |
 | HTTP | [HTTP.md](HTTP.md) | `/http` |
@@ -40,6 +41,10 @@ The order below is the order of the left-hand navigation.
 **Threat Map** is the one section with a document per detection. Its section document
 is [Threat-Hunt.md](Threat-Hunt.md); the seventeen detections each have their own page
 under [ThreatHunter/](ThreatHunter/ThreatHunter.md), starting with the overview.
+
+**Investigate** ([Investigate.md](Investigate.md)) is the one section that reads one
+entity rather than the whole capture: it is documented against its own normative
+contract, [`docs/ENTITY_PROFILE.md`](../docs/ENTITY_PROFILE.md).
 
 ---
 

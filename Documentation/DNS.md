@@ -312,4 +312,4 @@ columns are [ThreatHunter/DnsAnomalies.md](ThreatHunter/DnsAnomalies.md),
 
 ---
 
-**Related:** [HTTP](HTTP.md) · [TLS](TLS.md) · [Hosts](Hosts.md) · [Packets](Packets.md) · [Threat-Hunt.md](Threat-Hunt.md) · [DnsAnomalies](ThreatHunter/DnsAnomalies.md) · [DnsTunnelling](ThreatHunter/DnsTunnelling.md) · [README.md](README.md)
+**Related:** [HTTP](HTTP.md) · [TLS](TLS.md) · [Hosts](Hosts.md) · [Packets](Packets.md) · [Threat-Hunt.md](Threat-Hunt.md) · [Investigate.md](Investigate.md) · [DnsAnomalies](ThreatHunter/DnsAnomalies.md) · [DnsTunnelling](ThreatHunter/DnsTunnelling.md) · [README.md](README.md)

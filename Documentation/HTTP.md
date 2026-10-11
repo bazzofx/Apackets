@@ -272,4 +272,4 @@ overview is [Threat-Hunt.md](Threat-Hunt.md).
 
 ---
 
-**Related:** [DNS](DNS.md) · [TLS](TLS.md) · [Packets](Packets.md) · [Conversations.md](Conversations.md) · [Files-and-Objects.md](Files-and-Objects.md) · [Threat-Hunt.md](Threat-Hunt.md) · [SuspiciousHttp](ThreatHunter/SuspiciousHttp.md) · [README.md](README.md)
+**Related:** [DNS](DNS.md) · [TLS](TLS.md) · [Packets](Packets.md) · [Conversations.md](Conversations.md) · [Files-and-Objects.md](Files-and-Objects.md) · [Threat-Hunt.md](Threat-Hunt.md) · [Investigate.md](Investigate.md) · [SuspiciousHttp](ThreatHunter/SuspiciousHttp.md) · [README.md](README.md)
