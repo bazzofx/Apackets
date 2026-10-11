@@ -146,6 +146,11 @@ def syn_scan_capture(captures: dict[str, Path]) -> Path:
 
 
 @pytest.fixture(scope="session")
+def arp_sweep_capture(captures: dict[str, Path]) -> Path:
+    return captures["arp_sweep"]
+
+
+@pytest.fixture(scope="session")
 def failed_connections_capture(captures: dict[str, Path]) -> Path:
     return captures["failed_connections"]
 

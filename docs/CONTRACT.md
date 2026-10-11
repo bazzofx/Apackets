@@ -467,7 +467,7 @@ skipped; only extraction failure of packets fails the whole analysis.
 * `GET /api/analyses/{id}/packets` — paginated. Filters (all optional):
   `filter` (Wireshark display filter, validated), `ip`, `src_ip`, `dst_ip`,
   `port`, `src_port`, `dst_port`, `protocol`, `transport` (`tcp|udp`),
-  `tcp_flags` (substring match on the flags string, e.g. `SYN`),
+  `tcp_flags` (substring match on TShark's 12-character `tcp.flags.str`, whose letters are `F S R P A U E C` - so `S` is SYN and `SA` is SYN+ACK; the Wireshark spelling `SYN` matches nothing here),
   `min_length`, `max_length`, `start_time`, `end_time` (epoch seconds or ISO),
   `search` (substring over `info`).
   Sort allow-list: `number, time_epoch, src_ip, dst_ip, src_port, dst_port,
@@ -581,6 +581,27 @@ skipped; only extraction failure of packets fails the whole analysis.
   directory (`403 path_traversal`).
 * `POST /api/analyses/{id}/objects/extract` — re-runs extraction, returns
   `{"ok":true,"extracted":n}`.
+
+### Threat Hunt (`routes_threat_hunt.py`)
+* `GET /api/analyses/{id}/threat-hunt` — the Threat Hunt indicator engine: 17
+  indicators in the order fixed by `docs/THREAT_HUNT.md` §1, computed as SQL
+  aggregates over the indexed tables only (no capture is re-read, so it still
+  works after the upload has been purged). Query params `window` (seconds per
+  time-series bucket, 5–3600, default 60) and `top` (rows per ranked visual,
+  1–50, default 12); out-of-range values are `422 validation_error`, an unknown
+  analysis is 404 `analysis_not_found` and an unfinished one 409
+  `analysis_not_ready`.
+  Each indicator reports `availability`: `ok` (computed, something matched),
+  `empty` (computable, nothing crossed the threshold — which `availability_reason`
+  states) or `not_applicable` (the capture cannot answer it, `availability_reason`
+  says why). `headline.value` is 0 only when the availability is not `ok`, so a
+  zero on screen always means "nothing matched". `visuals[]` entries are tagged
+  by `kind` (`bars`, `timeline`, `histogram`, `scatter`, `heatmap`, `table`) and
+  capped — bars/heatmap at `top`, timeline at 240 buckets, table at 50 rows,
+  scatter at 200 points — with a cap that bit reported in `note` as `top N of M`.
+  Every indicator carries the `caveat` naming what its pattern does *not*
+  establish, and every link uses only the query parameters of
+  `docs/THREAT_HUNT.md` §5.
 
 ### Settings (`routes_settings.py`)
 * `GET /api/settings` — effective settings (safe subset) plus `data_dir`,

@@ -157,7 +157,7 @@ export function FindingOverview({ context, onSelectRelated }: FindingOverviewPro
                         <button
                           type="button"
                           className="text-accent2 hover:underline"
-                          onClick={() => navigate(`/packets?number=${match.packet}`)}
+                          onClick={() => navigate(`/packets?sel=${match.packet}`)}
                         >
                           {match.packet}
                         </button>
@@ -333,7 +333,7 @@ export function FindingOverview({ context, onSelectRelated }: FindingOverviewPro
                     <button
                       type="button"
                       className="mono text-accent2 hover:underline"
-                      onClick={() => navigate(`/packets?number=${entry.packet}`)}
+                      onClick={() => navigate(`/packets?sel=${entry.packet}`)}
                     >
                       #{entry.packet}
                     </button>

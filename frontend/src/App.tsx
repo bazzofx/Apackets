@@ -13,6 +13,7 @@ import TlsPage from '@/pages/TlsPage'
 import HostsPage from '@/pages/HostsPage'
 import ObjectsPage from '@/pages/ObjectsPage'
 import FindingsPage from '@/pages/FindingsPage'
+import ThreatHuntPage from '@/pages/ThreatHuntPage'
 import SettingsPage from '@/pages/SettingsPage'
 
 function NotFoundPage() {
@@ -47,6 +48,7 @@ export function App() {
         <Route path="/objects" element={<ObjectsPage />} />
         <Route path="/findings" element={<FindingsPage />} />
         <Route path="/findings/:findingId" element={<FindingsPage />} />
+        <Route path="/threat-hunt" element={<ThreatHuntPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

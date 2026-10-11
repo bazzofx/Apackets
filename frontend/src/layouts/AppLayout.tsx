@@ -13,6 +13,7 @@ import {
   Lock,
   Network,
   Package,
+  Radar,
   RefreshCw,
   Search,
   Server,
@@ -175,6 +176,12 @@ export function AppLayout() {
       title: counts
         ? `high ${counts.high} · medium ${counts.medium} · low ${counts.low} · info ${counts.informational}`
         : undefined,
+    },
+    {
+      to: '/threat-hunt',
+      label: 'Threat Hunt',
+      icon: Radar,
+      title: 'The brief’s detections, computed over this capture’s indexed tables',
     },
     { to: '/objects', label: 'Files and Objects', icon: Package },
     { to: '/packets', label: 'Packets', icon: List },

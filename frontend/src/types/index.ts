@@ -1275,3 +1275,179 @@ export interface ConversationAlertsResponse {
   packets_truncated: boolean
   note: string
 }
+
+/* ------------------------------------------------------------------ */
+/* threat hunt (docs/THREAT_HUNT.md §3 and §4)                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * `ok`        — computed, and there is something worth showing.
+ * `empty`     — computable, and the honest answer is "nothing matched"
+ *               (`availability_reason` states the threshold that was applied).
+ * `not_applicable` — the capture cannot answer the detection at all.
+ */
+export type ThreatHuntAvailability = 'ok' | 'empty' | 'not_applicable'
+
+/** Presentation only — never a verdict. */
+export type ThreatHuntTone = 'info' | 'watch' | 'warn'
+
+export type ThreatHuntVisualKind =
+  | 'bars'
+  | 'timeline'
+  | 'histogram'
+  | 'scatter'
+  | 'heatmap'
+  | 'table'
+
+/** A real count/measure. `0` only ever means "nothing matched" (§3). */
+export interface ThreatHuntHeadline {
+  value: number
+  label: string
+  tone: ThreatHuntTone
+}
+
+/** A link into the rest of the app. Only the parameters of §5 may appear. */
+export interface ThreatHuntLink {
+  to: string
+  label: string
+}
+
+export interface ThreatHuntBarsItem {
+  label: string
+  value: number
+  to?: string | null
+}
+
+/** Ranked horizontal bars: `items` arrive sorted largest first and capped. */
+export interface ThreatHuntBarsVisual {
+  kind: 'bars'
+  title?: string | null
+  items: ThreatHuntBarsItem[]
+  unit?: string | null
+  note?: string | null
+}
+
+export interface ThreatHuntTimelinePoint {
+  /** Epoch seconds — the bucket start. */
+  t: number
+  value: number
+  /** Highlights this bucket. */
+  marker?: boolean | null
+}
+
+/** Time series, capped by the backend at 240 buckets. */
+export interface ThreatHuntTimelineVisual {
+  kind: 'timeline'
+  title?: string | null
+  points: ThreatHuntTimelinePoint[]
+  unit?: string | null
+  note?: string | null
+}
+
+export interface ThreatHuntHistogramBucket {
+  /** The bucket's own description, e.g. `30-60 s`. */
+  label: string
+  value: number
+}
+
+/** Distribution over labelled buckets. */
+export interface ThreatHuntHistogramVisual {
+  kind: 'histogram'
+  title?: string | null
+  buckets: ThreatHuntHistogramBucket[]
+  unit?: string | null
+  note?: string | null
+}
+
+export interface ThreatHuntScatterPoint {
+  x: number
+  y: number
+  /** Names the point; `to` links it. */
+  label: string
+  to?: string | null
+}
+
+/** Scatter, capped by the backend at 200 points. */
+export interface ThreatHuntScatterVisual {
+  kind: 'scatter'
+  title?: string | null
+  points: ThreatHuntScatterPoint[]
+  x_label?: string | null
+  y_label?: string | null
+  note?: string | null
+}
+
+export interface ThreatHuntHeatmapRow {
+  label: string
+  /** `cells[i]` lines up with `columns[i]`; a missing column is 0. */
+  cells: number[]
+}
+
+/** Matrix of counts: rows against columns. */
+export interface ThreatHuntHeatmapVisual {
+  kind: 'heatmap'
+  title?: string | null
+  columns: string[]
+  rows: ThreatHuntHeatmapRow[]
+  unit?: string | null
+  note?: string | null
+}
+
+export interface ThreatHuntTableCell {
+  text: string
+  to?: string | null
+  tone?: ThreatHuntTone | null
+}
+
+export interface ThreatHuntTableRow {
+  cells: ThreatHuntTableCell[]
+}
+
+/** Table, capped by the backend at 50 rows. */
+export interface ThreatHuntTableVisual {
+  kind: 'table'
+  title?: string | null
+  columns: string[]
+  rows: ThreatHuntTableRow[]
+  note?: string | null
+}
+
+/** `visuals[]` entries, discriminated by `kind`. */
+export type ThreatHuntVisual =
+  | ThreatHuntBarsVisual
+  | ThreatHuntTimelineVisual
+  | ThreatHuntHistogramVisual
+  | ThreatHuntScatterVisual
+  | ThreatHuntHeatmapVisual
+  | ThreatHuntTableVisual
+
+/** One detection: a lead, with what it may indicate and what it does not prove. */
+export interface ThreatHuntIndicator {
+  /** Stable id from §1; this is what the frontend switches on. */
+  id: string
+  title: string
+  question: string
+  availability: ThreatHuntAvailability
+  /** Required whenever `availability` is not `"ok"`. */
+  availability_reason: string | null
+  headline: ThreatHuntHeadline
+  visuals: ThreatHuntVisual[]
+  interpretation: string
+  caveat: string
+  links: ThreatHuntLink[]
+}
+
+/** `GET /api/analyses/{analysis_id}/threat-hunt`. */
+export interface ThreatHuntResponse {
+  analysis_id: string
+  /** Server clock, float epoch seconds. */
+  generated_at: number
+  /** Rows in the packet index for this analysis. */
+  packets_scanned: number
+  window: number
+  top: number
+  /** What the whole page is (and is not). */
+  note: string
+  /** The 17 indicators of §1, in contract order. */
+  indicators: ThreatHuntIndicator[]
+}

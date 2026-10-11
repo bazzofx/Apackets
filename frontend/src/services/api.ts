@@ -60,6 +60,7 @@ import type {
   SuricataRulesResponse,
   SuricataAlertsResponse,
   SuricataRunResult,
+  ThreatHuntResponse,
   TlsFingerprintsResponse,
   TlsListResponse,
   TlsSession,
@@ -857,5 +858,31 @@ export const alertsApi = {
   conversations: (analysisId: string, params?: ConversationAlertsParams) =>
     request<ConversationAlertsResponse>(
       `/analyses/${analysisId}/alerts/conversations${buildQuery(params as Record<string, unknown>)}`,
+    ),
+}
+
+/* ------------------------------------------------------------------ */
+/* Threat Hunt (docs/THREAT_HUNT.md §2)                                */
+/* ------------------------------------------------------------------ */
+
+export interface ThreatHuntParams {
+  /** Seconds per bucket for every time series; the endpoint defaults to 60 (5–3600). */
+  window?: number
+  /** Rows per ranked visual; the endpoint defaults to 12 (1–50). */
+  top?: number
+}
+
+/**
+ * `GET /api/analyses/{id}/threat-hunt` — the whole section in one response.
+ *
+ * Read-only over the analysis index: the backend dissects nothing again, and a
+ * card whose detection cannot be computed says so (`availability`) instead of
+ * rendering a zero. The page owns this one query; cards take its indicators as
+ * props so they stay presentational.
+ */
+export const threatHuntApi = {
+  get: (analysisId: string, params?: ThreatHuntParams) =>
+    request<ThreatHuntResponse>(
+      `/analyses/${analysisId}/threat-hunt${buildQuery(params as Record<string, unknown>)}`,
     ),
 }

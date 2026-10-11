@@ -153,6 +153,15 @@ DNS_IP = "8.8.8.8"
 DNS_MAC = "02:00:00:00:00:08"
 SCANNER_IP = "10.0.0.66"
 SCANNER_MAC = "02:00:00:00:00:42"
+# ARP host discovery. A local `nmap -sn` sweep never opens a port: it asks the
+# link who holds each address, so the probed address lives in the ARP payload
+# and in TShark's summary line, never in `ip.dst`.
+BROADCAST_MAC = "ff:ff:ff:ff:ff:ff"
+ARP_ETHERNET_TYPE = 0x0806
+ARP_REQUEST = 1
+ARP_REPLY = 2
+ARP_SWEEP_TARGETS = tuple(f"10.0.0.{n}" for n in range(100, 140))
+ARP_SWEEP_LIVE = ("10.0.0.100", "10.0.0.101", "10.0.0.102")
 BURST_IP = "10.0.0.77"
 BURST_MAC = "02:00:00:00:00:4d"
 EXTERNAL_IP = "93.184.216.34"
@@ -717,6 +726,41 @@ _UA_LONG = (
     "APackets-Synthetic-Agent/1.0 (unusual; long; +http://agent.invalid/notes) "
     "build=20231114-extremely-long-user-agent-value-for-parser-tests"
 )
+
+
+def _arp_frame(
+    src_mac: str,
+    dst_mac: str,
+    sender_ip: str,
+    target_ip: str,
+    *,
+    reply: bool,
+    stamp: float,
+) -> Frame:
+    """One Ethernet II + ARP frame as a pre-serialised :class:`Frame`.
+
+    ARP carries no IP layer, which is exactly why a local sweep is invisible to
+    anything that reads IP addresses: the probed address exists only inside the ARP
+    payload, and only in TShark's summary line once indexed.
+    """
+    operation = ARP_REPLY if reply else ARP_REQUEST
+    target_hw = _mac_bytes(dst_mac) if reply else b"\x00" * 6
+    arp = struct.pack(
+        ">HHBBH6s4s6s4s",
+        1,                        # htype: Ethernet
+        0x0800,                   # ptype: IPv4
+        6,                        # hlen
+        4,                        # plen
+        operation,
+        _mac_bytes(src_mac),
+        socket.inet_aton(sender_ip),
+        target_hw,
+        socket.inet_aton(target_ip),
+    )
+    ethernet = struct.pack(
+        ">6s6sH", _mac_bytes(dst_mac), _mac_bytes(src_mac), ARP_ETHERNET_TYPE
+    )
+    return Frame(ethernet + arp, stamp)
 
 
 def _http_message(start_line: str, headers: Sequence[tuple[str, str]], body: bytes) -> bytes:
@@ -1676,6 +1720,55 @@ FAILED_CONNECTION_ATTEMPTS = 15
 FAILED_CONNECTION_PORT = 445
 
 
+def _arp_sweep_packets(base: float = BASE_EPOCH) -> list[Frame]:
+    """Build the ARP host-discovery packet list (see :func:`arp_sweep_capture`)."""
+    clock = _Clock(base, 0.05)  # 40 probes inside two seconds
+    packets: list[Frame] = []
+
+    for target in ARP_SWEEP_TARGETS:
+        packets.append(
+            _arp_frame(
+                SCANNER_MAC, BROADCAST_MAC, SCANNER_IP, target,
+                reply=False, stamp=clock.tick(),
+            )
+        )
+
+    for index, host in enumerate(ARP_SWEEP_LIVE):
+        packets.append(
+            _arp_frame(
+                f"02:00:00:00:01:{index:02x}", SCANNER_MAC, host, SCANNER_IP,
+                reply=True, stamp=clock.tick(),
+            )
+        )
+
+    # Contrast: the ordinary workstation resolves its gateway once and is answered,
+    # so a source with one unanswered probe is not mistaken for a sweep.
+    packets.append(
+        _arp_frame(CLIENT_MAC, BROADCAST_MAC, CLIENT_IP, GATEWAY_IP,
+                   reply=False, stamp=clock.tick())
+    )
+    packets.append(
+        _arp_frame(GATEWAY_MAC, CLIENT_MAC, GATEWAY_IP, CLIENT_IP,
+                   reply=True, stamp=clock.tick())
+    )
+    return packets
+
+
+def arp_sweep_capture(dest: Path | None = None) -> Path:
+    """A local ARP host-discovery sweep of 40 addresses, plus one normal lookup.
+
+    Contents:
+
+    * ``10.0.0.66`` asks "who has" for 40 distinct addresses in :data:`ARP_SWEEP_TARGETS`
+      inside two seconds, with **no TCP frame at all** - the shape a local
+      ``nmap -sn`` produces, and the reason a port-based detector sees nothing.
+    * three of those addresses (``10.0.0.100``-``.102``) answer, so ``37`` probes are
+      left unanswered and the sweep is still unmistakable.
+    * the client resolves its gateway once and is answered, as a control.
+    """
+    return write_pcap(_output_path(dest, "arp_sweep"), _arp_sweep_packets())
+
+
 def _failed_connections_packets(base: float = BASE_EPOCH) -> list[Packet]:
     """Build the failed-connections packet list (see the builder's docstring)."""
     clock = _Clock(base, 0.5)
@@ -2224,6 +2317,7 @@ ALL_BUILDERS: dict[str, Callable[[Path | None], Path]] = {
     "dns": dns_capture,
     "tls": tls_capture,
     "syn_scan": syn_scan_capture,
+    "arp_sweep": arp_sweep_capture,
     "failed_connections": failed_connections_capture,
     "ipv6": ipv6_capture,
     "udp": udp_capture,
@@ -2423,6 +2517,21 @@ def _http_object_expectations() -> dict[str, Any]:
     }
 
 
+def _arp_sweep_expectations() -> dict[str, Any]:
+    return {
+        "file": "arp_sweep.pcap",
+        "packets": len(_arp_sweep_packets()),
+        "sweeper": SCANNER_IP,
+        "targets": list(ARP_SWEEP_TARGETS),
+        "probed": len(ARP_SWEEP_TARGETS),
+        "answered": len(ARP_SWEEP_LIVE),
+        "unanswered": len(ARP_SWEEP_TARGETS) - len(ARP_SWEEP_LIVE),
+        "arp_requests": len(ARP_SWEEP_TARGETS) + 1,
+        "arp_replies": len(ARP_SWEEP_LIVE) + 1,
+        "tcp_frames": 0,
+    }
+
+
 def _syn_scan_expectations() -> dict[str, Any]:
     return {
         "file": "syn_scan.pcap",
@@ -2547,6 +2656,7 @@ _EXPECTATIONS: dict[str, Callable[[], dict[str, Any]]] = {
     "dns": _dns_expectations,
     "tls": _tls_expectations,
     "syn_scan": _syn_scan_expectations,
+    "arp_sweep": _arp_sweep_expectations,
     "failed_connections": _failed_connections_expectations,
     "ipv6": _ipv6_expectations,
     "udp": _udp_expectations,
