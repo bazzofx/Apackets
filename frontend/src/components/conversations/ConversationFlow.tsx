@@ -19,14 +19,14 @@ import {
   formatListWithCount,
   layoutFlow,
   panFlowView,
+  planFlowLabels,
   ribbonPath,
-  shortenMiddle,
-  shortenSubnet,
   viewToPlot,
   zoomFlowView,
   type FlowBand,
   type FlowColumn,
   type FlowGraph,
+  type FlowLabel,
   type FlowNode,
   type FlowPoint,
   type FlowView,
@@ -34,13 +34,7 @@ import {
   type PositionedNode,
 } from './flowLayout'
 
-/** Room in the outer gutters for a CIDR or an address label. */
-const GUTTER_LABEL_CHARS = 22
-/** Longest port label drawn (`:65535`). */
-const PORT_LABEL_CHARS = 7
-/** Font metrics for the small monospace labels. */
-const CHAR_WIDTH = 6
-const LABEL_FONT = 10
+
 
 /**
  * State colour, from the active theme. These are labels, not verdicts: the
@@ -73,6 +67,8 @@ export interface ConversationFlowProps {
   conversations: Conversation[]
   /** A freshly filtered set is on its way; the drawn one is still the previous. */
   busy?: boolean
+  /** The view to start from; `Fit` (the whole diagram) is the default. */
+  initialView?: FlowView
   /** Conversation selected through `?stream=`. */
   selectedKey: string | null
   /** Node selected through `?node=`. */
@@ -273,128 +269,79 @@ function SelectionBar({
     </div>
   )
 }
-/** Label drawn beside a bar, on a surface halo so it stays readable over bands. */
-function HaloLabel({
-  x,
-  y,
-  text,
-  colour,
-  anchor,
-  tokens,
-}: {
-  x: number
-  y: number
-  text: string
-  colour: string
-  anchor: 'start' | 'end'
-  tokens: ThemeTokens
-}) {
-  const width = text.length * CHAR_WIDTH + 8
-  const left = anchor === 'start' ? x : x - width
-  return (
-    <g>
-      <rect
-        x={left}
-        y={y - LABEL_FONT - 1}
-        width={width}
-        height={LABEL_FONT + 5}
-        rx={2}
-        fill={tokens.surface}
-        fillOpacity={0.85}
-      />
-      <text x={left + 4} y={y} fontSize={LABEL_FONT} className="mono" fill={colour}>
-        {text}
-      </text>
-    </g>
-  )
-}
-
 /**
- * Label for an address or group node, drawn in the outer gutter.
+ * One label, placed by the engine's collision pass.
  *
- * Subnets keep their prefix length and addresses keep their last octets: the
- * middle is what gets cut, never the part that identifies the group.
+ * The font size is in content units but counter-scaled, so a label keeps its
+ * size on screen while zooming makes the nodes taller - that is what lets more
+ * labels appear as the user zooms in. A label is only drawn when the engine
+ * found room for it: a node without one is still hoverable, and its identity
+ * still appears in the tooltip and, once selected, in the chip row.
  */
-function AddressLabel({
+function NodeLabel({
+  label,
   node,
   tokens,
-  emphasise,
+  colour,
 }: {
+  label: FlowLabel
   node: PositionedNode
   tokens: ThemeTokens
-  emphasise: boolean
+  colour: string
 }) {
-  const isSource = node.column === 'source'
-  const x = isSource ? node.x - 6 : node.x + node.width + 6
-  const text =
-    node.kind === 'subnet'
-      ? shortenSubnet(node.label, GUTTER_LABEL_CHARS)
-      : shortenMiddle(node.label, GUTTER_LABEL_CHARS)
-  const baseline = node.y + node.height / 2 + 4
+  const mid = label.y + label.height / 2
+  const firstBaseline = label.detail ? mid - label.fontSize * 0.1 : mid + label.fontSize * 0.35
+  const secondBaseline = mid + label.fontSize * 1.2
+  const textX =
+    label.anchor === 'start'
+      ? label.x
+      : label.anchor === 'end'
+        ? label.x + label.width
+        : label.x + label.width / 2
+  /* The bounds are published so the collision invariant is checkable from the
+     rendered markup, not just from the plan. */
+  const bounds = [label.x, label.y, label.width, label.height]
+    .map((value) => Math.round(value * 100) / 100)
+    .join(' ')
   return (
-    <text
-      x={x}
-      y={baseline}
-      textAnchor={isSource ? 'end' : 'start'}
-      fontSize={LABEL_FONT}
-      className="mono"
-      fill={emphasise ? tokens.text : tokens.muted}
-    >
-      {node.kind === 'subnet' ? <tspan fill={tokens.accent2}>{'+ '}</tspan> : null}
-      <tspan>{text}</tspan>
-    </text>
-  )
-}
-
-/** Port label, always beside its own bar so the digits are never clipped. */
-function PortLabel({
-  node,
-  tokens,
-  emphasise,
-}: {
-  node: PositionedNode
-  tokens: ThemeTokens
-  emphasise: boolean
-}) {
-  const isSource = node.column === 'sourcePort'
-  const text = shortenMiddle(node.label, PORT_LABEL_CHARS)
-  const y = node.y + node.height / 2 + 3
-  return (
-    <HaloLabel
-      x={isSource ? node.x + node.width + 5 : node.x - 5}
-      y={y}
-      text={text}
-      colour={emphasise ? tokens.text : tokens.muted}
-      anchor={isSource ? 'start' : 'end'}
-      tokens={tokens}
-    />
-  )
-}
-
-function StateLabel({ node, tokens }: { node: PositionedNode; tokens: ThemeTokens }) {
-  const centre = node.x + node.width / 2
-  const middle = node.y + node.height / 2
-  return (
-    <>
+    <g data-label={label.nodeId} data-bounds={bounds}>
+      {label.halo ? (
+        <rect
+          x={label.x}
+          y={label.y}
+          width={label.width}
+          height={label.height}
+          rx={2}
+          fill={tokens.surface}
+          fillOpacity={0.85}
+        />
+      ) : null}
       <text
-        x={centre}
-        y={middle + (node.height >= 26 ? -3 : 4)}
-        textAnchor="middle"
-        fontSize={11}
+        x={textX}
+        y={firstBaseline}
+        textAnchor={label.anchor}
+        fontSize={label.fontSize}
         className="mono"
-        fill={tokens.text}
+        fill={colour}
       >
-        {node.label}
+        {label.expandable ? <tspan fill={tokens.accent2}>{'+ '}</tspan> : null}
+        <tspan>{label.expandable ? label.text.slice(2) : label.text}</tspan>
       </text>
-      {node.height >= 26 ? (
-        <text x={centre} y={middle + 10} textAnchor="middle" fontSize={9.5} className="mono" fill={tokens.muted}>
+      {label.detail ? (
+        <text
+          x={textX}
+          y={secondBaseline}
+          textAnchor={label.anchor}
+          fontSize={label.fontSize * 0.9}
+          className="mono"
+          fill={tokens.muted}
+        >
           {formatNumber(node.conversations) + ' conv · ' + formatBytes(node.bytes)}
         </text>
       ) : null}
-    </>
+    </g>
   )
 }
-
 interface BandShapeProps {
   band: PositionedBand
   tokens: ThemeTokens
@@ -440,6 +387,8 @@ function BandShape({ band, tokens, emphasised, dimmed, onHover, onPick }: BandSh
 interface NodeShapeProps {
   node: PositionedNode
   tokens: ThemeTokens
+  /** The label the collision pass found room for, if any. */
+  label?: FlowLabel
   /** This node carries the current selection. */
   selected: boolean
   /** On the hovered path. */
@@ -450,12 +399,21 @@ interface NodeShapeProps {
   onActivate: (node: PositionedNode) => void
 }
 
-function NodeShape({ node, tokens, selected, onPath, dimmed, onHover, onActivate }: NodeShapeProps) {
+function NodeShape({
+  node,
+  tokens,
+  label,
+  selected,
+  onPath,
+  dimmed,
+  onHover,
+  onActivate,
+}: NodeShapeProps) {
   const isState = node.column === 'state'
-  const isAxis = node.column === 'source' || node.column === 'destination'
   const colour = isState ? stateColour(node.state ?? 'unknown', tokens) : tokens.muted
-  /* A folded remainder is a summary of many entities, so it is not selectable. */
-  const selectable = node.kind !== 'more'
+  /* Folded remainders are selectable too: their conversations are real, and the
+     page resolves a folded node through the graph's own key list. */
+  const selectable = node.conversations > 0
   const summary =
     node.label +
     ' (' +
@@ -532,12 +490,13 @@ function NodeShape({ node, tokens, selected, onPath, dimmed, onHover, onActivate
         strokeWidth={strokeWidth}
         strokeDasharray={node.kind === 'more' ? '3 2' : undefined}
       />
-      {isState ? (
-        <StateLabel node={node} tokens={tokens} />
-      ) : isAxis ? (
-        <AddressLabel node={node} tokens={tokens} emphasise={onPath || selected} />
-      ) : (
-        <PortLabel node={node} tokens={tokens} emphasise={onPath || selected} />
+      {label === undefined ? null : (
+        <NodeLabel
+          label={label}
+          node={node}
+          tokens={tokens}
+          colour={isState || onPath || selected ? tokens.text : tokens.muted}
+        />
       )}
     </g>
   )
@@ -624,7 +583,7 @@ function NodeDetail({ node, graph, tokens }: { node: FlowNode; graph: FlowGraph;
       ) : null}
       <div className="mt-1 border-t border-border pt-1 text-2xs text-faint">
         {node.kind === 'more'
-          ? 'a folded remainder is a summary of ' + formatNumber(node.folded) + ' entities — not selectable'
+          ? 'a folded remainder of ' + formatNumber(node.folded) + ' entities — click to list the conversations behind it'
           : node.kind === 'subnet'
             ? 'click to expand this group into its addresses and list its conversations'
             : 'click to list the conversations behind this node below'}
@@ -668,6 +627,7 @@ export function ConversationFlow({
   graph,
   conversations,
   busy,
+  initialView,
   selectedKey,
   selectedNodeId,
   onSelectNode,
@@ -737,7 +697,7 @@ export function ConversationFlow({
 
   /* ---- viewport: zoom and pan are a transform, never a re-layout ---------- */
   const svgRef = useRef<SVGSVGElement | null>(null)
-  const [view, setView] = useState<FlowView>(flowFitView)
+  const [view, setView] = useState<FlowView>(() => initialView ?? flowFitView())
   const viewRef = useRef<FlowView>(view)
   const [dragging, setDragging] = useState(false)
   const dragRef = useRef<{ pointerId: number; start: FlowPoint; view: FlowView; moved: boolean } | null>(
@@ -747,6 +707,13 @@ export function ConversationFlow({
   const suppressClick = useRef(false)
   const clipId = 'flow-plot-' + useId().replace(/[^a-zA-Z0-9_-]/g, '')
 
+  /* Which labels fit, at this zoom: a pure function of the layout and the view,
+     so the same data and zoom always draw the same labels. */
+  const labelPlan = useMemo(() => planFlowLabels(layout, view), [layout, view])
+  const labelOf = useMemo(
+    () => new Map(labelPlan.labels.map((label) => [label.nodeId, label] as const)),
+    [labelPlan],
+  )
   const bounds = useMemo(() => ({ width: layout.width, height: layout.plotHeight }), [layout])
   const plotPoint = useCallback(
     (box: FlowPoint): FlowPoint => ({ x: box.x, y: box.y - FLOW_VIEW.headerSpace }),
@@ -922,7 +889,6 @@ export function ConversationFlow({
   }
 
   const activateNode = (node: PositionedNode) => {
-    if (node.kind === 'more') return
     const isSelected = selectedNodeId === node.id
     onSelectNode(isSelected ? null : node.id)
     if (node.kind === 'subnet' && node.subnet !== null) onToggleSubnet(node.subnet)
@@ -1016,6 +982,12 @@ export function ConversationFlow({
         >
           {String(zoomPercent) + '%'}
         </span>
+        {labelPlan.suppressed > 0 ? (
+          <span className="text-2xs text-muted">
+            labels shown for the largest <span className="mono">{formatNumber(labelPlan.shown)}</span>{' '}
+            nodes — zoom in to reveal the rest (every node still has its tooltip)
+          </span>
+        ) : null}
         <span className="ml-auto text-2xs text-faint">
           drag to pan · wheel to zoom · arrows pan, +/− zoom, 0 fits
         </span>
@@ -1084,6 +1056,7 @@ export function ConversationFlow({
                     key={node.id}
                     node={node}
                     tokens={tokens}
+                    label={labelOf.get(node.id)}
                     selected={selectedNodeId === node.id}
                     onPath={emphasis.nodes.has(node.id)}
                     dimmed={emphasis.active}

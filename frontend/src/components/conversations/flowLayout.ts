@@ -30,9 +30,14 @@ export const FLOW_VIEW = {
   /** Room for the column headings. */
   headerSpace: 22,
   /** Vertical space between two nodes of a column. */
-  gap: 5,
-  /** Smallest node height: never squashed to cram another node in. */
-  minNodeHeight: 12,
+  gap: 4,
+  /**
+   * Smallest slot a column budgets for a node. It is deliberately a little
+   * taller than one label line (13 px on screen), so a node that fills its slot
+   * can always carry its own label; spacing is never squashed below that to fit
+   * more nodes in, and a column that cannot fit its entities folds them instead.
+   */
+  minNodeHeight: 14,
   /** Width of an address or port bar, and of the labelled state box. */
   nodeWidth: 11,
   stateWidth: 80,
@@ -1231,23 +1236,252 @@ export function panFlowView(
 }
 
 /**
- * The node under a point in plot coordinates.
+ * The node whose drawn rectangle contains a point in plot coordinates.
  *
- * Used by the suites to check that a click lands on the element that is drawn
- * there, at any zoom or pan. The component itself does not need it: its handlers
- * are attached to the shapes, so the browser resolves the target for us.
+ * This models the *drawn* geometry (the DOM adds a little padding so thin nodes
+ * stay clickable), and it exists so the suites can check that a click lands on
+ * the node that is drawn there at any zoom or pan. The component itself does not
+ * need it: its handlers sit on the shapes, so the browser resolves the target.
  */
 export function nodeAtPlot(layout: FlowLayout, point: FlowPoint): PositionedNode | null {
   let found: PositionedNode | null = null
   for (const node of layout.nodes) {
-    const hitSlack = 2
     const inside =
-      point.x >= node.x - hitSlack &&
-      point.x <= node.x + node.width + hitSlack &&
-      point.y >= node.y - hitSlack &&
-      point.y <= node.y + node.height + hitSlack
+      point.x >= node.x &&
+      point.x <= node.x + node.width &&
+      point.y >= node.y &&
+      point.y <= node.y + node.height
     if (!inside) continue
     if (found === null || node.height < found.height) found = node
   }
   return found
+}
+/* ------------------------------------------------------------------ */
+/* labels                                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Labels are drawn at a constant size *on screen*, so zooming in gives the nodes
+ * more room and reveals more of them - which is what zoom is for. Their
+ * content-space size therefore shrinks as the scale grows.
+ */
+export const FLOW_LABEL_PX = 10
+
+/** Screen height one label line needs, halo padding included. */
+export const FLOW_LABEL_SCREEN_HEIGHT = 13
+
+/**
+ * Headroom a node must have over one label line before it is allowed to carry a
+ * label: a node that exactly matches a line height would leave the text touching
+ * its neighbours, so eligibility asks for 15% more.
+ */
+export const FLOW_LABEL_HEADROOM = 1.15
+
+/** Screen padding between two accepted label boxes, so neighbours never touch. */
+export const FLOW_LABEL_PADDING = 1
+
+/** Fewer characters than this say nothing useful, so the label is not drawn. */
+export const FLOW_LABEL_MIN_CHARS = 4
+
+/** Monospace advance width, as a fraction of the font size. */
+export const FLOW_LABEL_CHAR_RATIO = 0.6
+
+export interface FlowLabel {
+  nodeId: string
+  column: FlowColumn
+  /** Final text, already truncated (or carrying a `+ ` group marker). */
+  text: string
+  /** True when the node is tall enough to carry its numbers on a second line. */
+  detail: boolean
+  /** Content-space bounds of the whole block: this is what may not overlap. */
+  x: number
+  y: number
+  width: number
+  height: number
+  anchor: 'start' | 'middle' | 'end'
+  /** True when the label sits beside its bar and needs a halo to stay readable. */
+  halo: boolean
+  /** True for a subnet group, whose label carries the expand marker. */
+  expandable: boolean
+  /** Font size in content units: `FLOW_LABEL_PX` once scaled. */
+  fontSize: number
+}
+
+/** Why a label was not drawn. A collision can only ever push out a smaller node. */
+export type FlowLabelSuppression = 'slot' | 'width' | 'viewBox' | 'collision'
+
+export interface FlowLabelPlan {
+  labels: FlowLabel[]
+  shown: number
+  suppressed: number
+  /** Nodes whose label did not fit, the largest node first. */
+  suppressedIds: string[]
+  /** The same nodes with the reason their label was dropped. */
+  suppressedReasons: { nodeId: string; reason: FlowLabelSuppression }[]
+}
+
+export interface LabelOptions {
+  /** Smallest useful label, in characters. */
+  minChars?: number
+}
+
+interface LabelSpace {
+  x: number
+  anchor: FlowLabel['anchor']
+  available: number
+  halo: boolean
+}
+
+function labelSpaceOf(node: PositionedNode, layout: FlowLayout): LabelSpace {
+  const boxOf = (column: FlowColumn) => layout.boxes.find((box) => box.column === column)
+  switch (node.column) {
+    case 'source':
+      return { x: node.x - 6, anchor: 'end', available: Math.max(0, node.x - 6), halo: false }
+    case 'destination': {
+      const x = node.x + node.width + 6
+      return { x, anchor: 'start', available: Math.max(0, layout.width - x), halo: false }
+    }
+    case 'sourcePort': {
+      const x = node.x + node.width + 5
+      const stateBox = boxOf('state')
+      const limit = stateBox === undefined ? layout.width : stateBox.x - 8
+      return { x, anchor: 'start', available: Math.max(0, limit - x), halo: true }
+    }
+    case 'destinationPort': {
+      const x = node.x - 5
+      const stateBox = boxOf('state')
+      const limit = stateBox === undefined ? 0 : stateBox.x + stateBox.width + 8
+      return { x, anchor: 'end', available: Math.max(0, x - limit), halo: true }
+    }
+    default:
+      return {
+        x: node.x + node.width / 2,
+        anchor: 'middle',
+        available: Math.max(0, node.width - 8),
+        halo: false,
+      }
+  }
+}
+
+function labelsCollide(a: FlowLabel, b: FlowLabel, padding: number): boolean {
+  return (
+    a.x - padding < b.x + b.width &&
+    b.x - padding < a.x + a.width &&
+    a.y - padding < b.y + b.height &&
+    b.y - padding < a.y + a.height
+  )
+}
+
+/**
+ * The text a node may show, or null when nothing useful fits.
+ *
+ * Ports and state names are never cut - a clipped `:443` or `establ…` says
+ * nothing - while an address or a subnet shortens by its middle, keeping the
+ * part that identifies it (`/24`, `/64`). A port is never part of an address
+ * label here, so the digits can never be the part that gives way.
+ */
+function truncateLabel(node: PositionedNode, maxChars: number, minChars: number): string | null {
+  if (maxChars < minChars) return null
+  if (node.column === 'state' || node.kind === 'port') {
+    return node.label.length <= maxChars ? node.label : null
+  }
+  if (node.kind === 'subnet') return shortenSubnet(node.label, maxChars)
+  return shortenMiddle(node.label, maxChars)
+}
+
+/**
+ * Which labels to draw, and where.
+ *
+ * Deterministic collision avoidance in content space: within a column the node
+ * with more bytes claims its label first (ties break on the node id, so the
+ * result never flickers), a label is only drawn when its node is tall enough to
+ * hold it *on screen* at the current zoom, and a label that would leave the
+ * viewBox or overlap an already placed one is dropped rather than allowed to
+ * bleed into its neighbour. Zooming in enlarges every node without enlarging the
+ * labels, so more of them qualify - the suppressed ones stay reachable through
+ * the tooltip and the selection chips.
+ */
+export function planFlowLabels(
+  layout: FlowLayout,
+  view: FlowView,
+  options: LabelOptions = {},
+): FlowLabelPlan {
+  const minChars = Math.max(1, options.minChars ?? FLOW_LABEL_MIN_CHARS)
+  const scale = clampFlowScale(view.scale)
+  const fontSize = FLOW_LABEL_PX / scale
+  const charWidth = fontSize * FLOW_LABEL_CHAR_RATIO
+  const lineHeight = FLOW_LABEL_SCREEN_HEIGHT / scale
+  /* A label needs its own line plus headroom on screen, and boxes are compared
+     with a screen pixel of padding so two accepted labels never even touch. */
+  const requiredHeight = lineHeight * FLOW_LABEL_HEADROOM
+  const padding = FLOW_LABEL_PADDING / scale
+  const labels: FlowLabel[] = []
+  const suppressedIds: string[] = []
+  const suppressedReasons: { nodeId: string; reason: FlowLabelSuppression }[] = []
+
+  for (const column of FLOW_COLUMNS) {
+    const nodes = layout.nodes
+      .filter((node) => node.column === column)
+      .slice()
+      .sort((a, b) =>
+        b.bytes !== a.bytes ? b.bytes - a.bytes : a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
+      )
+    const placed: FlowLabel[] = []
+    for (const node of nodes) {
+      const space = labelSpaceOf(node, layout)
+      const marker = node.kind === 'subnet' ? 2 : 0
+      const lines = node.column === 'state' && node.height >= lineHeight * 2 ? 2 : 1
+      const height = lineHeight * lines
+      const budget = Math.floor(space.available / charWidth) - marker
+      const text = truncateLabel(node, Math.max(0, budget), minChars)
+      const full = text === null ? null : node.kind === 'subnet' ? '+ ' + text : text
+      const width = full === null ? 0 : full.length * charWidth
+      const y = node.y + node.height / 2 - height / 2
+      const x =
+        space.anchor === 'start'
+          ? space.x
+          : space.anchor === 'end'
+            ? space.x - width
+            : space.x - width / 2
+      const label: FlowLabel = {
+        nodeId: node.id,
+        column: node.column,
+        text: full === null ? '' : full,
+        detail: lines === 2,
+        x,
+        y,
+        width,
+        height,
+        anchor: space.anchor,
+        halo: space.halo,
+        expandable: node.kind === 'subnet',
+        fontSize,
+      }
+      const reason: FlowLabelSuppression | null =
+        full === null
+          ? 'width'
+          : requiredHeight > node.height + 1e-9
+            ? 'slot'
+            : x < -1e-9 || x + width > layout.width + 1e-9
+              ? 'viewBox'
+              : placed.some((other) => labelsCollide(label, other, padding))
+                ? 'collision'
+                : null
+      if (reason !== null) {
+        suppressedIds.push(node.id)
+        suppressedReasons.push({ nodeId: node.id, reason })
+        continue
+      }
+      placed.push(label)
+      labels.push(label)
+    }
+  }
+
+  return {
+    labels,
+    shown: labels.length,
+    suppressed: suppressedIds.length,
+    suppressedIds,
+    suppressedReasons,
+  }
 }

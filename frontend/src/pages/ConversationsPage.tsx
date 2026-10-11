@@ -247,12 +247,25 @@ function ConversationsContent() {
     [flowItems, expandedSubnets, flowTotal],
   )
 
-  /** Rows behind the node chosen in the diagram, in the page's order. */
+  /**
+   * Rows behind the node chosen in the diagram, in the page's order.
+   *
+   * The graph resolves the selection exactly, including a folded remainder that
+   * no single row can be matched against. When the node is not in the current
+   * graph - a subnet whose group was just expanded, say - the pattern matcher
+   * answers instead, so the selection survives that.
+   */
   const selectionRows = useMemo(() => {
     if (selectedNodeId === null) return [] as Conversation[]
-    const rows = flowItems.filter((conversation) => nodeMatchesConversation(selectedNodeId, conversation))
+    const node = graph.nodes.find((item) => item.id === selectedNodeId)
+    const keys = node === undefined ? null : new Set(node.keys)
+    const rows = flowItems.filter((conversation) =>
+      keys === null
+        ? nodeMatchesConversation(selectedNodeId, conversation)
+        : keys.has(conversationKey(conversation)),
+    )
     return [...rows].sort((left, right) => compareRows(left, right, sort, order))
-  }, [flowItems, selectedNodeId, sort, order])
+  }, [flowItems, graph, selectedNodeId, sort, order])
 
   const selectionBytes = useMemo(
     () => selectionRows.reduce((sum, conversation) => sum + (conversation.bytes_total || 0), 0),
