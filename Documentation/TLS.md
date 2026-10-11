@@ -246,7 +246,7 @@ are read as badges, in the legend and in the detail panel.
 |---|---|---|
 | `sni_absent:<explanation>` | `client_frame is not None and not session.sni`. The flag carries its own explanation text: "no SNI in the ClientHello (an encrypted ClientHello or a non-SNI client may explain this)". | That the peer hid its identity. A client given a bare address, an old or minimal client, and ECH all produce it. Note the ClientHello condition: a session with no ClientHello at all does **not** raise it, even though its SNI is also empty. |
 | `no_certificate` | `client_frame is not None and not cert_frames` | That the peer presented no certificate, or that a client rejected one. TLS 1.3 encrypts the Certificate message, a capture can end before the certificate flight, and a failed handshake never reaches it. |
-| `tls10_or_older` | `session.version in LEGACY_VERSIONS`, where `LEGACY_VERSIONS = {"SSL 3.0", "TLS 1.0"}` | Weakest-common-denominator negotiation by two modern peers. It is a narrower set than the Threat Hunt detection's `_LEGACY_TLS`: **TLS 1.1 is not flagged here** (see [ThreatHunter/SuspiciousTls.md](ThreatHunter/SuspiciousTls.md)). Legacy appliances, embedded devices and old libraries do negotiate these in otherwise normal networks. |
+| `tls10_or_older` | `session.version in LEGACY_VERSIONS`, where `LEGACY_VERSIONS = {"SSL 3.0", "TLS 1.0"}` | Weakest-common-denominator negotiation by two modern peers. It is a narrower set than the Threat Map detection's `_LEGACY_TLS`: **TLS 1.1 is not flagged here** (see [ThreatHunter/SuspiciousTls.md](ThreatHunter/SuspiciousTls.md)). Legacy appliances, embedded devices and old libraries do negotiate these in otherwise normal networks. |
 | `self_signed_suspected` | `session.cert_subject and session.cert_issuer and session.cert_subject == session.cert_issuer` | That the certificate was self-signed, or that it was not. It is an exact string comparison of TShark's rendered subject and issuer: internal test CAs, lab equipment and interception proxies produce it, and the opposite finding proves nothing either. |
 | `alert` | `session.alert is not None` — any alert description seen in the session | Malice. Fatal alerts are normal when a client rejects an expired or mismatched certificate and when a proxy refuses a connection. The analyser records the numeric description; it does not read the alert **level**, so a benign `close_notify` (code 0) raises the same flag as `handshake_failure` (40). |
 | `incomplete_handshake` | `session.handshake_status != STATUS_COMPLETE` | Anything about the peers: it says the capture lacks a complete ClientHello/ServerHello pair. It fires for `client_hello_only`, `server_hello_only`, `alert` and `unknown`. |
@@ -265,7 +265,7 @@ precondition at work, not a counting error.
 The page navigates within itself: the **Sessions** button on a fingerprint row — and on the
 fingerprint chips in the detail panel — sets `ja3=<value>` and switches the view to `sessions`. It
 has no link out to the packet view or the hosts table. The parameters are the hand-off, and they are
-the ones the Threat Hunt detections already use:
+the ones the Threat Map detections already use:
 
 | To get there | Use | What to look for |
 |---|---|---|

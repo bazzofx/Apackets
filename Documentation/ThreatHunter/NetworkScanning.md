@@ -1,6 +1,6 @@
 # Network Scanning (`network_scanning`)
 
-Part of the **Threat Hunt** section (`/threat-hunt`). Read
+Part of the **Threat Map** section (`/threat-hunt`). Read
 [ThreatHunter.md](ThreatHunter.md) first for the endpoint, the envelope and the
 `availability` rules. This document follows the structure defined in
 [EachFeature.md](EachFeature.md). The normative contract is
@@ -238,7 +238,7 @@ does. The card's own caveat says the same thing:
   here.
 * **Slow sweeps.** A source that spreads its probes beyond the ten-second window keeps
   every window under the threshold. `window` changes the *display* bucket size and does
-  not affect these two spans.
+  not affect these two spans; the page sends the default of 60 seconds.
 * **Structural cap.** At most `PACKET_SCAN_CAP = 20000` frames are read per probe
   query, in address-then-time order, so on a very large capture later sources may not
   be examined at all. The heatmap note says `capped at 20000 attempts` when this
@@ -255,4 +255,4 @@ does. The card's own caveat says the same thing:
 
 ---
 
-**Related:** [Threat Hunt](../Threat-Hunt.md) · [Packets](../Packets.md) · [Hosts](../Hosts.md) · [HighFanOut](HighFanOut.md) · [FailedConnections](FailedConnections.md)
+**Related:** [Threat Map](../Threat-Hunt.md) · [Packets](../Packets.md) · [Hosts](../Hosts.md) · [HighFanOut](HighFanOut.md) · [FailedConnections](FailedConnections.md)

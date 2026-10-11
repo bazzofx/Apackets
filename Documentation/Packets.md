@@ -318,7 +318,7 @@ export files; they do not navigate. What it opens, and what opens it:
 | A frame link on the Conversations Timeline tab | `?mode=basic&stream_id=<id>&sel=<frame>` — the stream's frames with that frame decoded |
 | A pivot on [Findings](Findings.md) | `?ip=<address>` or `?ip=<address>&port=<port>` |
 | A signature match or entity pivot on Findings | `?sel=<frame>` — one frame |
-| The Threat Hunt pages | `?mode=basic&sel=<frame>`, with `&stream_id=<id>` and `&transport=udp` added where the detection recorded a stream — the form the per-detection documents use |
+| The Threat Map pages | `?mode=basic&sel=<frame>`, with `&stream_id=<id>` and `&transport=udp` added where the detection recorded a stream — the form the per-detection documents use |
 | **CSV** | A file download, not a route |
 
 The fields the page displays are the same ones the protocol sections document in detail:
@@ -334,7 +334,7 @@ listed on [Files and Objects](Files-and-Objects.md). The normative parameter lis
   `analysis_ready_row`, which resolves the retained capture on disk and raises
   `410 capture_missing` when the upload has been purged. That is true even of the plain list
   request, because the display filter, the neighbours endpoint and the packet detail all run
-  TShark. Unlike [Threat Hunt](Threat-Hunt.md), this page has no index-only mode.
+  TShark. Unlike [Threat Map](Threat-Hunt.md), this page has no index-only mode.
 * **The two filter modes never compose.** Only the active mode is sent: in basic mode the
   `filter` key is ignored, in advanced mode every typed field is ignored. Values typed in
   one mode stay in the URL and reappear when you switch back, but they never affect the
@@ -411,4 +411,4 @@ listed on [Files and Objects](Files-and-Objects.md). The normative parameter lis
 
 ## 6. Related
 
-**Related:** [Conversations](Conversations.md) · [HTTP](HTTP.md) · [DNS](DNS.md) · [TLS](TLS.md) · [Findings](Findings.md) · [Threat Hunt](Threat-Hunt.md) · [Getting-Started](Getting-Started.md) · [Reference/API](Reference/API.md)
+**Related:** [Conversations](Conversations.md) · [HTTP](HTTP.md) · [DNS](DNS.md) · [TLS](TLS.md) · [Findings](Findings.md) · [Threat Map](Threat-Hunt.md) · [Getting-Started](Getting-Started.md) · [Reference/API](Reference/API.md)

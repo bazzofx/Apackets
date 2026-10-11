@@ -1,6 +1,6 @@
 # High-Fan-Out Hosts (`high_fan_out`)
 
-Part of the **Threat Hunt** section (`/threat-hunt`). Read
+Part of the **Threat Map** section (`/threat-hunt`). Read
 [ThreatHunter.md](ThreatHunter.md) first for the endpoint, the envelope and the
 `availability` rules. This document follows the structure defined in
 [EachFeature.md](EachFeature.md). The normative contract is
@@ -153,4 +153,4 @@ caveat says the same thing:
 
 ---
 
-**Related:** [Threat Hunt](../Threat-Hunt.md) · [Hosts](../Hosts.md) · [Conversations](../Conversations.md) · [NetworkScanning](NetworkScanning.md) · [RareCommunicationPairs](RareCommunicationPairs.md)
+**Related:** [Threat Map](../Threat-Hunt.md) · [Hosts](../Hosts.md) · [Conversations](../Conversations.md) · [NetworkScanning](NetworkScanning.md) · [RareCommunicationPairs](RareCommunicationPairs.md)

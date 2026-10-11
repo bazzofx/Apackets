@@ -1,6 +1,6 @@
 # Suspicious TLS Connections (`suspicious_tls`)
 
-Part of the **Threat Hunt** section (`/threat-hunt`). Read
+Part of the **Threat Map** section (`/threat-hunt`). Read
 [ThreatHunter.md](ThreatHunter.md) first for the endpoint, the envelope and the
 `availability` rules. This document follows the structure defined in
 [EachFeature.md](EachFeature.md). The normative contract is
@@ -94,7 +94,7 @@ The flags themselves come from `backend/app/services/tls_analyzer.py`:
 
 | Constant (in `tls_analyzer.py`) | Value | Flag it raises |
 |---|---|---|
-| `LEGACY_VERSIONS` | `{"SSL 3.0", "TLS 1.0"}` | `tls10_or_older` — note this is a narrower set than the Threat Hunt detection's `_LEGACY_TLS`, which also catches `TLS 1.1` from the `version` column |
+| `LEGACY_VERSIONS` | `{"SSL 3.0", "TLS 1.0"}` | `tls10_or_older` — note this is a narrower set than the Threat Map detection's `_LEGACY_TLS`, which also catches `TLS 1.1` from the `version` column |
 | — | client frame present and no SNI | `sni_absent` |
 | — | client frame present and no certificate frames | `no_certificate` |
 | — | `cert_subject` equal to `cert_issuer` (both non-empty) | `self_signed_suspected` |
@@ -198,4 +198,4 @@ whether the client intended anything.
 
 ---
 
-**Related:** [Threat Hunt](../Threat-Hunt.md) · [TLS](../TLS.md) · [Hosts](../Hosts.md) · [PossibleMalwareDownload](PossibleMalwareDownload.md) · [C2Beaconing](C2Beaconing.md)
+**Related:** [Threat Map](../Threat-Hunt.md) · [TLS](../TLS.md) · [Hosts](../Hosts.md) · [PossibleMalwareDownload](PossibleMalwareDownload.md) · [C2Beaconing](C2Beaconing.md)

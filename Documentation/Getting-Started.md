@@ -276,7 +276,7 @@ Indexed row counts from the same library, per capture:
 Zeroes there are results, not failures. `SpaceX_111025.pcapng` contains no
 cleartext HTTP, so it has no HTTP transactions and no extractable objects;
 `nmap_sn_livehosts.pcapng` is a scan, so it has conversations and hosts but no
-HTTP. What is _absent_ is stated on `/info` and by the Threat Hunt cards rather
+HTTP. What is _absent_ is stated on `/info` and by the Threat Map cards rather
 than being shown as a measured zero.
 
 The library in `data/` currently holds **22** rows in `analyses` and 19 rows in

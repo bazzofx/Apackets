@@ -143,7 +143,7 @@ payload, the error codes and the schema columns — are frozen in
 | §8 Detection rules | Finding ids and their configurable thresholds |
 | §9 Frontend contract | What the pages are allowed to expect |
 
-The Threat Hunt section additionally has its own normative document,
+The Threat Map section additionally has its own normative document,
 [`docs/THREAT_HUNT.md`](../../docs/THREAT_HUNT.md), which fixes the indicator
 envelope, the six visual shapes, the caps and the only link parameters that may
 be used.

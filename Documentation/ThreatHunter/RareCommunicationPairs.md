@@ -1,6 +1,6 @@
 # Rare Communication Pairs (`rare_pairs`)
 
-Part of the **Threat Hunt** section (`/threat-hunt`). Read
+Part of the **Threat Map** section (`/threat-hunt`). Read
 [ThreatHunter.md](ThreatHunter.md) first for the endpoint, the envelope and the
 `availability` rules. This document follows the structure defined in
 [EachFeature.md](EachFeature.md). The normative contract is
@@ -150,8 +150,9 @@ the same thing:
   20000` conversations by `start_time`, so on a very large capture later pairs are not
   examined at all, and the table shows only the first `TABLE_CAP = 50` pairs in
   address order — which is not the "top 50 of anything" and may look arbitrary.
-* **`top` does nothing here.** Reducing rows per visual will not shorten this table.
+* **`top` does nothing here.** This card is not a ranked visual, so the endpoint's
+  `top` parameter does not shorten it.
 
 ---
 
-**Related:** [Threat Hunt](../Threat-Hunt.md) · [Conversations](../Conversations.md) · [Hosts](../Hosts.md) · [HighFanOut](HighFanOut.md) · [LateralMovement](LateralMovement.md)
+**Related:** [Threat Map](../Threat-Hunt.md) · [Conversations](../Conversations.md) · [Hosts](../Hosts.md) · [HighFanOut](HighFanOut.md) · [LateralMovement](LateralMovement.md)

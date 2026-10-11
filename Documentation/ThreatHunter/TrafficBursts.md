@@ -1,6 +1,6 @@
 # Suspicious Traffic Bursts (`traffic_bursts`)
 
-Part of the **Threat Hunt** section (`/threat-hunt`). Read
+Part of the **Threat Map** section (`/threat-hunt`). Read
 [ThreatHunter.md](ThreatHunter.md) first for the endpoint, the envelope and the
 `availability` rules. This document follows the structure defined in
 [EachFeature.md](EachFeature.md). The normative contract is
@@ -60,10 +60,11 @@ Implemented by `_traffic_bursts(index)` in `backend/app/services/threat_hunt.py`
    draws the earliest `TIMELINE_CAP = 240` buckets, marking those that are bursts, and
    reports `top 240 of N bucket(s)` in its note when there were more.
 
-Because the bucket size is the only variable, changing **Bucket** on the page changes
+Because the bucket size is the only variable, the `window` a caller passes changes
 the detection itself and not just its presentation: a 15-second window will mark
 different buckets from a 300-second window on the same capture, and a short window
-makes the `BURST_MIN_PACKETS = 20` floor harder to reach.
+makes the `BURST_MIN_PACKETS = 20` floor harder to reach. The page sends the
+default `window = 60` and no longer exposes it as a control.
 
 ## 4. Thresholds
 
@@ -149,9 +150,9 @@ did, by the capture's own standard. The card's own caveat says the same thing:
   a floor of 20 packets that nothing will reach.
 * **Frames, not bytes.** Because `frame_len` is not summed, a burst of small frames
   outranks a steadier stream of large ones. A quiet exfiltration may never be marked.
-* **Bucket size is the detection.** Changing **Bucket** changes which buckets are
-  bursts; two readings of the same capture at different windows are not comparable, and
-  neither is more correct than the other.
+* **Bucket size is the detection.** The `window` a caller passes changes which buckets
+  are bursts; two readings of the same capture at different windows are not comparable,
+  and neither is more correct than the other. The page always sends 60.
 * **The floor can hide a real burst.** On a capture whose busiest bucket holds 15
   packets, no bucket can be a burst at all.
 * **Structural cap.** Only the earliest `TIMELINE_CAP = 240` buckets are drawn. The
@@ -166,4 +167,4 @@ did, by the capture's own standard. The card's own caveat says the same thing:
 
 ---
 
-**Related:** [Threat Hunt](../Threat-Hunt.md) · [Packets](../Packets.md) · [Conversations](../Conversations.md) · [C2Beaconing](C2Beaconing.md) · [DataStaging](DataStaging.md)
+**Related:** [Threat Map](../Threat-Hunt.md) · [Packets](../Packets.md) · [Conversations](../Conversations.md) · [C2Beaconing](C2Beaconing.md) · [DataStaging](DataStaging.md)

@@ -1277,7 +1277,7 @@ export interface ConversationAlertsResponse {
 }
 
 /* ------------------------------------------------------------------ */
-/* threat hunt (docs/THREAT_HUNT.md §3 and §4)                         */
+/* Threat Map (docs/THREAT_HUNT.md §3 and §4)                         */
 /* ------------------------------------------------------------------ */
 
 /**

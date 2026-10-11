@@ -5,7 +5,7 @@ the same row, plus a second view that aggregates the same rows per query name.
 
 The page is `frontend/src/pages/DnsPage.tsx` and its route is `/dns`. It sits with the other two
 protocol pages, [HTTP](HTTP.md) and [TLS](TLS.md), under **Protocols** in the left-hand navigation;
-the Threat Hunt detections that reason about name shape are built on this table and are documented
+the Threat Map detections that reason about name shape are built on this table and are documented
 under [ThreatHunter/](ThreatHunter/ThreatHunter.md). The normative interface shape is
 [`docs/CONTRACT.md`](../docs/CONTRACT.md) §5.
 

@@ -1,6 +1,6 @@
 # IDS Signature Matches (`ids_matches`)
 
-Part of the **Threat Hunt** section (`/threat-hunt`). Read
+Part of the **Threat Map** section (`/threat-hunt`). Read
 [ThreatHunter.md](ThreatHunter.md) first for the endpoint, the envelope and the
 `availability` rules. This document follows the structure defined in
 [EachFeature.md](EachFeature.md). The normative contract is
@@ -134,7 +134,7 @@ The severity vocabulary (`informational`, `low`, `medium`, `high`) is fixed by
 
 ## 8. What it does not prove
 
-A signature match is the most specific evidence on the Threat Hunt page — a rule
+A signature match is the most specific evidence on the Threat Map page — a rule
 written for a known technique matched frames that were actually captured — and it is
 still not a confirmed compromise. It says nothing about whether the attempt succeeded,
 and a rule with a loose pattern can fire on ordinary traffic. The card's own caveat
@@ -171,4 +171,4 @@ says the same thing:
 
 ---
 
-**Related:** [Threat Hunt](../Threat-Hunt.md) · [Findings](../Findings.md) · [Packets](../Packets.md) · [SuspiciousHttp](SuspiciousHttp.md) · [PossibleMalwareDownload](PossibleMalwareDownload.md)
+**Related:** [Threat Map](../Threat-Hunt.md) · [Findings](../Findings.md) · [Packets](../Packets.md) · [SuspiciousHttp](SuspiciousHttp.md) · [PossibleMalwareDownload](PossibleMalwareDownload.md)

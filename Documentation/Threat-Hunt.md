@@ -1,4 +1,4 @@
-# Threat Hunt
+# Threat Map
 
 The investigative front page of an analysis: seventeen fixed questions asked of
 the capture's index — is anything beaconing, scanning, tunnelling, staging or
@@ -21,7 +21,7 @@ in [ThreatHunter/](ThreatHunter/ThreatHunter.md).
 ## 1. What the section is for
 
 An analyst starting on an unfamiliar capture has to answer a small set of
-questions before anything else is worth doing. Threat Hunt answers them with
+questions before anything else is worth doing. Threat Map answers them with
 numbers measured from this analysis's own index, and puts the evidence one click
 away.
 
@@ -53,8 +53,8 @@ an analysis that has not finished is `409 analysis_not_ready`.
 
 | Parameter | Default | Range | Meaning |
 |---|---|---|---|
-| `window` | `60` | 5–3600 (seconds) | Seconds per bucket for every time series on the page. |
-| `top` | `12` | 1–50 (rows) | Rows returned per ranked visual (bars and heatmap). |
+| `window` | `60` | 5–3600 (seconds) | Seconds per bucket for every time series. The page always sends `60`. |
+| `top` | `12` | 1–50 (rows) | Rows returned per ranked visual (bars and heatmap). The page always sends `12`. |
 
 Both are declared with `Query` bounds (`MIN_WINDOW = 5`, `MAX_WINDOW = 3600`,
 `MIN_TOP = 1`, `MAX_TOP = 50`), so a value outside the range is
@@ -62,11 +62,11 @@ Both are declared with `Query` bounds (`MIN_WINDOW = 5`, `MAX_WINDOW = 3600`,
 (`max(5, min(3600, …))` and `max(1, min(50, …))`) so calling it directly from a
 script or a test cannot produce an unbounded response.
 
-The page exposes a subset of those ranges — **Bucket** offers 15, 30, 60, 120,
-300, 600 and 1800 seconds, **Rows per visual** offers 5, 8, 12, 20 and 50 — but
-the API accepts any value inside 5–3600 and 1–50. Changing either keeps the
-previous response on screen until the new one arrives, so the page never blanks.
-A **Refresh** button re-runs the detections against the current index.
+The page offers no controls at all, because it reads an indexed capture rather than a
+live feed: `window` is fixed at 60 seconds and `top` at 12, so there is nothing to tune
+and nothing to refresh. Both stay endpoint parameters, and the API accepts any value
+inside 5–3600 for `window` and 1–50 for `top`, so a saved request can choose
+different ones.
 
 The response envelope (`analysis_id`, `generated_at`, `packets_scanned`,
 `window`, `top`, `note`, and `indicators[]`) is fixed by
@@ -139,10 +139,10 @@ the headline label and the headline number. Clicking a row opens the tab that ow
 that detection — it is a routing surface, not a summary you are meant to read in
 full.
 
-Above the tabs sits the header: a scope note stating what the section can and
-cannot say, the two selects and **Refresh**, and a summary line giving how many of
-the seventeen computed something, the number of indexed packets, the active
-`window` and `top`, and when the response was generated.
+Above the tabs sits the header: the scope note, stating what the section can and
+cannot say. It starts collapsed — the section is seventeen answers, not a primer —
+and opens from the *show* toggle in its own header. No other control sits above the
+tabs, and the page does not report a generated-at time.
 
 ---
 

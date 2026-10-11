@@ -28,7 +28,7 @@ The order below is the order of the left-hand navigation.
 | Conversations | [Conversations.md](Conversations.md) | `/conversations` |
 | Hosts | [Hosts.md](Hosts.md) | `/hosts` |
 | Findings | [Findings.md](Findings.md) | `/findings` |
-| Threat Hunt | [Threat-Hunt.md](Threat-Hunt.md) | `/threat-hunt` |
+| Threat Map | [Threat-Hunt.md](Threat-Hunt.md) | `/threat-hunt` |
 | Files and Objects | [Files-and-Objects.md](Files-and-Objects.md) | `/objects` |
 | Packets | [Packets.md](Packets.md) | `/packets` |
 | HTTP | [HTTP.md](HTTP.md) | `/http` |
@@ -37,7 +37,7 @@ The order below is the order of the left-hand navigation.
 | PCAP Files | [PCAP-Files.md](PCAP-Files.md) | `/files` |
 | Settings | [Settings.md](Settings.md) | `/settings` |
 
-**Threat Hunt** is the one section with a document per detection. Its section document
+**Threat Map** is the one section with a document per detection. Its section document
 is [Threat-Hunt.md](Threat-Hunt.md); the seventeen detections each have their own page
 under [ThreatHunter/](ThreatHunter/ThreatHunter.md), starting with the overview.
 
@@ -62,7 +62,7 @@ The rules, which every document here follows:
    backticks.
 5. **The frozen contract stays where it is.** [`docs/CONTRACT.md`](../docs/CONTRACT.md)
    is the normative API and schema specification, and
-   [`docs/THREAT_HUNT.md`](../docs/THREAT_HUNT.md) is the normative Threat Hunt
+   [`docs/THREAT_HUNT.md`](../docs/THREAT_HUNT.md) is the normative Threat Map
    contract. These documents explain the application; those two define it. Where a
    section depends on a rule, it links to the contract rather than restating it.
 

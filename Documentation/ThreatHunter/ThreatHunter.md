@@ -1,6 +1,6 @@
-# Threat Hunt
+# Threat Map
 
-The Threat Hunt section is the investigative front page of an analysis. It asks
+The Threat Map section is the investigative front page of an analysis. It asks
 seventeen fixed questions of the capture — the ones an analyst asks first — and
 answers each one from the tables APackets already indexed, with the threshold it
 applied, the chart behind the number, links to the rows themselves, and a
@@ -27,7 +27,7 @@ below it describe one indicator each.
 An analyst starting on an unfamiliar capture has to answer a small set of
 questions before anything else is worth doing: is anything beaconing, is anything
 scanning, is anything moving data out, is anything talking to a destination it has
-no business talking to. Threat Hunt answers those questions with numbers measured
+no business talking to. Threat Map answers those questions with numbers measured
 from this capture's own index, and puts the evidence one click away.
 
 It is a triage surface, not a detection engine of its own. It does not raise
@@ -178,15 +178,11 @@ the headline; it is never a verdict. `warn` is used by `malware_download` and by
 
 ## 5. How to read the page
 
-* **Header.** A statement of scope, then the controls: **Bucket** (15, 30, 60,
-  120, 300, 600 or 1800 seconds), **Rows per visual** (5, 8, 12, 20 or 50), and
-  **Refresh**. Both selects are inside the endpoint's documented ranges; the API
-  accepts any value in 5–3600 and 1–50 even though the page offers a subset.
-  Changing the bucket size keeps the previous response on screen until the new one
-  arrives, so the page never blanks.
-* **Summary line.** How many of the seventeen indicators computed something, the
-  number of indexed packets, the active `window` and `top`, and when the response
-  was generated.
+* **Header.** The scope note alone, collapsed by default and opened from the *show*
+  toggle in its header. The page has no other controls: it reads an indexed capture,
+  not a live feed, so `window` is fixed at 60 seconds and `top` at 12. Both remain
+  endpoint parameters — the API accepts 5–3600 and 1–50 — so a saved
+  request can still choose different ones.
 * **Tabs.** The seventeen detections are grouped into the phases an analyst works
   in — *Overview*, *Recon and movement*, *C2 and name resolution*, *Exfiltration
   and staging*, *Web and alerts* — with a `n/m` count of how many detections in
@@ -346,4 +342,4 @@ prove, and its known limits and false positives.
 
 ---
 
-**Related:** [Threat Hunt](../Threat-Hunt.md) · [Architecture](../Architecture.md) · [Findings](../Findings.md)
+**Related:** [Threat Map](../Threat-Hunt.md) · [Architecture](../Architecture.md) · [Findings](../Findings.md)

@@ -187,7 +187,7 @@ export function AppLayout() {
     },
     {
       to: '/threat-hunt',
-      label: 'Threat Hunt',
+      label: 'Threat Map',
       icon: Radar,
       title: 'The brief’s detections, computed over this capture’s indexed tables',
     },

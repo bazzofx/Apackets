@@ -862,7 +862,7 @@ export const alertsApi = {
 }
 
 /* ------------------------------------------------------------------ */
-/* Threat Hunt (docs/THREAT_HUNT.md §2)                                */
+/* Threat Map (docs/THREAT_HUNT.md §2)                                */
 /* ------------------------------------------------------------------ */
 
 export interface ThreatHuntParams {

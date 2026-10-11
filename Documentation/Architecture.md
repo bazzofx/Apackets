@@ -105,7 +105,7 @@ Notes that matter when reading the code:
   `stats_cache` under `kind='warnings'` and returned by
   `GET /api/analyses/{id}`.
 * **The packet index is the substrate.** Conversation, host, port, protocol,
-  timeline, Threat Hunt and detection logic all read `packets` (or the tables
+  timeline, Threat Map and detection logic all read `packets` (or the tables
   derived from it) rather than the capture. `_aggregate()` in `packet_indexer.py`
   computes the capture-level counters, which are then copied onto `analyses`.
 * **Detection runs after every extractor**, so the rules can see HTTP, DNS, TLS,
@@ -258,7 +258,7 @@ Consequences that show up in behaviour:
   `APACKETS_RETAIN_UPLOADS=false` makes packet detail, stream views and object
   extraction unavailable.
 * **No payload inspection anywhere else.** HTTP bodies are previewed, not
-  interpreted; TLS is not decrypted; Threat Hunt reads metadata only — see
+  interpreted; TLS is not decrypted; Threat Map reads metadata only — see
   [Threat-Hunt.md](Threat-Hunt.md) §7.
 
 ---
@@ -319,7 +319,7 @@ the build holds to it:
 * **No telemetry, no analytics, no cloud call.** Nothing is sent anywhere. There
   is no outbound HTTP or TLS client in `backend/app/` at all: the only network-ish
   imports are `urllib.parse` (pure string parsing, in the detection engine, the
-  object extractor and the Threat Hunt service) and `socket.getservbyport()`
+  object extractor and the Threat Map service) and `socket.getservbyport()`
   (`backend/app/api/routes_findings.py`), which reads the **local** services
   database to name a port and opens no connection.
 * **TShark never resolves names.** Every invocation carries `-n` (§6), so
@@ -367,7 +367,7 @@ security model and the known limitations.
 | File recovery from captures | `backend/app/services/object_extractor.py` |
 | Built-in detection rules and their thresholds | `backend/app/services/detection_engine.py` |
 | The native Suricata-compatible matcher | `backend/app/services/suricata_engine.py`, `suricata_rules.py` |
-| The seventeen Threat Hunt indicators | `backend/app/services/threat_hunt.py` (see [Threat-Hunt.md](Threat-Hunt.md)) |
+| The seventeen Threat Map indicators | `backend/app/services/threat_hunt.py` (see [Threat-Hunt.md](Threat-Hunt.md)) |
 | Path safety, hashing and the on-disk layout | `backend/app/services/storage.py` |
 | The REST surface | `backend/app/api/*.py` (see [Reference/API.md](Reference/API.md)) |
 | The theme tokens and palettes | `frontend/src/theme/themes.ts`, `ThemeProvider.tsx` |

@@ -1,6 +1,6 @@
 # Unusual Egress (`unusual_egress`)
 
-Part of the **Threat Hunt** section (`/threat-hunt`). Read
+Part of the **Threat Map** section (`/threat-hunt`). Read
 [ThreatHunter.md](ThreatHunter.md) first for the endpoint, the envelope and the
 `availability` rules. This document follows the structure defined in
 [EachFeature.md](EachFeature.md). The normative contract is
@@ -182,4 +182,4 @@ was expected.
 
 ---
 
-**Related:** [Threat Hunt](../Threat-Hunt.md) · [Hosts](../Hosts.md) · [Conversations](../Conversations.md) · [DataExfiltration](DataExfiltration.md) · [DataStaging](DataStaging.md)
+**Related:** [Threat Map](../Threat-Hunt.md) · [Hosts](../Hosts.md) · [Conversations](../Conversations.md) · [DataExfiltration](DataExfiltration.md) · [DataStaging](DataStaging.md)

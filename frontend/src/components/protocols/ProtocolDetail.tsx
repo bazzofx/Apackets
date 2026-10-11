@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import clsx from 'clsx'
-import { Check, MinusCircle, TriangleAlert } from 'lucide-react'
+import { Check, ChevronDown, MinusCircle, TriangleAlert } from 'lucide-react'
 import { EMPTY } from '@/utils/format'
 
 /**
@@ -111,6 +111,10 @@ export interface ScopeNoteProps {
   items: ScopeNoteItem[]
   /** Extra caveat rendered below the list. */
   caveat?: ReactNode
+  /** When true the body starts behind a toggle in the header. */
+  collapsible?: boolean
+  /** Initial open state when `collapsible` is set; defaults to open. */
+  defaultOpen?: boolean
   className?: string
 }
 
@@ -118,29 +122,60 @@ export interface ScopeNoteProps {
  * Honest statement of what a page can and cannot show. Used by all three
  * protocol pages so the limits of the analysis are visible above the data.
  */
-export function ScopeNote({ title, items, caveat, className }: ScopeNoteProps) {
+export function ScopeNote({
+  title,
+  items,
+  caveat,
+  collapsible = false,
+  defaultOpen = true,
+  className,
+}: ScopeNoteProps) {
+  const [open, setOpen] = useState(defaultOpen)
+  /* Collapsing is opt-in: the protocol pages render this note open, exactly as
+     they always have, and only a page that asks for it gets a toggle. */
+  const expanded = collapsible ? open : true
   return (
     <section className={clsx('panel', className)}>
       <header className="panel-header">
         <div className="panel-title">{title}</div>
+        {collapsible ? (
+          <button
+            type="button"
+            className="btn px-1.5 py-0.5"
+            onClick={() => setOpen((value) => !value)}
+            aria-expanded={expanded}
+            title={expanded ? 'Hide this explanation' : 'Show what this section does and does not cover'}
+          >
+            <ChevronDown
+              size={12}
+              className={clsx('transition-transform', !expanded && '-rotate-90')}
+              aria-hidden
+            />
+            {expanded ? 'hide' : 'show'}
+          </button>
+        ) : null}
       </header>
-      <ul className="grid grid-cols-1 gap-x-5 gap-y-1 p-3 md:grid-cols-2">
-        {items.map((item, index) => (
-          <li key={index} className="flex items-start gap-2 text-2xs leading-relaxed">
-            {item.can ? (
-              <Check size={12} className="mt-0.5 shrink-0 text-ok" aria-hidden />
-            ) : (
-              <MinusCircle size={12} className="mt-0.5 shrink-0 text-faint" aria-hidden />
-            )}
-            <span className={item.can ? 'text-muted' : 'text-muted'}>{item.text}</span>
-          </li>
-        ))}
-      </ul>
-      {caveat ? (
-        <div className="flex items-start gap-2 border-t border-border px-3 py-2">
-          <TriangleAlert size={13} className="mt-0.5 shrink-0 text-warn" aria-hidden />
-          <p className="text-2xs leading-relaxed text-muted">{caveat}</p>
-        </div>
+      {expanded ? (
+        <>
+          <ul className="grid grid-cols-1 gap-x-5 gap-y-1 p-3 md:grid-cols-2">
+            {items.map((item, index) => (
+              <li key={index} className="flex items-start gap-2 text-2xs leading-relaxed">
+                {item.can ? (
+                  <Check size={12} className="mt-0.5 shrink-0 text-ok" aria-hidden />
+                ) : (
+                  <MinusCircle size={12} className="mt-0.5 shrink-0 text-faint" aria-hidden />
+                )}
+                <span className={item.can ? 'text-muted' : 'text-muted'}>{item.text}</span>
+              </li>
+            ))}
+          </ul>
+          {caveat ? (
+            <div className="flex items-start gap-2 border-t border-border px-3 py-2">
+              <TriangleAlert size={13} className="mt-0.5 shrink-0 text-warn" aria-hidden />
+              <p className="text-2xs leading-relaxed text-muted">{caveat}</p>
+            </div>
+          ) : null}
+        </>
       ) : null}
     </section>
   )

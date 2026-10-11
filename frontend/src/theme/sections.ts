@@ -131,7 +131,7 @@ export const SECTIONS = {
     id: 'threat-hunt',
     route: '/threat-hunt',
     group: 'Capture',
-    label: 'Threat Hunt',
+    label: 'Threat Map',
     purpose:
       'The hunt hypotheses, detection by detection, each with the measured evidence that fired it or the reason it stayed quiet.',
     icon: Radar,

@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import clsx from 'clsx'
-import { RefreshCw, ShieldAlert } from 'lucide-react'
+import { ShieldAlert } from 'lucide-react'
 import AnalysisGuard from '@/components/AnalysisGuard'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
@@ -14,11 +14,11 @@ import { AVAILABILITY_TONE, availabilityChipLabel } from '@/components/threat/vi
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { threatHuntApi } from '@/services/api'
 import { SECTIONS } from '@/theme/sections'
-import { formatNumber, formatRelativeTime } from '@/utils/format'
+import { formatNumber } from '@/utils/format'
 import type { ThreatHuntIndicator } from '@/types'
 
 /**
- * Threat Hunt — every detection of docs/THREAT_HUNT.md §1 for one analysis.
+ * Threat Map — every detection of docs/THREAT_HUNT.md §1 for one analysis.
  *
  * The page owns the section's single query and hands each indicator to a purely
  * presentational card, which is what makes the cards checkable from a fixture.
@@ -106,12 +106,6 @@ const THREAT_GROUPS: readonly ThreatGroup[] = [
   },
 ]
 
-/** Offered bucket widths, all inside the endpoint's documented 5–3600 s range. */
-const WINDOW_CHOICES = [15, 30, 60, 120, 300, 600, 1800]
-
-/** Offered row counts for the ranked visuals, inside the documented 1–50 range. */
-const TOP_CHOICES = [5, 8, 12, 20, 50]
-
 /** One compact line per detection, so the whole hunt fits on a screen. */
 function OverviewRow({
   indicator,
@@ -148,8 +142,12 @@ function OverviewRow({
 
 function ThreatHuntContent() {
   const { analysisId } = useAnalysis()
-  const [window, setWindow] = useState(60)
-  const [top, setTop] = useState(12)
+  /* Fixed: this page reads an indexed capture, not a live feed, so the bucket
+     width is not a user setting. */
+  const window = 60
+  /* Fixed, like the bucket width: this page is a reading of an indexed capture,
+     not a control panel. The endpoint still accepts `top` from 1 to 50. */
+  const top = 12
   const [searchParams, setSearchParams] = useSearchParams()
 
   const params = useMemo(() => ({ window, top }), [window, top])
@@ -215,12 +213,13 @@ function ThreatHuntContent() {
     setSearchParams(next, { replace: true })
   }
 
-  const totalComputed = indicators.filter((indicator) => indicator.availability === 'ok').length
 
   return (
     <div className="flex flex-col gap-3">
       <ScopeNote
         title="How to read this section"
+        collapsible
+        defaultOpen={false}
         items={[
           {
             can: true,
@@ -253,67 +252,13 @@ function ThreatHuntContent() {
         }
       />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-1.5 text-2xs text-faint">
-          Bucket
-          <select
-            className="select"
-            value={String(window)}
-            onChange={(event) => setWindow(Number(event.target.value))}
-            title="Seconds per bucket for every time series (endpoint parameter `window`, 5–3600)."
-          >
-            {WINDOW_CHOICES.map((seconds) => (
-              <option key={seconds} value={seconds}>
-                {seconds} s
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="flex items-center gap-1.5 text-2xs text-faint">
-          Rows per visual
-          <select
-            className="select"
-            value={String(top)}
-            onChange={(event) => setTop(Number(event.target.value))}
-            title="Rows returned per ranked visual (endpoint parameter `top`, 1–50)."
-          >
-            {TOP_CHOICES.map((count) => (
-              <option key={count} value={count}>
-                {count}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <button
-          type="button"
-          className="btn"
-          onClick={() => void query.refetch()}
-          disabled={query.isFetching}
-          title="Run the detections again over the indexed tables"
-        >
-          <RefreshCw size={13} aria-hidden />
-          {query.isFetching ? 'Hunting…' : 'Refresh'}
-        </button>
-
-        {data ? (
-          <span className="text-2xs text-faint">
-            <span className="mono text-text">{formatNumber(totalComputed)}</span> of{' '}
-            {formatNumber(indicators.length)} indicators computed something ·{' '}
-            {formatNumber(data.packets_scanned)} indexed packet
-            {data.packets_scanned === 1 ? '' : 's'} · window {data.window} s · top {data.top} · generated{' '}
-            {formatRelativeTime(data.generated_at)}
-          </span>
-        ) : null}
-      </div>
 
       {query.isLoading ? (
         <LoadingState label="Running the detections over the indexed tables…" rows={6} />
       ) : query.error ? (
         <ErrorState
           error={query.error}
-          title="Could not load the threat hunt"
+          title="Could not load the threat map"
           onRetry={() => void query.refetch()}
         />
       ) : !data ? (
@@ -419,11 +364,11 @@ function ThreatHuntContent() {
   )
 }
 
-/** Threat Hunt — the 17 detections of the contract, grouped into tabs. */
+/** Threat Map — the 17 detections of the contract, grouped into tabs. */
 export function ThreatHuntPage() {
   return (
     <Page section={SECTIONS.threatHunt}>
-      <AnalysisGuard emptyDescription="Upload a PCAP/PCAPNG capture or select an existing analysis in the top bar to hunt across its indexed tables. Threat Hunt reads only tables that already exist, so it needs a finished analysis.">
+      <AnalysisGuard emptyDescription="Upload a PCAP/PCAPNG capture or select an existing analysis in the top bar to hunt across its indexed tables. Threat Map reads only tables that already exist, so it needs a finished analysis.">
         <ThreatHuntContent />
       </AnalysisGuard>
     </Page>

@@ -1,7 +1,7 @@
 # Per-feature document template
 
 **This file is a template, not a description of a detection.** Every per-feature
-document in this folder — the seventeen files that document one Threat Hunt
+document in this folder — the seventeen files that document one Threat Map
 indicator each — follows the structure below, in this order, with these headings.
 Nothing here is filled in: the headings and the note under each one say what
 belongs there.
@@ -105,4 +105,4 @@ source table never ran.
 
 ---
 
-**Related:** [Threat Hunt](../Threat-Hunt.md) · [Threat Hunter overview](ThreatHunter.md)
+**Related:** [Threat Map](../Threat-Hunt.md) · [Threat Hunter overview](ThreatHunter.md)

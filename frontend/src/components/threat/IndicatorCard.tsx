@@ -14,7 +14,7 @@ import TimelineVisual from './TimelineVisual'
 import { AVAILABILITY_TONE, TONE_CHIP, TONE_TEXT, availabilityChipLabel } from './visualKit'
 
 /**
- * One Threat Hunt indicator (contract §3.1), drawn entirely from the object it is
+ * One Threat Map indicator (contract §3.1), drawn entirely from the object it is
  * given.
  *
  * This component fetches nothing: the page owns the single query, so a card can be

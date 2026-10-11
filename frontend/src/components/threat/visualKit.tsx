@@ -4,7 +4,7 @@ import { useThemeTokens } from '@/theme/ThemeProvider'
 import { EMPTY, formatBytes, formatNumber } from '@/utils/format'
 
 /**
- * Shared chrome for the Threat Hunt visuals (docs/THREAT_HUNT.md §4).
+ * Shared chrome for the Threat Map visuals (docs/THREAT_HUNT.md §4).
  *
  * Everything under `components/threat/` is pure presentation: each visual takes
  * one `visual` object from the threat-hunt response and draws it. No component

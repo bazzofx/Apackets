@@ -1,6 +1,6 @@
 # Repeated Failed Connections (`failed_connections`)
 
-Part of the **Threat Hunt** section (`/threat-hunt`). Read
+Part of the **Threat Map** section (`/threat-hunt`). Read
 [ThreatHunter.md](ThreatHunter.md) first for the endpoint, the envelope and the
 `availability` rules. This document follows the structure defined in
 [EachFeature.md](EachFeature.md). The normative contract is
@@ -183,4 +183,4 @@ The card's own caveat says the same thing:
 
 ---
 
-**Related:** [Threat Hunt](../Threat-Hunt.md) · [Packets](../Packets.md) · [Conversations](../Conversations.md) · [NetworkScanning](NetworkScanning.md) · [LateralMovement](LateralMovement.md)
+**Related:** [Threat Map](../Threat-Hunt.md) · [Packets](../Packets.md) · [Conversations](../Conversations.md) · [NetworkScanning](NetworkScanning.md) · [LateralMovement](LateralMovement.md)

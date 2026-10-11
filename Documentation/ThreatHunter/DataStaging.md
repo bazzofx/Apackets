@@ -1,6 +1,6 @@
 # Potential Data Staging (`data_staging`)
 
-Part of the **Threat Hunt** section (`/threat-hunt`). Read
+Part of the **Threat Map** section (`/threat-hunt`). Read
 [ThreatHunter.md](ThreatHunter.md) first for the endpoint, the envelope and the
 `availability` rules. This document follows the structure defined in
 [EachFeature.md](EachFeature.md). The normative contract is
@@ -167,10 +167,11 @@ thing:
 * **Histogram units.** The bucket edges are binary sizes (10,240; 102,400; 1,048,576;
   10,485,760) labelled as KB and MB, so the boundaries sit slightly above the decimal
   values a reader will assume.
-* **`top` does nothing here.** Reducing rows per visual will not change this card.
+* **`top` does nothing here.** This card is not a ranked visual, so the endpoint's
+  `top` parameter does not change it.
 * **An empty card is not a quiet internal network.** It means no single conversation
   between two private addresses carried a million bytes.
 
 ---
 
-**Related:** [Threat Hunt](../Threat-Hunt.md) · [Conversations](../Conversations.md) · [Hosts](../Hosts.md) · [DataExfiltration](DataExfiltration.md) · [UnusualEgress](UnusualEgress.md)
+**Related:** [Threat Map](../Threat-Hunt.md) · [Conversations](../Conversations.md) · [Hosts](../Hosts.md) · [DataExfiltration](DataExfiltration.md) · [UnusualEgress](UnusualEgress.md)

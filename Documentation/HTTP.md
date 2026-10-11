@@ -221,7 +221,7 @@ above and through the other sections linking in:
 | One transaction, opened | `/http?tx=<transaction id>` | The header blocks, the body previews and the reasoning for each flag. |
 | One host's requests | `/http?host=<host>` | Whether a flagged request is a one-off or part of a pattern. |
 | One server address | `/http?server_ip=<address>` | What else was requested from that address, including by other clients. |
-| One client's requests | `/http?client_ip=<address>` | Whether the client also did the flagging-worthy things the Threat Hunt section reports for it. |
+| One client's requests | `/http?client_ip=<address>` | Whether the client also did the flagging-worthy things the Threat Map section reports for it. |
 | Only flagged rows | `/http?interesting=true` | The whole flagged set at once, rather than page by page. |
 | One host's full-text matches | `/http?search=<text>` | The same substring across URIs, hosts, User-Agents and full URIs. |
 
@@ -231,7 +231,7 @@ stream itself from [Conversations.md](Conversations.md) with the `stream_id` the
 shows. Bodies that are cut here are complete in the stream view, and files the analyser extracted
 are listed in [Files-and-Objects.md](Files-and-Objects.md).
 
-Several Threat Hunt detections are built on this page's rows and link back into it —
+Several Threat Map detections are built on this page's rows and link back into it —
 [ThreatHunter/SuspiciousHttp.md](ThreatHunter/SuspiciousHttp.md),
 [ThreatHunter/PossibleMalwareDownload.md](ThreatHunter/PossibleMalwareDownload.md),
 [ThreatHunter/IdsSignatureMatches.md](ThreatHunter/IdsSignatureMatches.md) and

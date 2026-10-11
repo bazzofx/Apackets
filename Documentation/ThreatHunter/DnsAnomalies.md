@@ -1,6 +1,6 @@
 # DNS Anomalies (`dns_anomalies`)
 
-Part of the **Threat Hunt** section (`/threat-hunt`). Read
+Part of the **Threat Map** section (`/threat-hunt`). Read
 [ThreatHunter.md](ThreatHunter.md) first for the endpoint, the envelope and the
 `availability` rules. This document follows the structure defined in
 [EachFeature.md](EachFeature.md). The normative contract is
@@ -178,4 +178,4 @@ have ordinary explanations. The card's own caveat says the same thing:
 
 ---
 
-**Related:** [Threat Hunt](../Threat-Hunt.md) · [DNS](../DNS.md) · [Packets](../Packets.md) · [DnsTunnelling](DnsTunnelling.md) · [UnusualEgress](UnusualEgress.md)
+**Related:** [Threat Map](../Threat-Hunt.md) · [DNS](../DNS.md) · [Packets](../Packets.md) · [DnsTunnelling](DnsTunnelling.md) · [UnusualEgress](UnusualEgress.md)

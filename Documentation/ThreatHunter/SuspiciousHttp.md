@@ -1,6 +1,6 @@
 # Suspicious HTTP Activity (`suspicious_http`)
 
-Part of the **Threat Hunt** section (`/threat-hunt`). Read
+Part of the **Threat Map** section (`/threat-hunt`). Read
 [ThreatHunter.md](ThreatHunter.md) first for the endpoint, the envelope and the
 `availability` rules. This document follows the structure defined in
 [EachFeature.md](EachFeature.md). The normative contract is
@@ -208,8 +208,8 @@ thing:
 * **The table is capped at `TABLE_CAP = 50` rows**, most recent first, so a capture
   with hundreds of flagged transactions shows the newest fifty and says so in the
   table's note. The headline counts all of them.
-* **The `top` parameter does nothing here.** Reducing the rows per visual does not
-  shorten this card.
+* **The `top` parameter does nothing here.** This card is not a ranked visual, so the
+  endpoint's `top` parameter does not shorten it.
 * **Structural caps.** At most `PACKET_SCAN_CAP = 20000` transactions are read and
   only the earliest `TIMELINE_CAP = 240` buckets are drawn, so a flagged request late
   in a long capture is counted in the headline but may not be marked on the line.
@@ -219,4 +219,4 @@ thing:
 
 ---
 
-**Related:** [Threat Hunt](../Threat-Hunt.md) · [HTTP](../HTTP.md) · [Packets](../Packets.md) · [PossibleMalwareDownload](PossibleMalwareDownload.md) · [IdsSignatureMatches](IdsSignatureMatches.md)
+**Related:** [Threat Map](../Threat-Hunt.md) · [HTTP](../HTTP.md) · [Packets](../Packets.md) · [PossibleMalwareDownload](PossibleMalwareDownload.md) · [IdsSignatureMatches](IdsSignatureMatches.md)

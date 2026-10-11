@@ -512,7 +512,7 @@ Pages that link in:
 | [Dashboard](Dashboard.md) | `/conversations` — the section entry |
 | [Hosts](Hosts.md) host detail | `/conversations?ip=<address>` |
 | [Findings](Findings.md) **Follow conversation** | `/conversations?stream=tcp:<id>&tab=timeline` — the conversation, open on the Timeline tab |
-| Threat Hunt pages | `/conversations?ip=<address>&tab=info`, the form the per-detection documents use |
+| Threat Map pages | `/conversations?ip=<address>&tab=info`, the form the per-detection documents use |
 
 The alert chips do not link anywhere: they are counts. The findings themselves are read on
 [Findings](Findings.md), which is where the rule, the severity and the evidence live.
@@ -600,4 +600,4 @@ The alert chips do not link anywhere: they are counts. The findings themselves a
 
 ## 6. Related
 
-**Related:** [Packets](Packets.md) · [Hosts](Hosts.md) · [Findings](Findings.md) · [Dashboard](Dashboard.md) · [Threat Hunt](Threat-Hunt.md) · [HTTP](HTTP.md) · [DNS](DNS.md) · [TLS](TLS.md) · [Reference/API](Reference/API.md)
+**Related:** [Packets](Packets.md) · [Hosts](Hosts.md) · [Findings](Findings.md) · [Dashboard](Dashboard.md) · [Threat Map](Threat-Hunt.md) · [HTTP](HTTP.md) · [DNS](DNS.md) · [TLS](TLS.md) · [Reference/API](Reference/API.md)
