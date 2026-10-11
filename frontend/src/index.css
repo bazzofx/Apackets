@@ -374,11 +374,16 @@
 
   /* The page headline: the largest type in the application, in the foreground
      colour and in the display face, so it reads as the title of the page rather
-     than another label. */
+     than another label.
+   *
+   * One size for every section, deliberately: a new page inherits the same
+   * headline by using `Page`, with nothing to remember. The variants below change
+   * the space around the headline and its rule, never its type, so no page can
+   * drift out of step with the others. */
   .page-title {
     font-family: var(--font-display);
     margin-top: 0.25rem;
-    font-size: 1.75rem;
+    font-size: 3.5rem;
     line-height: 1.15;
     /* Metal Mania ships one weight. Asking for 700 would make the browser
        synthesise a fake bold, which smears a display face rather than
@@ -415,27 +420,15 @@
     gap: 0.5rem;
   }
 
-  /* Variants. The headline's weight and the body's density are what separate a
-     landing page from a ledger; the chrome around them stays identical. */
+  /* Variants. These change the space around the headline and whether it sits on
+     the page or inside its own box - never its type. The headline is one size on
+     every page, so no section can drift out of step with the others. */
   .page-hero .page-head {
     padding: 1.75rem 0 1.375rem;
   }
 
-  .page-hero .page-title {
-    font-size: 2.25rem;
-  }
-
   .page-console .page-head {
     padding: 0.875rem 0 0.75rem;
-  }
-
-  .page-console .page-title {
-    font-size: 1.375rem;
-  }
-
-  .page-ledger .page-title,
-  .page-split .page-title {
-    font-size: 1.625rem;
   }
 
   /* `split` pages - the forms and card grids (Hosts, Findings, PCAP Files,
