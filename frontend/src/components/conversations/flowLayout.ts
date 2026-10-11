@@ -239,6 +239,12 @@ export interface FlowNode {
   states: ConversationState[]
   /** Real entities folded into this node: 1 means it is a single entity. */
   folded: number
+  /**
+   * True when clicking this node expands it in place, which is only honest for a
+   * group that holds two or more observed addresses: a `/24` with a single host
+   * *is* that host, so expanding it would change nothing visible.
+   */
+  expandable: boolean
 }
 
 export interface FlowBand {
@@ -452,13 +458,19 @@ function toNode(column: FlowColumn, group: RawGroup): FlowNode {
       ? [...new Set(group.rows.map((row) => flowAddress(row, column === 'source' ? 'a' : 'b')))].sort(compareLabels)
       : []
   const memberDetail = limit(members)
+  /* A group holding exactly one observed address is that address: labelling it
+     `10.4.10.0/24` would hide the only host behind a click that reveals nothing,
+     and the user asked to see the unique IPs. The subnet is kept on the node, so
+     the tooltip can still say where the address came from. */
+  const singleHost = group.kind === 'subnet' && members.length === 1
+  const expandable = group.kind === 'subnet' && members.length > 1
   return {
     id: flowNodeId(column, group.key),
     column,
     kind: group.kind,
-    label: group.label,
+    label: singleHost ? members[0] : group.label,
     subnet: group.subnet,
-    ip: group.ip,
+    ip: singleHost ? members[0] : group.ip,
     port: group.port,
     state: group.state,
     bytes: sumBytes(group.rows),
@@ -470,6 +482,7 @@ function toNode(column: FlowColumn, group: RawGroup): FlowNode {
     transports: transportsOf(group.rows),
     states: statesOf(group.rows),
     folded: 1,
+    expandable,
   }
 }
 
@@ -495,6 +508,7 @@ function toMoreNode(column: FlowColumn, folded: RawGroup[]): FlowNode {
     transports: transportsOf(rows),
     states: statesOf(rows),
     folded: folded.length,
+    expandable: false,
   }
 }
 
@@ -1429,12 +1443,14 @@ export function planFlowLabels(
     const placed: FlowLabel[] = []
     for (const node of nodes) {
       const space = labelSpaceOf(node, layout)
-      const marker = node.kind === 'subnet' ? 2 : 0
+      /* Only a genuinely expandable group carries the `+` marker, so the marker
+         budget is only reserved for those. */
+      const marker = node.expandable ? 2 : 0
       const lines = node.column === 'state' && node.height >= lineHeight * 2 ? 2 : 1
       const height = lineHeight * lines
       const budget = Math.floor(space.available / charWidth) - marker
       const text = truncateLabel(node, Math.max(0, budget), minChars)
-      const full = text === null ? null : node.kind === 'subnet' ? '+ ' + text : text
+      const full = text === null ? null : node.expandable ? '+ ' + text : text
       const width = full === null ? 0 : full.length * charWidth
       const y = node.y + node.height / 2 - height / 2
       const x =
@@ -1454,7 +1470,7 @@ export function planFlowLabels(
         height,
         anchor: space.anchor,
         halo: space.halo,
-        expandable: node.kind === 'subnet',
+        expandable: node.expandable,
         fontSize,
       }
       const reason: FlowLabelSuppression | null =

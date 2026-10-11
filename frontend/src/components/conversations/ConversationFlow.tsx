@@ -241,7 +241,7 @@ function SelectionBar({
             <span>{selectedNode.label}</span>
             <X size={11} aria-hidden />
           </button>
-          {selectedNode.kind === 'subnet' ? (
+          {selectedNode.expandable ? (
             <span className="text-2xs text-faint">
               click the node again to collapse it, or use the expanded chip above
             </span>
@@ -418,7 +418,9 @@ function NodeShape({
     node.label +
     ' (' +
     (node.kind === 'subnet'
-      ? 'group of ' + formatNumber(node.memberCount) + ' address(es)'
+      ? node.expandable
+        ? 'group of ' + formatNumber(node.memberCount) + ' address(es)'
+        : 'the only address seen in ' + (node.subnet ?? 'its group')
       : node.kind === 'more'
         ? 'folded remainder'
         : node.kind === 'port'
@@ -434,7 +436,7 @@ function NodeShape({
     formatNumber(node.packets) +
     ' packets' +
     (node.transports.length > 0 ? ', transport ' + node.transports.join(' and ') : '') +
-    (node.kind === 'subnet' ? ', click to expand and list its conversations' : '')
+    (node.expandable ? ', click to expand and list its conversations' : '')
   const enter = () => onHover({ kind: 'node', id: node.id })
   const leave = () => onHover(null)
   const stroke = selected ? tokens.accent : onPath ? tokens.accent2 : isState ? colour : tokens.border
@@ -552,7 +554,9 @@ function NodeDetail({ node, graph, tokens }: { node: FlowNode; graph: FlowGraph;
   const share = graph.totals.bytes > 0 ? Math.round((node.bytes / graph.totals.bytes) * 100) : 0
   const kind =
     node.kind === 'subnet'
-      ? 'group of ' + formatNumber(node.memberCount) + ' address(es)'
+      ? node.expandable
+        ? 'group of ' + formatNumber(node.memberCount) + ' address(es)'
+        : 'the only address seen in ' + (node.subnet ?? 'its group')
       : node.kind === 'more'
         ? 'folded remainder of ' + formatNumber(node.folded) + ' entities'
         : node.kind === 'port'
@@ -575,7 +579,7 @@ function NodeDetail({ node, graph, tokens }: { node: FlowNode; graph: FlowGraph;
         {node.transports.length > 0 ? node.transports.map((item) => item.toUpperCase()).join(' + ') : 'none'}
         {node.kind === 'state' ? '' : ' · states present: ' + (node.states.join(', ') || 'none')}
       </div>
-      {node.members.length > 0 ? (
+      {node.members.length > 1 || (node.members.length === 1 && node.kind !== 'subnet') ? (
         <div className="mono text-2xs text-faint" title={node.members.join('\n')}>
           {node.kind === 'subnet' ? 'addresses' : 'folded'}{' '}
           {formatListWithCount(node.members, node.memberCount, 4)}
@@ -584,9 +588,11 @@ function NodeDetail({ node, graph, tokens }: { node: FlowNode; graph: FlowGraph;
       <div className="mt-1 border-t border-border pt-1 text-2xs text-faint">
         {node.kind === 'more'
           ? 'a folded remainder of ' + formatNumber(node.folded) + ' entities — click to list the conversations behind it'
-          : node.kind === 'subnet'
+          : node.expandable
             ? 'click to expand this group into its addresses and list its conversations'
-            : 'click to list the conversations behind this node below'}
+            : node.kind === 'subnet'
+              ? 'click to list the conversations behind this address below'
+              : 'click to list the conversations behind this node below'}
       </div>
       <span className="sr-only">{stateColour(node.state ?? 'unknown', tokens)}</span>
     </div>
@@ -891,7 +897,9 @@ export function ConversationFlow({
   const activateNode = (node: PositionedNode) => {
     const isSelected = selectedNodeId === node.id
     onSelectNode(isSelected ? null : node.id)
-    if (node.kind === 'subnet' && node.subnet !== null) onToggleSubnet(node.subnet)
+    /* Only a group that really holds several addresses is worth expanding: a
+       single-host group is already showing its address. */
+    if (node.expandable && node.subnet !== null) onToggleSubnet(node.subnet)
   }
 
   const thinnest = layout.bands.reduce(
@@ -903,7 +911,7 @@ export function ConversationFlow({
     const nodes = graph.columns[column]
     if (column === 'sourcePort' || column === 'destinationPort') return 'ports'
     if (column === 'state') return 'states'
-    return nodes.some((node) => node.kind === 'subnet') ? 'groups' : 'IPs'
+    return nodes.some((node) => node.expandable) ? 'groups' : 'IPs'
   }
 
   const summary = FLOW_COLUMNS.map(
