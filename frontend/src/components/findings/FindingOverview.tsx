@@ -6,7 +6,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   Ban,
-  ChevronDown,
   Info,
   Lightbulb,
   ListTree,
@@ -135,24 +134,12 @@ export function FindingOverview({ context }: FindingOverviewProps) {
         /* Minimised it shows one line of the reason, so the panel says what
            fired without being opened; expanded it shows the rule and severity. */
         subtitle={alertOpen ? `${finding.rule_id} · ${finding.severity}` : reasonPreview}
+        onHeaderToggle={() => setAlertOpen((value) => !value)}
+        headerExpanded={alertOpen}
         actions={
           <div className="flex items-center gap-1">
             <SeverityBadge severity={finding.severity} showLabel />
             <CopyButton value={finding.id} label="Copy finding id" />
-            <button
-              type="button"
-              className="btn px-1.5 py-0.5"
-              onClick={() => setAlertOpen((value) => !value)}
-              aria-expanded={alertOpen}
-              title={alertOpen ? 'Minimise this panel' : 'Expand the alert text'}
-            >
-              <ChevronDown
-                size={12}
-                className={clsx('transition-transform', !alertOpen && '-rotate-90')}
-                aria-hidden
-              />
-              {alertOpen ? 'hide' : 'show'}
-            </button>
           </div>
         }
       >

@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import clsx from 'clsx'
-import { Check, ChevronDown, MinusCircle, TriangleAlert } from 'lucide-react'
+import { Check, ChevronDown, Lightbulb, MinusCircle, TriangleAlert } from 'lucide-react'
 import { EMPTY } from '@/utils/format'
 
 /**
@@ -135,26 +135,36 @@ export function ScopeNote({
      they always have, and only a page that asks for it gets a toggle. */
   const expanded = collapsible ? open : true
   return (
-    <section className={clsx('panel', className)}>
-      <header className="panel-header">
-        <div className="panel-title">{title}</div>
-        {collapsible ? (
+    <section className={clsx('panel help-panel', className)}>
+      {collapsible ? (
+        /* The whole header is the control, so there is no button to aim at. */
+        <header className="panel-header p-0">
           <button
             type="button"
-            className="btn px-1.5 py-0.5"
+            className="panel-disclosure"
             onClick={() => setOpen((value) => !value)}
             aria-expanded={expanded}
-            title={expanded ? 'Hide this explanation' : 'Show what this section does and does not cover'}
+            title={expanded ? 'Collapse this explanation' : 'Show what this section does and does not cover'}
           >
+            <div className="panel-title flex min-w-0 flex-1 items-center gap-1.5">
+              <Lightbulb size={13} className="help-mark" aria-hidden />
+              <span>{title}</span>
+            </div>
             <ChevronDown
-              size={12}
-              className={clsx('transition-transform', !expanded && '-rotate-90')}
+              size={14}
+              className={clsx('shrink-0 text-muted transition-transform', !expanded && '-rotate-90')}
               aria-hidden
             />
-            {expanded ? 'hide' : 'show'}
           </button>
-        ) : null}
-      </header>
+        </header>
+      ) : (
+        <header className="panel-header">
+          <div className="panel-title flex items-center gap-1.5">
+            <Lightbulb size={13} className="help-mark" aria-hidden />
+            <span>{title}</span>
+          </div>
+        </header>
+      )}
       {expanded ? (
         <>
           <ul className="grid grid-cols-1 gap-x-5 gap-y-1 p-3 md:grid-cols-2">

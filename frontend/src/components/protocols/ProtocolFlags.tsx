@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import clsx from 'clsx'
-import { Info, ShieldQuestion } from 'lucide-react'
+import { ChevronDown, Info, Lightbulb, ShieldQuestion } from 'lucide-react'
 
 /**
  * Lead-flag rendering (HTTP / DNS / TLS).
@@ -171,14 +171,27 @@ export function FlagLegend({
     .map((key) => ({ key, help: catalog[key] }))
 
   return (
-    <section className="panel">
-      <header className="panel-header">
-        <div className="min-w-0">
-          <div className="panel-title">{title}</div>
-          <div className="panel-subtitle">{subtitle}</div>
-        </div>
-        <button type="button" className="btn px-1.5 py-0.5" onClick={() => setOpen((value) => !value)}>
-          {open ? 'Hide' : 'Show'}
+    <section className="panel help-panel">
+      <header className="panel-header p-0">
+        <button
+          type="button"
+          className="panel-disclosure"
+          onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+          title={open ? 'Collapse this legend' : 'Show every flag this page can produce'}
+        >
+          <div className="min-w-0 flex-1">
+            <div className="panel-title flex items-center gap-1.5">
+              <Lightbulb size={13} className="help-mark" aria-hidden />
+              <span>{title}</span>
+            </div>
+            <div className="panel-subtitle">{subtitle}</div>
+          </div>
+          <ChevronDown
+            size={14}
+            className={clsx('shrink-0 text-muted transition-transform', !open && '-rotate-90')}
+            aria-hidden
+          />
         </button>
       </header>
       {open ? (

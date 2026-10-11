@@ -190,6 +190,53 @@
     @apply mt-0.5 truncate text-[0.8rem] leading-tight text-faint;
   }
 
+  /* ------------------------------------------------------------------ */
+  /* help and explanation panels                                        */
+  /*                                                                    */
+  /* ScopeNote and FlagLegend are guidance, not evidence, so they must   */
+  /* not read as the data cards they sit among. Inside a help panel the  */
+  /* headline drops the display face, the uppercase treatment and the    */
+  /* foreground colour for the body face in a muted shade; the section-  */
+  /* hue tick goes, so the block carries none of the page's identity;    */
+  /* and a light bulb marks it as something to read rather than data.    */
+  /* ------------------------------------------------------------------ */
+
+  .help-panel .panel-header::before {
+    content: none;
+  }
+
+  .help-panel .panel-title {
+    @apply normal-case tracking-normal text-muted;
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  .help-panel .panel-subtitle {
+    color: rgb(var(--c-faint));
+  }
+
+  /* The mark is as quiet as the headline it sits beside. */
+  .help-mark {
+    flex-shrink: 0;
+    color: rgb(var(--c-muted) / 0.85);
+  }
+
+  /* A panel whose whole header expands and collapses it. The header is the
+     control, so there is no Show/Hide button to aim at: the chevron is the
+     affordance and the hover tint shows the target is the whole row. */
+  .panel-disclosure {
+    @apply flex min-w-0 flex-1 cursor-pointer items-center gap-2 px-3 py-2 text-left;
+  }
+
+  .panel-disclosure:hover {
+    background-color: rgb(var(--c-surface2) / 0.45);
+  }
+
+  .panel-disclosure:focus-visible {
+    @apply outline-none ring-2 ring-inset ring-accent/50;
+  }
+
   /* KPI tile: hairline accent along the top edge. */
   .kpi {
     position: relative;
