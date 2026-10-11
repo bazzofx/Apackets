@@ -295,7 +295,7 @@ export function CheckFilter({ label, checked, onChange, title }: CheckFilterProp
     >
       <input
         type="checkbox"
-        className="h-3 w-3 accent-[#3b82f6]"
+        className="h-3 w-3 accent-accent"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
       />

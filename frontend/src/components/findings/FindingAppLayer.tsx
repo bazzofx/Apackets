@@ -46,7 +46,7 @@ function BodyPreview({ label, body, truncated }: { label: string; body: string |
         <CopyButton value={body} label={`Copy ${label}`} />
         {truncated ? <span className="text-2xs text-warn">truncated for this view</span> : null}
       </div>
-      <pre className="mono max-h-48 overflow-auto whitespace-pre-wrap break-all rounded border border-border bg-[#0d1526] p-2 text-2xs text-text">
+      <pre className="mono max-h-48 overflow-auto whitespace-pre-wrap break-all rounded border border-border bg-bg p-2 text-2xs text-text">
         {body}
       </pre>
     </div>

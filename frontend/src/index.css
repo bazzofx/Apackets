@@ -2,6 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Theme tokens.
+ *
+ * The values below are the Steel Blue palette (the default) so the application
+ * is styled before React runs; src/theme/ThemeProvider.tsx overwrites every one
+ * of them on <html> for the active theme. Channels are space separated RGB so
+ * Tailwind's `rgb(var(--c-x) / <alpha-value>)` colours work, and the only
+ * literal colours in this file are these defaults.
+ */
+:root {
+  --c-bg: 11 17 32;
+  --c-surface: 17 26 46;
+  --c-surface2: 22 32 58;
+  --c-border: 34 48 77;
+  --c-border2: 44 60 94;
+  --c-accent: 59 130 246;
+  --c-accent2: 96 165 250;
+  --c-text: 226 232 240;
+  --c-muted: 130 150 180;
+  --c-faint: 90 107 136;
+  --c-glow: rgba(59, 130, 246, 0.35);
+  --c-sev-informational: 100 116 139;
+  --c-sev-low: 56 189 248;
+  --c-sev-medium: 245 158 11;
+  --c-sev-high: 239 68 68;
+  --c-ok: 34 197 94;
+  --c-warn: 245 158 11;
+  --c-danger: 239 68 68;
+  --c-map-private: 96 165 250;
+  --c-map-public: 245 158 11;
+  --c-map-multicast: 167 139 250;
+  --c-map-local: 52 211 153;
+  --c-map-unclassified: 100 116 139;
+  --c-chart-1: 59 130 246;
+  --c-chart-2: 56 189 248;
+  --c-chart-3: 167 139 250;
+  --c-chart-4: 20 184 166;
+  --c-chart-5: 34 197 94;
+  --c-chart-6: 232 121 249;
+  --c-chart-7: 129 140 248;
+  --c-chart-8: 14 165 233;
+  color-scheme: dark;
+}
+
 @layer base {
   html,
   body,
@@ -17,10 +61,10 @@
     @apply bg-accent/40;
   }
 
-  /* Dark, restrained scrollbars for dense tables */
+  /* Dark, restrained scrollbars for dense tables - themed, not literal. */
   * {
     scrollbar-width: thin;
-    scrollbar-color: #2c3c5e transparent;
+    scrollbar-color: rgb(var(--c-border2)) transparent;
   }
 
   *::-webkit-scrollbar {
@@ -33,20 +77,29 @@
   }
 
   *::-webkit-scrollbar-thumb {
-    background-color: #2c3c5e;
+    background-color: rgb(var(--c-border2));
     border-radius: 6px;
     border: 2px solid transparent;
     background-clip: content-box;
   }
 
   *::-webkit-scrollbar-thumb:hover {
-    background-color: #3a4d73;
+    background-color: rgb(var(--c-accent) / 0.55);
   }
 }
 
 @layer components {
+  /* One coherent card treatment: surface with a soft top sheen, hairline edge. */
   .panel {
-    @apply bg-surface border border-border rounded-md;
+    background-color: rgb(var(--c-surface));
+    background-image: linear-gradient(
+      180deg,
+      rgb(var(--c-surface2) / 0.6) 0%,
+      rgb(var(--c-surface) / 0) 46%
+    );
+    border: 1px solid rgb(var(--c-border));
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px 0 rgb(var(--c-bg) / 0.55);
   }
 
   .panel-header {
@@ -57,10 +110,53 @@
     @apply text-xs font-semibold uppercase tracking-wider text-muted;
   }
 
+  /* KPI tile: hairline accent along the top edge. */
+  .kpi {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .kpi::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background-image: linear-gradient(90deg, rgb(var(--c-accent) / 0.85), rgb(var(--c-accent2) / 0.1));
+  }
+
+  /* Soft accent bloom: behind the KPI row and the map centre. */
+  .accent-bloom {
+    position: relative;
+  }
+
+  .accent-bloom::before {
+    content: '';
+    position: absolute;
+    inset: -20% -5% auto -5%;
+    height: 180px;
+    pointer-events: none;
+    background-image: radial-gradient(60% 100% at 50% 0%, var(--c-glow) 0%, transparent 72%);
+    z-index: 0;
+  }
+
+  /* Themed backdrop for the conversation map: faint grid plus centre bloom. */
+  .map-backdrop {
+    background-color: rgb(var(--c-bg));
+    background-image:
+      radial-gradient(65% 85% at 50% 50%, var(--c-glow) 0%, transparent 72%),
+      linear-gradient(rgb(var(--c-border) / 0.35) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--c-border) / 0.35) 1px, transparent 1px);
+    background-size: auto, 32px 32px, 32px 32px;
+  }
+
   .btn {
     @apply inline-flex items-center gap-1.5 rounded border border-border bg-surface2 px-2.5 py-1.5
-           text-xs font-medium text-text transition-colors hover:border-border2 hover:bg-[#1b2745]
+           text-xs font-medium text-text transition-colors hover:border-border2
            disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn:hover:not(:disabled) {
+    background-color: rgb(var(--c-border) / 0.6);
   }
 
   .btn-primary {
@@ -68,7 +164,7 @@
   }
 
   .btn-danger {
-    @apply border-danger/50 bg-danger/10 text-red-300 hover:border-danger hover:bg-danger/20;
+    @apply border-danger/50 bg-danger/10 text-danger hover:border-danger hover:bg-danger/20;
   }
 
   .btn-ghost {
@@ -76,13 +172,15 @@
   }
 
   .input {
-    @apply w-full rounded border border-border bg-[#0d1526] px-2.5 py-1.5 text-xs text-text
+    @apply w-full rounded border border-border px-2.5 py-1.5 text-xs text-text
            placeholder:text-faint focus:border-accent focus:outline-none;
+    background-color: rgb(var(--c-bg));
   }
 
   .select {
-    @apply rounded border border-border bg-[#0d1526] px-2 py-1.5 text-xs text-text
+    @apply rounded border border-border px-2 py-1.5 text-xs text-text
            focus:border-accent focus:outline-none;
+    background-color: rgb(var(--c-bg));
   }
 
   .chip {

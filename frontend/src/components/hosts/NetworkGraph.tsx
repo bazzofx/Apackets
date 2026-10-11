@@ -30,11 +30,11 @@ const MAX_DRAWN_NODES = 300
 /** Below this many endpoints every label is drawn; above it, only relevant ones. */
 const LABEL_ALL_BELOW = 70
 
-const NODE_PRIVATE_FILL = '#3b82f6'
-const NODE_PUBLIC_FILL = '#f59e0b'
-const NODE_UNKNOWN_FILL = '#64748b'
-const EDGE_IDLE = '#2c3c5e'
-const EDGE_ACTIVE = '#60a5fa'
+const NODE_PRIVATE_FILL = 'rgb(var(--c-map-private))'
+const NODE_PUBLIC_FILL = 'rgb(var(--c-map-public))'
+const NODE_UNKNOWN_FILL = 'rgb(var(--c-map-unclassified))'
+const EDGE_IDLE = 'rgb(var(--c-border2))'
+const EDGE_ACTIVE = 'rgb(var(--c-accent2))'
 
 interface GraphNode {
   id: string
@@ -184,7 +184,7 @@ function LegendDot({ fill, dashed = false, label, title }: { fill: string; dashe
           cy="6"
           r="4"
           fill={fill}
-          stroke="#0b1120"
+          stroke="rgb(var(--c-bg))"
           strokeWidth="1"
           strokeDasharray={dashed ? '2 2' : undefined}
         />
@@ -393,7 +393,7 @@ export function NetworkGraph({ graph, selectedIp, onSelect }: NetworkGraphProps)
                         cy={node.y}
                         r={node.radius + 5}
                         fill="none"
-                        stroke="#60a5fa"
+                        stroke="rgb(var(--c-accent2))"
                         strokeWidth={1}
                       />
                     ) : null}
@@ -403,7 +403,7 @@ export function NetworkGraph({ graph, selectedIp, onSelect }: NetworkGraphProps)
                       r={node.radius}
                       fill={fill}
                       fillOpacity={dim ? 0.25 : 0.9}
-                      stroke={dim ? '#22304d' : '#0b1120'}
+                      stroke={dim ? 'rgb(var(--c-border))' : 'rgb(var(--c-bg))'}
                       strokeWidth={1}
                       strokeDasharray={node.degree === 0 ? '2 2' : undefined}
                     >
@@ -416,7 +416,7 @@ export function NetworkGraph({ graph, selectedIp, onSelect }: NetworkGraphProps)
                         textAnchor="middle"
                         fontSize={9}
                         className={clsx('pointer-events-none font-mono')}
-                        fill={dim ? '#5a6b88' : isActive ? '#e2e8f0' : '#8296b4'}
+                        fill={dim ? 'rgb(var(--c-faint))' : isActive ? 'rgb(var(--c-text))' : 'rgb(var(--c-muted))'}
                       >
                         {node.label.length > 22 ? `${node.label.slice(0, 21)}…` : node.label}
                       </text>

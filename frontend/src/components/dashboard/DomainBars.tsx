@@ -1,11 +1,9 @@
 import { Globe } from 'lucide-react'
 import EmptyState from '@/components/EmptyState'
+import { useThemeTokens } from '@/theme/ThemeProvider'
 import MonoCell from '@/components/MonoCell'
 import { formatBytes, formatNumber } from '@/utils/format'
 import type { SummaryTopDomain } from '@/types'
-
-const SENT_COLOR = '#3b82f6'
-const RECEIVED_COLOR = '#22d3ee'
 
 export interface DomainBarsProps {
   domains: SummaryTopDomain[]
@@ -14,6 +12,9 @@ export interface DomainBarsProps {
 
 /** Ranked domains with a direction-split bar: sent vs received on one scale. */
 export function DomainBars({ domains, onSelect }: DomainBarsProps) {
+  const tokens = useThemeTokens()
+  const sentColour = tokens.accent
+  const receivedColour = tokens.accent2
   if (domains.length === 0) {
     return (
       <EmptyState
@@ -56,8 +57,8 @@ export function DomainBars({ domains, onSelect }: DomainBarsProps) {
                 className="flex h-3 min-w-0 flex-1 items-stretch overflow-hidden rounded-sm bg-surface2"
                 title={`sent ${formatBytes(sent)} · received ${formatBytes(received)}`}
               >
-                <div style={{ width: `${sentWidth}%`, background: SENT_COLOR }} />
-                <div style={{ width: `${receivedWidth}%`, background: RECEIVED_COLOR }} />
+                <div style={{ width: `${sentWidth}%`, background: sentColour }} />
+                <div style={{ width: `${receivedWidth}%`, background: receivedColour }} />
               </div>
               <span className="mono shrink-0 text-2xs text-text" title="Total bytes for this domain">
                 {formatBytes(domain.bytes_total)}
@@ -65,10 +66,10 @@ export function DomainBars({ domains, onSelect }: DomainBarsProps) {
             </div>
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-muted">
-              <span className="mono" style={{ color: SENT_COLOR }}>
+              <span className="mono" style={{ color: sentColour }}>
                 sent {formatBytes(sent)}
               </span>
-              <span className="mono" style={{ color: RECEIVED_COLOR }}>
+              <span className="mono" style={{ color: receivedColour }}>
                 received {formatBytes(received)}
               </span>
               {domain.ips.slice(0, 3).map((ip) => (

@@ -18,6 +18,7 @@ import LoadingState from '@/components/LoadingState'
 import MonoCell from '@/components/MonoCell'
 import Panel from '@/components/Panel'
 import SuricataRulesPanel from '@/components/SuricataRulesPanel'
+import ThemePanel from '@/components/ThemePanel'
 import Toolbar from '@/components/Toolbar'
 import { settingsApi } from '@/services/api'
 import type { Indicator, IndicatorType, Settings, SettingsUpdate } from '@/types'
@@ -233,6 +234,8 @@ function SettingsContent() {
 
   return (
     <div className="flex flex-col gap-3">
+      <ThemePanel />
+
       <Panel
         title="Effective settings"
         subtitle="read from the backend configuration and the persisted settings table"

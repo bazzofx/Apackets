@@ -4,6 +4,7 @@ import { Network } from 'lucide-react'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
 import LoadingState from '@/components/LoadingState'
+import { useThemeTokens } from '@/theme/ThemeProvider'
 import { formatBytes, formatNumber } from '@/utils/format'
 import type { HostGraphEdge, HostGraphNode } from '@/types'
 
@@ -12,11 +13,14 @@ const HEIGHT = 620
 const PADDING = 56
 const ITERATIONS = 140
 
-const PRIVATE_COLOR = '#60a5fa'
-const PUBLIC_COLOR = '#f59e0b'
-const UNCLASSIFIED_COLOR = '#64748b'
-const MULTICAST_COLOR = '#a78bfa'
-const LOCAL_COLOR = '#34d399'
+/** Scope -> colour, resolved from the active theme by the component. */
+export interface MapPalette {
+  private: string
+  public: string
+  multicast: string
+  local: string
+  unclassified: string
+}
 
 /**
  * Colour an endpoint by its precise scope.
@@ -27,26 +31,29 @@ const LOCAL_COLOR = '#34d399'
  * internet hosts. `scope` is preferred and `is_private` is the fallback for
  * older responses.
  */
-function nodeColour(node: { scope?: string | null; is_private?: boolean | null }): string {
+function nodeColour(
+  node: { scope?: string | null; is_private?: boolean | null },
+  palette: MapPalette,
+): string {
   switch (node.scope) {
     case 'private':
-      return PRIVATE_COLOR
+      return palette.private
     case 'public':
-      return PUBLIC_COLOR
+      return palette.public
     case 'multicast':
     case 'broadcast':
-      return MULTICAST_COLOR
+      return palette.multicast
     case 'loopback':
     case 'link_local':
     case 'unspecified':
     case 'reserved':
-      return LOCAL_COLOR
+      return palette.local
     default:
       break
   }
-  if (node.is_private === true) return PRIVATE_COLOR
-  if (node.is_private === false) return PUBLIC_COLOR
-  return UNCLASSIFIED_COLOR
+  if (node.is_private === true) return palette.private
+  if (node.is_private === false) return palette.public
+  return palette.unclassified
 }
 
 const SCOPE_LABELS: Record<string, string> = {
@@ -175,6 +182,15 @@ export function NetworkMap({
   labelCount = 8,
 }: NetworkMapProps) {
   const [focusId, setFocusId] = useState<string | null>(null)
+  const tokens = useThemeTokens()
+  const palette: MapPalette = {
+    private: tokens.mapPrivate,
+    public: tokens.mapPublic,
+    multicast: tokens.mapMulticast,
+    local: tokens.mapLocal,
+    unclassified: tokens.mapUnclassified,
+  }
+
   const positions = useMemo(() => computeLayout(nodes, edges), [nodes, edges])
 
   const stats = useMemo(() => {
@@ -237,7 +253,7 @@ export function NetworkMap({
   const focusedNeighbours = focused ? (neighbours.get(focused.id) ?? []).slice(0, 5) : []
 
   return (
-    <div className="relative">
+    <div className="map-backdrop relative overflow-hidden rounded-md">
       <svg
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         className="h-[26rem] w-full"
@@ -260,7 +276,7 @@ export function NetworkMap({
                 y1={from.y}
                 x2={to.x}
                 y2={to.y}
-                stroke={active && focusId !== null ? PRIVATE_COLOR : '#2c3c5e'}
+                stroke={active && focusId !== null ? palette.private : tokens.border2}
                 strokeWidth={width}
                 strokeOpacity={active ? 0.75 : 0.12}
                 strokeLinecap="round"
@@ -271,7 +287,7 @@ export function NetworkMap({
             const point = positions[position]
             if (!point) return null
             const radius = 4 + 15 * Math.sqrt((node.bytes || 0) / stats.maxBytes)
-            const colour = nodeColour(node)
+            const colour = nodeColour(node, palette)
             const active = focusId === null || focusId === node.id
             const related =
               focusId !== null &&
@@ -303,7 +319,7 @@ export function NetworkMap({
                   r={radius}
                   fill={colour}
                   fillOpacity={active ? 0.85 : 0.2}
-                  stroke="#0b1120"
+                  stroke={tokens.bg}
                   strokeWidth={1}
                 />
                 {labelled.has(node.id) || focusId === node.id ? (
@@ -313,8 +329,8 @@ export function NetworkMap({
                     textAnchor="middle"
                     className="mono"
                     fontSize={12}
-                    fill={active ? '#e2e8f0' : '#5a6b88'}
-                    stroke="#0b1120"
+                    fill={active ? tokens.text : tokens.faint}
+                    stroke={tokens.bg}
                     strokeWidth={3}
                     paintOrder="stroke"
                   >
@@ -329,23 +345,23 @@ export function NetworkMap({
 
       <div className="pointer-events-none absolute left-3 top-3 flex flex-col gap-1 text-2xs">
         <span className="flex items-center gap-1 text-muted">
-          <span className="inline-block h-2 w-2 rounded-full" style={{ background: PRIVATE_COLOR }} />
+          <span className="inline-block h-2 w-2 rounded-full" style={{ background: palette.private }} />
           private
         </span>
         <span className="flex items-center gap-1 text-muted">
-          <span className="inline-block h-2 w-2 rounded-full" style={{ background: PUBLIC_COLOR }} />
+          <span className="inline-block h-2 w-2 rounded-full" style={{ background: palette.public }} />
           public
         </span>
         <span className="flex items-center gap-1 text-muted">
-          <span className="inline-block h-2 w-2 rounded-full" style={{ background: MULTICAST_COLOR }} />
+          <span className="inline-block h-2 w-2 rounded-full" style={{ background: palette.multicast }} />
           multicast / broadcast
         </span>
         <span className="flex items-center gap-1 text-muted">
-          <span className="inline-block h-2 w-2 rounded-full" style={{ background: LOCAL_COLOR }} />
+          <span className="inline-block h-2 w-2 rounded-full" style={{ background: palette.local }} />
           loopback / link-local
         </span>
         <span className="flex items-center gap-1 text-muted">
-          <span className="inline-block h-2 w-2 rounded-full" style={{ background: UNCLASSIFIED_COLOR }} />
+          <span className="inline-block h-2 w-2 rounded-full" style={{ background: palette.unclassified }} />
           unclassified
         </span>
       </div>

@@ -177,7 +177,7 @@ export function BodyPreview({
         {text !== null ? <CopyButton value={text} label={`Copy ${label.toLowerCase()}`} /> : null}
       </div>
       {text !== null ? (
-        <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-all rounded border border-border bg-[#0d1526] p-2 mono text-2xs text-text">
+        <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-all rounded border border-border bg-bg p-2 mono text-2xs text-text">
           {text}
         </pre>
       ) : null}

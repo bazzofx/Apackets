@@ -44,7 +44,7 @@ export function KpiTile({
   return (
     <div
       className={clsx(
-        'panel flex flex-col gap-1 px-3 py-3',
+        'panel kpi flex flex-col gap-1 px-3 py-3 transition-colors hover:border-border2',
         tone === 'accent' && 'border-accent/40',
         tone === 'danger' && 'border-danger/40',
         className,
@@ -65,14 +65,14 @@ export function KpiTile({
       </div>
       <div
         className={clsx(
-          'mono text-2xl leading-tight',
+          'mono text-[1.75rem] leading-none tracking-tight',
           missing ? 'text-faint' : tone === 'danger' ? 'text-red-300' : 'text-text',
         )}
       >
         {render(value, format)}
       </div>
       {detail ? (
-        <div className="truncate text-2xs text-faint" title={detail}>
+        <div className="mt-0.5 truncate text-2xs text-faint" title={detail}>
           {detail}
         </div>
       ) : null}

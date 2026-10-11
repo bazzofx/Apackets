@@ -41,6 +41,7 @@ import Panel from '@/components/Panel'
 import SeverityBadge from '@/components/SeverityBadge'
 import StatCard from '@/components/StatCard'
 import { useAnalysis, useAnalysisSummary } from '@/hooks/useAnalysis'
+import { useThemeTokens } from '@/theme/ThemeProvider'
 import type { AnalysisSummary, Severity } from '@/types'
 import {
   formatBytes,
@@ -50,34 +51,6 @@ import {
   formatTimestamp,
 } from '@/utils/format'
 
-const AXIS_TICK = { fill: '#8296b4', fontSize: 11 }
-const GRID_STROKE = '#22304d'
-const TOOLTIP_STYLE: CSSProperties = {
-  background: '#16203a',
-  border: '1px solid #2c3c5e',
-  borderRadius: 4,
-  fontSize: 11,
-  color: '#e2e8f0',
-}
-const TOOLTIP_LABEL_STYLE: CSSProperties = { color: '#8296b4', fontSize: 11 }
-
-const PROTOCOL_COLORS = [
-  '#3b82f6',
-  '#60a5fa',
-  '#38bdf8',
-  '#0ea5e9',
-  '#6366f1',
-  '#8b5cf6',
-  '#a855f7',
-  '#ec4899',
-  '#f59e0b',
-  '#eab308',
-  '#22c55e',
-  '#14b8a6',
-  '#94a3b8',
-  '#64748b',
-  '#475569',
-]
 
 function InlineEmpty({ message }: { message: string }) {
   return <div className="px-3 py-6 text-center text-2xs text-faint">{message}</div>
@@ -96,6 +69,17 @@ const FRESH_POLL_MS = 5000
 
 function InfoContent() {
   const { analysisId, selected } = useAnalysis()
+  const tokens = useThemeTokens()
+  const axisTick = { fill: tokens.muted, fontSize: 11 }
+  const gridStroke = tokens.border
+  const tooltipStyle: CSSProperties = {
+    background: tokens.surface2,
+    border: '1px solid ' + tokens.border2,
+    borderRadius: 4,
+    fontSize: 11,
+    color: tokens.text,
+  }
+  const tooltipLabelStyle: CSSProperties = { color: tokens.muted, fontSize: 11 }
 
   // Poll the summary while the analysis is recent, so the findings panel updates
   // on its own when an analysis finishes or rules are re-run. Older analyses are
@@ -232,26 +216,26 @@ function InfoContent() {
               layout="vertical"
               margin={{ top: 4, right: 12, bottom: 4, left: 4 }}
             >
-              <CartesianGrid horizontal={false} stroke={GRID_STROKE} />
-              <XAxis type="number" tick={AXIS_TICK} stroke={GRID_STROKE} />
+              <CartesianGrid horizontal={false} stroke={gridStroke} />
+              <XAxis type="number" tick={axisTick} stroke={gridStroke} />
               <YAxis
                 type="category"
                 dataKey="protocol"
                 width={84}
-                tick={AXIS_TICK}
-                stroke={GRID_STROKE}
+                tick={axisTick}
+                stroke={gridStroke}
               />
               <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                labelStyle={TOOLTIP_LABEL_STYLE}
+                contentStyle={tooltipStyle}
+                labelStyle={tooltipLabelStyle}
                 formatter={(value) => formatNumber(Number(value))}
-                cursor={{ fill: '#1b2745' }}
+                cursor={{ fill: tokens.border }}
               />
               <Bar dataKey={protocolMetric} name={protocolMetric} barSize={9} radius={[0, 2, 2, 0]}>
                 {protocolRows.map((entry, index) => (
                   <Cell
                     key={`${entry.protocol}-${index}`}
-                    fill={PROTOCOL_COLORS[index % PROTOCOL_COLORS.length]}
+                    fill={tokens.chart[index % tokens.chart.length]}
                   />
                 ))}
               </Bar>
@@ -284,19 +268,19 @@ function InfoContent() {
         >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={series} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
-              <CartesianGrid stroke={GRID_STROKE} vertical={false} />
+              <CartesianGrid stroke={gridStroke} vertical={false} />
               <XAxis
                 dataKey="t"
-                tick={AXIS_TICK}
-                stroke={GRID_STROKE}
+                tick={axisTick}
+                stroke={gridStroke}
                 minTickGap={28}
                 tickFormatter={(value: number) => formatClockTime(value)}
               />
               {(trafficMetric === 'both' || trafficMetric === 'packets') && (
                 <YAxis
                   yAxisId="packets"
-                  tick={AXIS_TICK}
-                  stroke={GRID_STROKE}
+                  tick={axisTick}
+                  stroke={gridStroke}
                   width={48}
                   tickFormatter={(value: number) => formatNumber(value)}
                 />
@@ -305,15 +289,15 @@ function InfoContent() {
                 <YAxis
                   yAxisId="bytes"
                   orientation="right"
-                  tick={AXIS_TICK}
-                  stroke={GRID_STROKE}
+                  tick={axisTick}
+                  stroke={gridStroke}
                   width={56}
                   tickFormatter={(value: number) => formatBytes(value, 0)}
                 />
               )}
               <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                labelStyle={TOOLTIP_LABEL_STYLE}
+                contentStyle={tooltipStyle}
+                labelStyle={tooltipLabelStyle}
                 labelFormatter={(label) => `t = ${formatTimestamp(Number(label))}`}
                 formatter={(value, name) => {
                   const n = Number(value)
@@ -326,9 +310,9 @@ function InfoContent() {
                   type="monotone"
                   dataKey="packets"
                   name="packets"
-                  stroke="#3b82f6"
+                  stroke={tokens.accent}
                   strokeWidth={1.5}
-                  fill="#3b82f6"
+                  fill={tokens.accent}
                   fillOpacity={0.18}
                   dot={false}
                   isAnimationActive={false}
@@ -340,10 +324,10 @@ function InfoContent() {
                   type="monotone"
                   dataKey="bytes"
                   name="bytes"
-                  stroke="#60a5fa"
+                  stroke={tokens.accent2}
                   strokeWidth={1.5}
                   strokeDasharray="3 2"
-                  fill="#60a5fa"
+                  fill={tokens.accent2}
                   fillOpacity={0.12}
                   dot={false}
                   isAnimationActive={false}

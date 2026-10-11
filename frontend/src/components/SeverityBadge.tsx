@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { formatNumber } from '@/utils/format'
+import { severityVar } from '@/theme/themes'
 import type { Severity } from '@/types'
 
 const SEVERITY_STYLES: Record<Severity, string> = {
@@ -16,12 +17,16 @@ const SEVERITY_LABELS: Record<Severity, string> = {
   high: 'high',
 }
 
-/** Bar/dot colour for a severity, for use outside the badge. */
+/**
+ * Severity colour for use outside the badge (SVG fills, inline styles). These
+ * are CSS values that resolve against the active theme, so the map stays correct
+ * for every palette without holding a literal colour.
+ */
 export const SEVERITY_HEX: Record<Severity, string> = {
-  informational: '#64748b',
-  low: '#38bdf8',
-  medium: '#f59e0b',
-  high: '#ef4444',
+  informational: severityVar('informational'),
+  low: severityVar('low'),
+  medium: severityVar('medium'),
+  high: severityVar('high'),
 }
 
 export function isSeverity(value: unknown): value is Severity {

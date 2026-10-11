@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from '@/App'
 import { AnalysisProvider } from '@/hooks/useAnalysis'
+import { ThemeProvider } from '@/theme/ThemeProvider'
 import './index.css'
 
 /** React Query defaults: local backend, so retries are cheap but bounded. */
@@ -25,12 +26,14 @@ if (!container) throw new Error('APackets: #root container is missing from index
 
 createRoot(container).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AnalysisProvider>
-          <App />
-        </AnalysisProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AnalysisProvider>
+            <App />
+          </AnalysisProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ThemeProvider>
   </StrictMode>,
 )

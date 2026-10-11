@@ -2,17 +2,10 @@ import { useState } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import type { CSSProperties } from 'react'
 import clsx from 'clsx'
+import { useThemeTokens } from '@/theme/ThemeProvider'
 import { formatBytes, formatNumber } from '@/utils/format'
 import type { ProtocolDistributionEntry } from '@/types'
 
-const COLORS = ['#3b82f6', '#60a5fa', '#38bdf8', '#0ea5e9', '#6366f1', '#8b5cf6', '#a855f7']
-const TOOLTIP_STYLE: CSSProperties = {
-  background: '#16203a',
-  border: '1px solid #2c3c5e',
-  borderRadius: 4,
-  fontSize: 11,
-  color: '#e2e8f0',
-}
 
 export interface ProtocolMixProps {
   distribution: ProtocolDistributionEntry[]
@@ -21,6 +14,15 @@ export interface ProtocolMixProps {
 
 /** Donut plus a small legend: which protocols dominate this capture. */
 export function ProtocolMix({ distribution, height = 190 }: ProtocolMixProps) {
+  const tokens = useThemeTokens()
+  const colours = tokens.chart
+  const tooltipStyle: CSSProperties = {
+    background: tokens.surface2,
+    border: '1px solid ' + tokens.border2,
+    borderRadius: 4,
+    fontSize: 11,
+    color: tokens.text,
+  }
   const [metric, setMetric] = useState<'packets' | 'bytes'>('packets')
   const rows = [...distribution].sort((a, b) => (b[metric] ?? 0) - (a[metric] ?? 0)).slice(0, 7)
   const total = rows.reduce((sum, row) => sum + (row[metric] ?? 0), 0)
@@ -41,17 +43,17 @@ export function ProtocolMix({ distribution, height = 190 }: ProtocolMixProps) {
               innerRadius="58%"
               outerRadius="88%"
               paddingAngle={2}
-              stroke="#0b1120"
+              stroke={tokens.bg}
               strokeWidth={1}
               isAnimationActive={false}
             >
               {rows.map((row, index) => (
-                <Cell key={`${row.protocol}-${index}`} fill={COLORS[index % COLORS.length]} />
+                <Cell key={`${row.protocol}-${index}`} fill={colours[index % colours.length]} />
               ))}
             </Pie>
             <Tooltip
-              contentStyle={TOOLTIP_STYLE}
-              itemStyle={{ color: '#e2e8f0' }}
+              contentStyle={tooltipStyle}
+              itemStyle={{ color: tokens.text }}
               formatter={(value, name) => [
                 metric === 'bytes' ? formatBytes(Number(value)) : formatNumber(Number(value)),
                 String(name),
@@ -79,7 +81,7 @@ export function ProtocolMix({ distribution, height = 190 }: ProtocolMixProps) {
             <div key={`${row.protocol}-legend-${index}`} className="flex items-center gap-1.5 text-2xs">
               <span
                 className="inline-block h-2 w-2 shrink-0 rounded-sm"
-                style={{ background: COLORS[index % COLORS.length] }}
+                style={{ background: colours[index % colours.length] }}
               />
               <span className="min-w-0 flex-1 truncate text-text" title={row.protocol}>
                 {row.protocol}

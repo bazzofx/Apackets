@@ -122,7 +122,7 @@ export function FindingOverview({ context, onSelectRelated }: FindingOverviewPro
           {finding.description ? (
             <div className="text-2xs text-muted">{finding.description}</div>
           ) : null}
-          <div className="whitespace-pre-wrap rounded border border-border bg-[#0d1526] p-2 text-2xs leading-relaxed text-text">
+          <div className="whitespace-pre-wrap rounded border border-border bg-bg p-2 text-2xs leading-relaxed text-text">
             {finding.reason}
           </div>
           {finding.recommendation ? (
@@ -247,7 +247,7 @@ export function FindingOverview({ context, onSelectRelated }: FindingOverviewPro
             ) : null}
           </dl>
           {showRule ? (
-            <pre className="mono max-h-64 overflow-auto whitespace-pre-wrap break-all border-t border-border bg-[#0d1526] p-2 text-2xs text-text">
+            <pre className="mono max-h-64 overflow-auto whitespace-pre-wrap break-all border-t border-border bg-bg p-2 text-2xs text-text">
               {rule.raw}
             </pre>
           ) : null}

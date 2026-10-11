@@ -27,6 +27,7 @@ import ProtocolMix from '@/components/dashboard/ProtocolMix'
 import TrafficExtremeCard from '@/components/dashboard/TrafficExtremeCard'
 import TrafficSparkline from '@/components/dashboard/TrafficSparkline'
 import { useAnalysis, useAnalysisSummary } from '@/hooks/useAnalysis'
+import { useThemeTokens } from '@/theme/ThemeProvider'
 import { hostsApi } from '@/services/api'
 import { formatDuration, formatNumber } from '@/utils/format'
 
@@ -37,6 +38,7 @@ const FRESH_POLL_MS = 5000
 
 function DashboardOverview() {
   const { analysisId, selected } = useAnalysis()
+  const tokens = useThemeTokens()
   const navigate = useNavigate()
 
   const [now, setNow] = useState(() => Date.now() / 1000)
@@ -93,43 +95,45 @@ function DashboardOverview() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
-        <KpiTile
-          label="DNS requests"
-          value={totals.dns_queries}
-          icon={Search}
-          detail="queries seen in this capture"
-        />
-        <KpiTile
-          label="Conversations"
-          value={totals.conversations}
-          icon={ArrowLeftRight}
-          detail="reassembled streams"
-        />
-        <KpiTile label="Hosts" value={totals.hosts} icon={Server} detail="distinct addresses" />
-        <Link to="/findings" className="min-w-0" title="Open the findings workbench">
+      <div className="accent-bloom">
+        <div className="relative z-10 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
           <KpiTile
-            label="Findings"
-            value={findingsTotal}
-            icon={ShieldAlert}
-            tone={severity.high > 0 ? 'danger' : 'accent'}
-            detail={`high ${severity.high} · medium ${severity.medium} · low ${severity.low} · info ${severity.informational}`}
-            className="h-full transition-colors hover:border-accent"
+            label="DNS requests"
+            value={totals.dns_queries}
+            icon={Search}
+            detail="queries seen in this capture"
           />
-        </Link>
-        <KpiTile label="Packets" value={totals.packets} icon={List} detail="indexed frames" />
-        <KpiTile label="Bytes" value={totals.bytes} format="bytes" icon={HardDrive} detail="on the wire" />
+          <KpiTile
+            label="Conversations"
+            value={totals.conversations}
+            icon={ArrowLeftRight}
+            detail="reassembled streams"
+          />
+          <KpiTile label="Hosts" value={totals.hosts} icon={Server} detail="distinct addresses" />
+          <Link to="/findings" className="min-w-0" title="Open the findings workbench">
+            <KpiTile
+              label="Findings"
+              value={findingsTotal}
+              icon={ShieldAlert}
+              tone={severity.high > 0 ? 'danger' : 'accent'}
+              detail={`high ${severity.high} · medium ${severity.medium} · low ${severity.low} · info ${severity.informational}`}
+              className="h-full hover:border-accent"
+            />
+          </Link>
+          <KpiTile label="Packets" value={totals.packets} icon={List} detail="indexed frames" />
+          <KpiTile label="Bytes" value={totals.bytes} format="bytes" icon={HardDrive} detail="on the wire" />
         <KpiTile
           label="Duration"
           value={totals.duration}
           format="duration"
           icon={Clock}
-          detail={`${formatNumber(totals.tcp_packets)} TCP · ${formatNumber(totals.udp_packets)} UDP`}
-        />
+            detail={`${formatNumber(totals.tcp_packets)} TCP · ${formatNumber(totals.udp_packets)} UDP`}
+          />
+        </div>
       </div>
 
       <Panel
-        title="Conversation map"
+        className="shadow-bloom"
         subtitle="who talked to whom in this capture, sized by bytes"
         flush
         actions={
@@ -173,11 +177,11 @@ function DashboardOverview() {
         actions={
           <div className="flex items-center gap-2 text-2xs">
             <span className="flex items-center gap-1 text-muted">
-              <span className="inline-block h-2 w-3 rounded-sm" style={{ background: '#3b82f6' }} />
+              <span className="inline-block h-2 w-3 rounded-sm" style={{ background: tokens.accent }} />
               sent
             </span>
             <span className="flex items-center gap-1 text-muted">
-              <span className="inline-block h-2 w-3 rounded-sm" style={{ background: '#22d3ee' }} />
+              <span className="inline-block h-2 w-3 rounded-sm" style={{ background: tokens.accent2 }} />
               received
             </span>
           </div>
