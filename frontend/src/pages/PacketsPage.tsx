@@ -123,7 +123,13 @@ function PacketsContent() {
   }, [filters.mode, url])
 
   const resetEverything = useCallback(() => {
+    /* `clear()` resets filters only, so the paging, sorting and selected packet
+       this button used to reset as a side effect are asked for explicitly. */
     url.clear()
+    url.patch(
+      { sel: null, page: null, page_size: null, sort: null, order: null },
+      { resetPage: false },
+    )
   }, [url])
 
   const selectPacket = useCallback(

@@ -10,9 +10,11 @@ import LoadingState from '@/components/LoadingState'
 import Pagination from '@/components/Pagination'
 import Panel from '@/components/Panel'
 import ConversationFlow from '@/components/conversations/ConversationFlow'
+import FlowSelectionFallback from '@/components/conversations/FlowSelectionFallback'
 import {
   buildFlowGraph,
   flowNodeBudget,
+  flowSelectionState,
   nodeMatchesConversation,
 } from '@/components/conversations/flowLayout'
 import {
@@ -308,6 +310,25 @@ function ConversationsContent() {
     },
     [url],
   )
+  /* A selection that is no longer one of the graph's nodes is dropped: node ids
+     change when a filter regroups the columns (a `/24` group becomes the single
+     address it holds), and collapsing the page around an unresolvable selection
+     is a dead end. A selection that is still valid is left untouched, so tweaking
+     a filter never loses it. The ref makes the drop happen once per stale id. */
+  const droppedSelection = useRef<string | null>(null)
+  useEffect(() => {
+    if (selectedNodeId === null) {
+      droppedSelection.current = null
+      return
+    }
+    /* Only the Flow tab draws the diagram, and only once rows have arrived: an
+       empty graph would make every selection look stale. */
+    if (tab !== 'flow' || flow.data === undefined) return
+    if (flowSelectionState(graph, selectedNodeId, flowItems) !== 'stale') return
+    if (droppedSelection.current === selectedNodeId) return
+    droppedSelection.current = selectedNodeId
+    selectNode(null)
+  }, [graph, selectedNodeId, tab, flow.data, selectNode])
 
   const toggleSubnet = useCallback(
     (subnet: string) => {
@@ -563,10 +584,11 @@ function ConversationsContent() {
                   </div>
                 </Panel>
               ) : (
-                <p className="px-1 text-2xs leading-relaxed text-faint">
-                  No conversation in the rows the diagram was drawn from matches this node. Clear the
-                  selection, or widen the toolbar filters above.
-                </p>
+                <FlowSelectionFallback
+                  nodeId={selectedNodeId}
+                  onClearSelection={() => selectNode(null)}
+                  onResetFilters={clearFilters}
+                />
               )
             ) : (
               <p className="px-1 text-2xs leading-relaxed text-faint">

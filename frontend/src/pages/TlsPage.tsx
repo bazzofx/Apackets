@@ -552,6 +552,13 @@ function TlsContent() {
   const { analysisId } = useAnalysis()
   const filters = useUrlFilters(URL_KEYS, 100)
 
+  /* `clear()` keeps non-filter state, and the fingerprint filter is a
+     client-side list filter rather than a server one, so it is cleared here. */
+  const resetFilters = useCallback(() => {
+    filters.clear()
+    filters.patch({ ftype: null, fsearch: null }, { resetPage: false })
+  }, [filters])
+
   const view: View = filters.get('view') === 'fingerprints' ? 'fingerprints' : 'sessions'
   const page = filters.getNumber('page', 1)
   const pageSize = filters.getNumber('page_size', 100)
@@ -683,7 +690,7 @@ function TlsContent() {
               actions={
                 <>
                   <SortSelect columns={SORT_COLUMNS} sort={sort} order={order} onChange={setSort} />
-                  <ResetFiltersButton onClick={filters.clear} disabled={!filters.any} />
+                  <ResetFiltersButton onClick={resetFilters} disabled={!filters.any} />
                 </>
               }
             >
@@ -783,7 +790,7 @@ function TlsContent() {
                     </>
                   )
                 }
-                action={filters.any ? <ResetFiltersButton onClick={filters.clear} /> : undefined}
+                action={filters.any ? <ResetFiltersButton onClick={resetFilters} /> : undefined}
               />
             ) : (
               <div className="overflow-auto">

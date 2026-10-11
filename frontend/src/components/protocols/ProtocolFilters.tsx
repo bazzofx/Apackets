@@ -30,12 +30,14 @@ export interface UrlFilterApi {
 }
 
 /**
- * Keys that are paging/sorting state, or that only filter a list already
- * returned (the per-domain and fingerprint views), rather than narrowing the
- * API request. They are kept out of `any` so an empty table is only reported as
- * "filtered" when a server-side filter is really responsible.
+ * Keys that are not server-side filters: paging and sorting, the per-domain and
+ * fingerprint views' own list filters, and **view or selection state** - which
+ * tab is open, which node or row is selected, which groups are expanded. They
+ * are kept out of `any` so an empty table is only reported as "filtered" when a
+ * real filter is responsible, and `clear()` now leaves them alone for the same
+ * reason: resetting a filter must not close the conversation the user is reading.
  */
-const NON_FILTER_KEYS = new Set([
+export const NON_FILTER_KEYS: ReadonlySet<string> = new Set([
   'page',
   'page_size',
   'sort',
@@ -47,7 +49,33 @@ const NON_FILTER_KEYS = new Set([
   'dsort',
   'ftype',
   'fsearch',
+  /* Conversations: the tab, the diagram selection, the expanded groups, the
+     selected conversation and its stream view mode. */
+  'tab',
+  'node',
+  'expand',
+  'stream',
+  'smode',
 ])
+
+/**
+ * The query string a filter reset should leave behind.
+ *
+ * `clear()` used to delete every key the page owns, which also threw away view
+ * state and contradicted `any`, which deliberately ignores `NON_FILTER_KEYS`.
+ * This keeps everything that is not a filter and deletes the rest.
+ */
+export function clearedFilterParams(
+  previous: URLSearchParams,
+  keys: readonly string[],
+): URLSearchParams {
+  const params = new URLSearchParams(previous)
+  for (const key of keys) {
+    if (NON_FILTER_KEYS.has(key)) continue
+    params.delete(key)
+  }
+  return params
+}
 
 /**
  * Read and write the page's own query-string keys.
@@ -101,14 +129,9 @@ export function useUrlFilters(keys: string[], defaultPageSize = 100): UrlFilterA
   )
 
   const clear = useCallback(() => {
-    setSearchParams(
-      (previous) => {
-        const params = new URLSearchParams(previous)
-        for (const key of owned.split('\u0000')) params.delete(key)
-        return params
-      },
-      { replace: true },
-    )
+    setSearchParams((previous) => clearedFilterParams(previous, owned.split('\u0000')), {
+      replace: true,
+    })
   }, [setSearchParams, owned])
 
   const any = useMemo(

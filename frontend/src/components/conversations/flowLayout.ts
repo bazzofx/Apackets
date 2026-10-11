@@ -685,6 +685,34 @@ export function buildFlowGraph(rows: Conversation[], options: BuildFlowOptions =
     },
   }
 }
+/** How a `?node=` selection relates to the graph currently drawn. */
+export type FlowSelectionState = 'none' | 'valid' | 'stale'
+
+/**
+ * `none` when nothing is selected, `valid` when the selected id is one of the
+ * graph's nodes (so its conversations are certainly available), and `stale` when
+ * the id names a node that no longer exists.
+ *
+ * Node ids are not stable across a filter change: a `/24` group is
+ * `source:10.4.10.0/24`, but the same subnet holding a single observed host is
+ * `source:10.4.10.132`. Changing which rows are fetched therefore regroups the
+ * IP columns and can leave the URL pointing at a node that is gone, which is why
+ * the page drops such a selection instead of collapsing around it.
+ */
+export function flowSelectionState(
+  graph: FlowGraph,
+  nodeId: string | null,
+  rows: readonly Conversation[] = [],
+): FlowSelectionState {
+  if (nodeId === null || nodeId.trim() === '') return 'none'
+  if (graph.nodes.some((node) => node.id === nodeId)) return 'valid'
+  /* A group the user just expanded has no group node any more, and an entity
+     folded into a "N more" node has none of its own - yet both still resolve to
+     real conversations through `nodeMatchesConversation`. Only a selection that
+     resolves to nothing at all is stale. */
+  return rows.some((row) => nodeMatchesConversation(nodeId, row)) ? 'valid' : 'stale'
+}
+
 /**
  * Does one conversation belong to a node id chosen in the diagram?
  *

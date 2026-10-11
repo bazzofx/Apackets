@@ -536,6 +536,13 @@ function DnsContent() {
   const { analysisId } = useAnalysis()
   const filters = useUrlFilters(URL_KEYS, 100)
 
+  /* `clear()` keeps non-filter state, and the per-domain search is a
+     client-side list filter rather than a server one, so it is cleared here. */
+  const resetFilters = useCallback(() => {
+    filters.clear()
+    filters.patch({ dsearch: null, dsort: null }, { resetPage: false })
+  }, [filters])
+
   const view: View = filters.get('view') === 'domains' ? 'domains' : 'queries'
   const page = filters.getNumber('page', 1)
   const pageSize = filters.getNumber('page_size', 100)
@@ -698,7 +705,7 @@ function DnsContent() {
               actions={
                 <>
                   <SortSelect columns={SORT_COLUMNS} sort={sort} order={order} onChange={setSort} />
-                  <ResetFiltersButton onClick={filters.clear} disabled={!filters.any} />
+                  <ResetFiltersButton onClick={resetFilters} disabled={!filters.any} />
                 </>
               }
             >
@@ -805,7 +812,7 @@ function DnsContent() {
                     </>
                   )
                 }
-                action={filters.any ? <ResetFiltersButton onClick={filters.clear} /> : undefined}
+                action={filters.any ? <ResetFiltersButton onClick={resetFilters} /> : undefined}
               />
             ) : (
               <div className="overflow-auto">

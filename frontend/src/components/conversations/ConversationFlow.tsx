@@ -7,6 +7,15 @@ import type { ThemeTokens } from '@/theme/themes'
 import type { Conversation, ConversationState } from '@/types'
 import { formatBytes, formatNumber } from '@/utils/format'
 import {
+  beginGesture,
+  capturePointer,
+  dragStep,
+  endGesture,
+  releasePointer,
+  takeClick,
+  type PointerGesture,
+} from './pointerGesture'
+import {
   FLOW_COLUMN_LABELS,
   FLOW_COLUMNS,
   FLOW_MAX_SCALE,
@@ -706,9 +715,7 @@ export function ConversationFlow({
   const [view, setView] = useState<FlowView>(() => initialView ?? flowFitView())
   const viewRef = useRef<FlowView>(view)
   const [dragging, setDragging] = useState(false)
-  const dragRef = useRef<{ pointerId: number; start: FlowPoint; view: FlowView; moved: boolean } | null>(
-    null,
-  )
+  const dragRef = useRef<PointerGesture | null>(null)
   /* A drag must not also select whatever was under the pointer when it ended. */
   const suppressClick = useRef(false)
   const clipId = 'flow-plot-' + useId().replace(/[^a-zA-Z0-9_-]/g, '')
@@ -791,13 +798,16 @@ export function ConversationFlow({
     return () => svg.removeEventListener('wheel', onWheel)
   }, [applyView, bounds, plotPoint, pointerToViewBox])
 
+  /* A press only records where it started. Pointer capture is deliberately NOT
+     taken here: capturing on pointerdown makes the browser deliver the following
+     click to the capture target (this SVG) instead of the node or band that was
+     hit, which is exactly how a pan implementation silently kills every click. */
   const onPointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return
     const box = pointerToViewBox(event.currentTarget, event.clientX, event.clientY)
     if (box === null) return
     suppressClick.current = false
-    dragRef.current = { pointerId: event.pointerId, start: box, view: viewRef.current, moved: false }
-    event.currentTarget.setPointerCapture(event.pointerId)
+    dragRef.current = beginGesture(event.pointerId, box.x, box.y, viewRef.current)
   }
 
   const onPointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
@@ -805,35 +815,34 @@ export function ConversationFlow({
     if (!drag || drag.pointerId !== event.pointerId) return
     const box = pointerToViewBox(event.currentTarget, event.clientX, event.clientY)
     if (box === null) return
-    const dxView = box.x - drag.start.x
-    const dyView = box.y - drag.start.y
-    if (!drag.moved && Math.hypot(dxView, dyView) * drag.view.scale < 3) return
-    if (!drag.moved) {
+    const step = dragStep(drag, box.x, box.y, drag.view.scale)
+    if (!step.dragging) return
+    if (step.capture) {
+      /* The press has become a drag: now capture, so the pan keeps tracking the
+         pointer after it leaves the element. A failure here must not throw. */
       drag.moved = true
       setDragging(true)
+      capturePointer(event.currentTarget, event.pointerId)
     }
-    applyView(panFlowView(drag.view, dxView / drag.view.scale, dyView / drag.view.scale, bounds))
+    applyView(panFlowView(drag.view, step.dx, step.dy, bounds))
   }
 
   const endDrag = (event: React.PointerEvent<SVGSVGElement>) => {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== event.pointerId) return
-    if (drag.moved) suppressClick.current = true
+    suppressClick.current = endGesture(drag)
     dragRef.current = null
     setDragging(false)
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
+    releasePointer(event.currentTarget, event.pointerId)
   }
 
   /* Selection never reads a screen coordinate: the handlers sit on the shapes,
      so the browser hit-tests the transformed geometry for us. The only thing a
      drag changes here is whether the click that follows it is honoured. */
   const withClickGuard = (action: () => void) => {
-    if (suppressClick.current) {
-      suppressClick.current = false
-      return
-    }
+    const click = takeClick(suppressClick.current)
+    suppressClick.current = click.suppressed
+    if (!click.allow) return
     action()
   }
 
@@ -1006,8 +1015,13 @@ export function ConversationFlow({
           ref={svgRef}
           viewBox={'0 0 ' + String(layout.width) + ' ' + String(FLOW_VIEW.height)}
           className={
-            'h-[30rem] w-full touch-none ' + (dragging ? 'cursor-grabbing' : 'cursor-grab')
+            'max-h-[44rem] w-full touch-none ' + (dragging ? 'cursor-grabbing' : 'cursor-grab')
           }
+          /* A fixed height letterboxed the 1200x520 viewBox: at wide panels the plot
+             floated in the middle of the panel with dead margins either side, where a
+             click hit the empty SVG rather than the chart. Matching the element's
+             aspect to the viewBox keeps the whole panel usable. */
+          style={{ aspectRatio: FLOW_VIEW.width + ' / ' + FLOW_VIEW.height }}
           role="img"
           tabIndex={0}
           aria-label={
