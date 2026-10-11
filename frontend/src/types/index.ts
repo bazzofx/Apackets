@@ -1219,3 +1219,59 @@ export interface FindingRescanResult {
   rule_errors: Record<string, string>
   seconds: number | null
 }
+/* ------------------------------------------------------------------ */
+/* alerts tied to conversations                                        */
+/* (GET /api/analyses/{id}/alerts/conversations)                       */
+/* ------------------------------------------------------------------ */
+
+/** One alert, as the conversations overlay needs it. */
+export interface ConversationAlertFinding {
+  finding_id: string
+  rule_id: string
+  severity: Severity
+  title: string
+  /** Frames the finding records; how it was placed on a conversation. */
+  packet_numbers: number[]
+  /** Conversation keys (`transport:stream_id`) this finding links to. */
+  conversations: string[]
+  /** `packets` when it was placed through the frame index, `none` when not. */
+  linked_by: string
+}
+
+/** Everything the endpoint knows about one conversation's alerts. */
+export interface ConversationAlertLink {
+  severity: Severity
+  finding_ids: string[]
+  rules: string[]
+  titles: string[]
+}
+
+/**
+ * Everything it knows about one address's alerts, for entities the diagram
+ * cannot address by stream id.
+ */
+export interface ConversationAlertAddressLink {
+  severity: Severity
+  finding_ids: string[]
+  conversations: string[]
+}
+
+export interface ConversationAlertsResponse {
+  analysis_id: string
+  min_severity: Severity
+  source: string
+  /** Alerts at or above `min_severity`. */
+  counts: SeverityCounts
+  /** Every alert, whatever its severity, so "+N below the threshold" is honest. */
+  all_counts: SeverityCounts
+  alerts: ConversationAlertFinding[]
+  /** Conversation key -> its alerts. This is what the diagram matches on. */
+  by_conversation: Record<string, ConversationAlertLink>
+  by_ip: Record<string, ConversationAlertAddressLink>
+  linked_conversations: number
+  /** Findings that could not be placed on the diagram. Never hidden. */
+  unlinked_findings: number
+  packets_scanned: number
+  packets_truncated: boolean
+  note: string
+}

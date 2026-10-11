@@ -217,3 +217,17 @@
     @apply font-mono;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* conversation alert overlay                                          */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Only the alerted connection itself glows, in its own severity colour, so a
+ * flagged flow reads as the thing that is alerted without animating anything.
+ * `currentColor` is set from the severity token on the element, so no colour is
+ * repeated here.
+ */
+.flow-alert-glow {
+  filter: drop-shadow(0 0 3px currentColor) drop-shadow(0 0 8px currentColor);
+}

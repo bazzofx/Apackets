@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Info, Layers, X } from 'lucide-react'
+import { ChevronDown, Info, Layers, ShieldAlert, X } from 'lucide-react'
 import EmptyState from '@/components/EmptyState'
 import Panel from '@/components/Panel'
 import { useThemeTokens } from '@/theme/ThemeProvider'
 import type { ThemeTokens } from '@/theme/themes'
 import type { Conversation, ConversationState } from '@/types'
 import { formatBytes, formatNumber } from '@/utils/format'
+import {
+  alertCountsSummary,
+  alertEvidenceForEntity,
+  alertEvidenceLine,
+  type AlertEvidence,
+  type ConversationAlerts,
+} from './alertOverlay'
 import {
   beginGesture,
   capturePointer,
@@ -64,6 +71,8 @@ export function stateColour(state: ConversationState, tokens: ThemeTokens): stri
   }
 }
 
+
+
 interface Hover {
   kind: 'node' | 'band'
   id: string
@@ -76,6 +85,14 @@ export interface ConversationFlowProps {
   conversations: Conversation[]
   /** A freshly filtered set is on its way; the drawn one is still the previous. */
   busy?: boolean
+  /** Alerts tied to conversations, once the request has landed. */
+  alerts?: ConversationAlerts | null
+  /** Whether the alert layer is on (`?alerts=1`). */
+  alertsOn?: boolean
+  alertsBusy?: boolean
+  alertsError?: string | null
+  onToggleAlerts?: () => void
+  onRetryAlerts?: () => void
   /** The view to start from; `Fit` (the whole diagram) is the default. */
   initialView?: FlowView
   /** Conversation selected through `?stream=`. */
@@ -145,7 +162,20 @@ function foldNote(column: FlowColumn, graph: FlowGraph): string | null {
   )
 }
 
-function Legend({ graph, tokens, thinnest }: { graph: FlowGraph; tokens: ThemeTokens; thinnest: number }) {
+function Legend({
+  graph,
+  tokens,
+  thinnest,
+  alertLayer,
+  alertCounts,
+}: {
+  graph: FlowGraph
+  tokens: ThemeTokens
+  thinnest: number
+  /** True when the alert layer is on, so the legend can explain it. */
+  alertLayer: boolean
+  alertCounts: { high: number; medium: number }
+}) {
   const thinnestLabel = Number.isFinite(thinnest) ? thinnest.toFixed(1) : 'n/a'
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-border px-3 py-2">
@@ -188,6 +218,25 @@ function Legend({ graph, tokens, thinnest }: { graph: FlowGraph; tokens: ThemeTo
         >
           <span className="mono">{graph.meta.stackedPairs}</span> band pair(s) carry both TCP and UDP — solid
           stacked on dashed
+        </span>
+      ) : null}
+      {alertLayer ? (
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span
+            className="flex items-center gap-1 text-2xs text-muted"
+            title="Conversations linked to a high-severity alert, from the imported Suricata rules or the built-in engine: the connection turns red and glows, and both of its ends are ringed."
+          >
+            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: tokens.sevHigh }} />
+            high alert <span className="mono">{formatNumber(alertCounts.high)}</span> — red connection, ringed and glowing
+          </span>
+          <span
+            className="flex items-center gap-1 text-2xs text-muted"
+            title="Conversations linked to a medium-severity alert, from the imported Suricata rules or the built-in engine: the connection turns amber and glows, and both of its ends are ringed."
+          >
+            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: tokens.sevMedium }} />
+            medium alert <span className="mono">{formatNumber(alertCounts.medium)}</span> — amber connection, ringed and glowing
+          </span>
+          <span className="text-2xs text-faint">the glow marks the alerted connection; the ring marks both ends, so no cue is colour alone</span>
         </span>
       ) : null}
       <span className="ml-auto flex items-center gap-1 text-2xs text-faint">
@@ -358,26 +407,50 @@ interface BandShapeProps {
   emphasised: boolean
   /** Something else is emphasised, so this band recedes. */
   dimmed: boolean
+  /** The alert behind this band, when the layer is on. */
+  alert?: AlertEvidence | null
   onHover: (hover: Hover | null) => void
   onPick: (band: FlowBand) => void
 }
 
-function BandShape({ band, tokens, emphasised, dimmed, onHover, onPick }: BandShapeProps) {
+function BandShape({ band, tokens, emphasised, dimmed, alert, onHover, onPick }: BandShapeProps) {
   const colour = stateColour(band.dominantState, tokens)
   const udp = band.transport === 'udp'
   const path = ribbonPath(band)
+  const alerted = alert !== null && alert !== undefined
+  const alertColour = alerted ? (alert.level === 'high' ? tokens.sevHigh : tokens.sevMedium) : null
   const fillOpacity = emphasised ? 0.74 : dimmed ? 0.07 : 0.3
   const strokeOpacity = emphasised ? 0.95 : dimmed ? 0.15 : 0.5
   const hitWidth = Math.min(Math.max(band.thickness + 6, 9), 16)
+  const alertData = alerted
+    ? { 'data-alert': alert.level, 'data-alert-rules': alert.rules.join(',') }
+    : {}
   return (
-    <g onMouseEnter={() => onHover({ kind: 'band', id: band.id })} onMouseLeave={() => onHover(null)}>
+    <g
+      onMouseEnter={() => onHover({ kind: 'band', id: band.id })}
+      onMouseLeave={() => onHover(null)}
+      {...alertData}
+      className={alerted ? 'flow-alert-glow' : undefined}
+      style={alerted && alertColour !== null ? { color: alertColour } : undefined}
+    >
+      {/* The ring is the non-colour cue: a flagged band is outlined as well as
+          recoloured, so the overlay survives a monochrome screenshot. */}
+      {alerted && alertColour !== null ? (
+        <path
+          d={path}
+          fill="none"
+          stroke={alertColour}
+          strokeOpacity={0.6}
+          strokeWidth={Math.max(3, band.thickness + 3)}
+        />
+      ) : null}
       <path
         d={path}
-        fill={colour}
-        fillOpacity={fillOpacity}
-        stroke={colour}
-        strokeOpacity={strokeOpacity}
-        strokeWidth={udp ? 1 : 1.1}
+        fill={alerted && alertColour !== null ? alertColour : colour}
+        fillOpacity={alerted ? (dimmed ? 0.25 : 0.6) : fillOpacity}
+        stroke={alerted && alertColour !== null ? alertColour : colour}
+        strokeOpacity={alerted ? 1 : strokeOpacity}
+        strokeWidth={alerted ? 2.2 : udp ? 1 : 1.1}
         strokeDasharray={udp ? '6 4' : undefined}
       />
       <path
@@ -404,6 +477,8 @@ interface NodeShapeProps {
   onPath: boolean
   /** Something else is emphasised, so this node recedes. */
   dimmed: boolean
+  /** The alert behind this node, when the layer is on. */
+  alert?: AlertEvidence | null
   onHover: (hover: Hover | null) => void
   onActivate: (node: PositionedNode) => void
 }
@@ -415,6 +490,7 @@ function NodeShape({
   selected,
   onPath,
   dimmed,
+  alert,
   onHover,
   onActivate,
 }: NodeShapeProps) {
@@ -445,11 +521,30 @@ function NodeShape({
     formatNumber(node.packets) +
     ' packets' +
     (node.transports.length > 0 ? ', transport ' + node.transports.join(' and ') : '') +
-    (node.expandable ? ', click to expand and list its conversations' : '')
+    (node.expandable ? ', click to expand and list its conversations' : '') +
+    (alert !== null && alert !== undefined
+      ? ', ' + alert.level + ' alert: ' + alertEvidenceLine(alert)
+      : '')
   const enter = () => onHover({ kind: 'node', id: node.id })
   const leave = () => onHover(null)
-  const stroke = selected ? tokens.accent : onPath ? tokens.accent2 : isState ? colour : tokens.border
-  const strokeWidth = selected ? 2 : onPath ? 1.5 : 0.75
+  const alerted = alert !== null && alert !== undefined
+  const alertColour = alerted ? (alert.level === 'high' ? tokens.sevHigh : tokens.sevMedium) : null
+  const stroke = selected
+    ? tokens.accent
+    : alerted && alertColour !== null
+      ? alertColour
+      : onPath
+        ? tokens.accent2
+        : isState
+          ? colour
+          : tokens.border
+  const strokeWidth = selected ? 2 : alerted ? 2.6 : onPath ? 1.5 : 0.75
+  const alertData = alerted
+    ? { 'data-alert': alert.level, 'data-alert-rules': alert.rules.join(',') }
+    : {}
+  /* A flagged node keeps the severity colour and the ring, and deliberately does
+     not glow or move: the glow belongs to the connection itself. */
+  const groupClass = selectable ? 'cursor-pointer' : ''
   const fillOpacity = isState
     ? onPath || selected
       ? 0.34
@@ -467,7 +562,9 @@ function NodeShape({
       tabIndex={selectable ? 0 : undefined}
       aria-label={summary}
       aria-pressed={selectable ? selected : undefined}
-      className={selectable ? 'cursor-pointer' : undefined}
+      className={groupClass === '' ? undefined : groupClass}
+      {...alertData}
+      style={alerted && alertColour !== null ? { color: alertColour } : undefined}
       onMouseEnter={enter}
       onMouseLeave={leave}
       onFocus={enter}
@@ -480,6 +577,19 @@ function NodeShape({
         }
       }}
     >
+      {alerted && alertColour !== null ? (
+        <rect
+          x={node.x - 2.5}
+          y={node.y - 2.5}
+          width={node.width + 5}
+          height={node.height + 5}
+          rx={isState ? 4 : 3}
+          fill="none"
+          stroke={alertColour}
+          strokeOpacity={0.65}
+          strokeWidth={2}
+        />
+      ) : null}
       <rect
         x={node.x - 2}
         y={node.y + node.height / 2 - hitHeight / 2}
@@ -513,7 +623,36 @@ function NodeShape({
   )
 }
 /** Tooltip content for a band: the aggregate of every conversation behind it. */
-function BandDetail({ band, graph, tokens }: { band: FlowBand; graph: FlowGraph; tokens: ThemeTokens }) {
+/** The alert behind a flagged element, spelled out so the highlight is traceable. */
+function AlertEvidenceBlock({ alert, tokens }: { alert: AlertEvidence; tokens: ThemeTokens }) {
+  return (
+    <div
+      className="mt-1 flex flex-col gap-0.5 border-t border-border pt-1 text-2xs"
+      style={{ color: alert.level === 'high' ? tokens.sevHigh : tokens.sevMedium }}
+    >
+      <span>
+        <span className="uppercase tracking-wide">{alert.level} alert</span>{' '}
+        <span className="mono">{alertEvidenceLine(alert)}</span>
+      </span>
+      <span className="text-faint">
+        {alert.matchedBy === 'address' ? 'matched by address' : 'matched by conversation'} ·{' '}
+        {formatNumber(alert.keys.length)} conversation(s): {formatListWithCount(alert.keys, alert.keys.length, 4)}
+      </span>
+    </div>
+  )
+}
+
+function BandDetail({
+  band,
+  graph,
+  tokens,
+  alert,
+}: {
+  band: FlowBand
+  graph: FlowGraph
+  tokens: ThemeTokens
+  alert?: AlertEvidence | null
+}) {
   const from = graph.nodes.find((node) => node.id === band.from)
   const to = graph.nodes.find((node) => node.id === band.to)
   return (
@@ -553,13 +692,24 @@ function BandDetail({ band, graph, tokens }: { band: FlowBand; graph: FlowGraph;
       <div className="mt-1 border-t border-border pt-1 text-2xs text-faint">
         click to open the largest of these conversations below
       </div>
+      {alert !== null && alert !== undefined ? <AlertEvidenceBlock alert={alert} tokens={tokens} /> : null}
       <span className="sr-only">{stateColour(band.dominantState, tokens)}</span>
     </div>
   )
 }
 
 /** Tooltip content for a node. */
-function NodeDetail({ node, graph, tokens }: { node: FlowNode; graph: FlowGraph; tokens: ThemeTokens }) {
+function NodeDetail({
+  node,
+  graph,
+  tokens,
+  alert,
+}: {
+  node: FlowNode
+  graph: FlowGraph
+  tokens: ThemeTokens
+  alert?: AlertEvidence | null
+}) {
   const share = graph.totals.bytes > 0 ? Math.round((node.bytes / graph.totals.bytes) * 100) : 0
   const kind =
     node.kind === 'subnet'
@@ -603,18 +753,35 @@ function NodeDetail({ node, graph, tokens }: { node: FlowNode; graph: FlowGraph;
               ? 'click to list the conversations behind this address below'
               : 'click to list the conversations behind this node below'}
       </div>
+      {alert !== null && alert !== undefined ? <AlertEvidenceBlock alert={alert} tokens={tokens} /> : null}
       <span className="sr-only">{stateColour(node.state ?? 'unknown', tokens)}</span>
     </div>
   )
 }
 
-function Detail({ hover, graph, tokens }: { hover: Hover; graph: FlowGraph; tokens: ThemeTokens }) {
+function Detail({
+  hover,
+  graph,
+  tokens,
+  alertByBand,
+  alertByNode,
+}: {
+  hover: Hover
+  graph: FlowGraph
+  tokens: ThemeTokens
+  alertByBand: Map<string, AlertEvidence>
+  alertByNode: Map<string, AlertEvidence>
+}) {
   if (hover.kind === 'band') {
     const band = graph.bands.find((item) => item.id === hover.id)
-    return band ? <BandDetail band={band} graph={graph} tokens={tokens} /> : null
+    return band ? (
+      <BandDetail band={band} graph={graph} tokens={tokens} alert={alertByBand.get(band.id) ?? null} />
+    ) : null
   }
   const node = graph.nodes.find((item) => item.id === hover.id)
-  return node ? <NodeDetail node={node} graph={graph} tokens={tokens} /> : null
+  return node ? (
+    <NodeDetail node={node} graph={graph} tokens={tokens} alert={alertByNode.get(node.id) ?? null} />
+  ) : null
 }
 
 function FlowHint() {
@@ -643,6 +810,12 @@ export function ConversationFlow({
   conversations,
   busy,
   initialView,
+  alerts,
+  alertsOn,
+  alertsBusy,
+  alertsError,
+  onToggleAlerts,
+  onRetryAlerts,
   selectedKey,
   selectedNodeId,
   onSelectNode,
@@ -727,6 +900,47 @@ export function ConversationFlow({
     () => new Map(labelPlan.labels.map((label) => [label.nodeId, label] as const)),
     [labelPlan],
   )
+
+  /* ---- the alert layer: a resting overlay, resolved once per graph -------- */
+  const alertSummary = useMemo(() => alertCountsSummary(alerts), [alerts])
+  const alertsReady = alerts !== null && alerts !== undefined && alertsError == null
+  const alertLayerOn = alertsOn === true && alertsReady
+  const alertByBand = useMemo(() => {
+    const found = new Map<string, AlertEvidence>()
+    if (!alertLayerOn || alerts === null || alerts === undefined) return found
+    for (const band of layout.bands) {
+      const evidence = alertEvidenceForEntity({ keys: band.keys }, alerts)
+      if (evidence !== null) found.set(band.id, evidence)
+    }
+    return found
+  }, [alertLayerOn, alerts, layout.bands])
+  const alertByNode = useMemo(() => {
+    const found = new Map<string, AlertEvidence>()
+    if (!alertLayerOn || alerts === null || alerts === undefined) return found
+    for (const node of layout.nodes) {
+      const evidence = alertEvidenceForEntity({ keys: node.keys, ip: node.ip }, alerts)
+      if (evidence !== null) found.set(node.id, evidence)
+    }
+    return found
+  }, [alertLayerOn, alerts, layout.nodes])
+  /* With the layer on and nothing hovered the flagged paths are the subject and
+     everything else recedes; hovering hands the emphasis back to the pointer. */
+  const alertDimsRest = alertLayerOn && hover === null
+  /* The button never hides why it is unavailable: no alerts at all, only lower
+     severities, or an endpoint that could not be reached. */
+  const alertButtonTitle =
+    alertsError !== null && alertsError !== undefined
+      ? 'Alerts could not be loaded: ' + alertsError + '. The diagram is unaffected — retry to try again.'
+      : alertSummary.empty
+        ? 'No alerts were found for this analysis at all. Imported Suricata rules and the built-in detection engine both contribute alerts, so check the Findings page if you expected any; rules must be imported and run before findings can be placed on the diagram.'
+        : alertSummary.above === 0
+          ? 'This analysis has ' +
+            formatNumber(alertSummary.total) +
+            ' alert(s), but none at medium or higher, so there is nothing to highlight: ' +
+            formatNumber(alertSummary.below) +
+            ' are below the threshold.'
+          : 'Highlight the connections linked to high and medium alerts, from the imported Suricata rules and the built-in detection engine. ' +
+            (alerts === null || alerts === undefined ? '' : alerts.note)
   const bounds = useMemo(() => ({ width: layout.width, height: layout.plotHeight }), [layout])
   const plotPoint = useCallback(
     (box: FlowPoint): FlowPoint => ({ x: box.x, y: box.y - FLOW_VIEW.headerSpace }),
@@ -942,7 +1156,13 @@ export function ConversationFlow({
         </span>
       }
     >
-      <Legend graph={graph} tokens={tokens} thinnest={thinnest} />
+      <Legend
+        graph={graph}
+        tokens={tokens}
+        thinnest={thinnest}
+        alertLayer={alertLayerOn}
+        alertCounts={alertSummary}
+      />
       <SelectionBar
         graph={graph}
         selectedNode={selectedNodeId === null ? null : (nodeById.get(selectedNodeId) ?? null)}
@@ -999,6 +1219,63 @@ export function ConversationFlow({
         >
           {String(zoomPercent) + '%'}
         </span>
+        {onToggleAlerts !== undefined ? (
+          <span className="flex flex-wrap items-center gap-1">
+            <button
+              type="button"
+              className={'btn px-2 py-1' + (alertLayerOn ? ' btn-primary' : '')}
+              aria-label="Highlight conversations linked to alerts"
+              aria-pressed={alertLayerOn}
+              disabled={!alertsReady || alertSummary.above === 0}
+              title={alertButtonTitle}
+              onClick={onToggleAlerts}
+            >
+              <ShieldAlert size={12} aria-hidden />
+              Alerts
+              {alertsBusy === true ? ' …' : ''}
+            </button>
+            {alertSummary.high > 0 ? (
+              <span
+                className="chip"
+                style={{ borderColor: tokens.sevHigh, color: tokens.sevHigh }}
+                title={
+                  formatNumber(alertSummary.high) +
+                  ' high-severity alert(s)' +
+                  (alertSummary.medium > 0 ? ', and ' + formatNumber(alertSummary.medium) + ' medium' : '')
+                }
+              >
+                {formatNumber(alertSummary.high)} high
+              </span>
+            ) : null}
+            {alertSummary.medium > 0 ? (
+              <span
+                className="chip"
+                style={{ borderColor: tokens.sevMedium, color: tokens.sevMedium }}
+                title={formatNumber(alertSummary.medium) + ' medium-severity alert(s)'}
+              >
+                {formatNumber(alertSummary.medium)} medium
+              </span>
+            ) : null}
+            {alertSummary.below > 0 ? (
+              <span
+                className="chip border-border2 bg-surface2 text-faint"
+                title="Alerts below medium severity. Raise the threshold to include them."
+              >
+                {formatNumber(alertSummary.below)} below threshold
+              </span>
+            ) : null}
+            {alertsError !== null && alertsError !== undefined ? (
+              <button
+                type="button"
+                className="btn btn-ghost px-1.5 py-1"
+                aria-label="Retry loading alerts"
+                onClick={onRetryAlerts}
+              >
+                Retry
+              </button>
+            ) : null}
+          </span>
+        ) : null}
         {labelPlan.suppressed > 0 ? (
           <span className="text-2xs text-muted">
             labels shown for the largest <span className="mono">{formatNumber(labelPlan.shown)}</span>{' '}
@@ -1068,7 +1345,8 @@ export function ConversationFlow({
                     band={band}
                     tokens={tokens}
                     emphasised={emphasis.bands.has(band.id)}
-                    dimmed={emphasis.active}
+                    dimmed={emphasis.active || (alertDimsRest && !alertByBand.has(band.id))}
+                    alert={alertByBand.get(band.id) ?? null}
                     onHover={setHover}
                     onPick={(picked) => withClickGuard(() => openLargest(picked))}
                   />
@@ -1081,7 +1359,8 @@ export function ConversationFlow({
                     label={labelOf.get(node.id)}
                     selected={selectedNodeId === node.id}
                     onPath={emphasis.nodes.has(node.id)}
-                    dimmed={emphasis.active}
+                    dimmed={emphasis.active || (alertDimsRest && !alertByNode.has(node.id))}
+                    alert={alertByNode.get(node.id) ?? null}
                     onHover={setHover}
                     onActivate={(activated) => withClickGuard(() => activateNode(activated))}
                   />
@@ -1092,9 +1371,34 @@ export function ConversationFlow({
         </svg>
 
         <div className="pointer-events-none absolute bottom-2 right-2 max-w-[22rem] rounded border border-border bg-surface/95 px-2.5 py-1.5">
-          {hover ? <Detail hover={hover} graph={graph} tokens={tokens} /> : <FlowHint />}
+          {hover ? (
+            <Detail
+              hover={hover}
+              graph={graph}
+              tokens={tokens}
+              alertByBand={alertByBand}
+              alertByNode={alertByNode}
+            />
+          ) : (
+            <FlowHint />
+          )}
         </div>
       </div>
+
+      {alerts !== null && alerts !== undefined && (alerts.unlinkedFindings > 0 || alerts.packetsTruncated) ? (
+        <div className="flex flex-col gap-0.5 border-t border-border px-3 py-1.5 text-2xs text-warn">
+          {alerts.unlinkedFindings > 0 ? (
+            <span title={alerts.note}>
+              {formatNumber(alerts.unlinkedFindings)} alert(s) could not be placed on the diagram
+            </span>
+          ) : null}
+          {alerts.packetsTruncated ? (
+            <span title={alerts.note}>
+              only part of each finding&apos;s frames were scanned, so some links may be missing
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       {foldNotes.length > 0 ? (
         <div className="flex flex-col gap-0.5 border-t border-border px-3 py-1.5 text-2xs text-faint">

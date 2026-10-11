@@ -13,11 +13,12 @@ would put the least urgent rows first.
 
 from __future__ import annotations
 
+import json
 import re
 import socket
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Iterator, Sequence
 
 from fastapi import APIRouter, Depends, Query
 
@@ -1028,4 +1029,280 @@ def get_finding_context(
         },
         "follow_mode": follow_mode,
         "include_follow": include_follow,
+    }
+
+# ---------------------------------------------------------------------------
+# Alert -> conversation linkage
+#
+# The Conversations flow already carries the conversation keys behind every node
+# and band, so the only thing this endpoint has to do is answer: which
+# conversations do the alerts belong to? The link is the frames each finding
+# recorded -- frame numbers -> the packet index -> the TCP/UDP stream id -> the
+# conversation key the flow uses (`transport:stream_id`). Nothing is inferred
+# from similarity of addresses.
+# ---------------------------------------------------------------------------
+
+SEVERITY_ORDER: tuple[str, ...] = ("informational", "low", "medium", "high")
+
+# Frame numbers are queried in chunks to stay well inside SQLite's parameter
+# ceiling, and the total is capped so a pathological finding cannot make this
+# endpoint expensive.
+_SQL_CHUNK = 900
+_MAX_LINK_PACKETS = 20000
+
+ALERT_LINK_NOTE = (
+    "Alerts are tied to conversations through the frames each finding records: the "
+    "frame numbers are looked up in the packet index and their TCP/UDP stream id names "
+    "the conversation. A finding with no frame numbers, whose frames are absent from "
+    "the index, or whose frames carry no stream id cannot be placed on the diagram; "
+    "those are counted in unlinked_findings rather than guessed at."
+)
+
+
+def _severities_at_least(minimum: str) -> tuple[str, ...]:
+    value = (minimum or "medium").strip().lower()
+    if value not in SEVERITY_ORDER:
+        raise bad_request(
+            "invalid_min_severity",
+            "min_severity must be one of: " + ", ".join(SEVERITY_ORDER) + ".",
+            {"min_severity": minimum},
+        )
+    return SEVERITY_ORDER[SEVERITY_ORDER.index(value) :]
+
+
+def _chunks(values: Sequence[Any], size: int = _SQL_CHUNK) -> Iterator[Sequence[Any]]:
+    for start in range(0, len(values), size):
+        yield values[start : start + size]
+
+
+def _loads(value: Any, fallback: Any) -> Any:
+    if value is None:
+        return fallback
+    if isinstance(value, (list, dict)):
+        return value
+    try:
+        return json.loads(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
+def _max_severity(current: str | None, candidate: str) -> str:
+    """The more urgent of two severities; unknown labels never win."""
+    if current is None:
+        return candidate if candidate in SEVERITY_ORDER else "informational"
+    if candidate not in SEVERITY_ORDER:
+        return current
+    return (
+        candidate
+        if SEVERITY_ORDER.index(candidate) > SEVERITY_ORDER.index(current)
+        else current
+    )
+
+
+def _conversation_key(transport: Any, stream_id: Any) -> str | None:
+    """The same key the frontend builds: `transport:String(stream_id)`."""
+    if transport not in ("tcp", "udp") or stream_id is None:
+        return None
+    return f"{transport}:{stream_id}"
+
+
+@router.get("/{analysis_id}/alerts/conversations")
+def alert_conversations(
+    analysis_id: str,
+    min_severity: str = Query("medium", description="informational | low | medium | high"),
+    source: str = Query("all", pattern="^(suricata|all)$"),
+) -> dict:
+    """Alerts above a severity, resolved to the conversations they belong to.
+
+    Built for the Conversations flow highlight layer: `by_conversation` is keyed by
+    the flow's own conversation key, so a band or node lights up by intersecting its
+    `keys` with this map. `by_ip` is a fallback for conversations the diagram cannot
+    address by stream id.
+
+    ``source`` defaults to ``all`` — both the imported Suricata rules and the built-in
+    detection engine. That default is deliberate: the Findings page shows both, so an
+    overlay that silently answered for only one source would disagree with it (a
+    capture whose medium findings are all built-in, such as ``dns_nxdomain_burst``,
+    would report zero medium alerts). Pass ``source=suricata`` to isolate the imported
+    rules; each alert's ``rule_id`` states which source it came from
+    (``suricata:<sid>`` versus a built-in rule name).
+    """
+    deps.analysis_ready_row(analysis_id)
+    severities = _severities_at_least(min_severity)
+    source_clause = " AND rule_id LIKE 'suricata:%'" if source == "suricata" else ""
+
+    placeholders = ", ".join("?" for _ in severities)
+    rows = db.query_all(
+        f"""
+        SELECT id, rule_id, severity, title, reason, packet_numbers, entities
+          FROM findings
+         WHERE analysis_id = ?
+           AND severity IN ({placeholders})
+           {source_clause}
+         ORDER BY {_SEVERITY_RANK_SQL}, rule_id, id
+        """,
+        [analysis_id, *severities],
+    )
+
+    # Every severity, so the UI can say "+N below the threshold are not shown".
+    all_counts = {name: 0 for name in SEVERITY_ORDER}
+    for row in db.query_all(
+        f"""
+        SELECT severity, COUNT(*) AS n
+          FROM findings
+         WHERE analysis_id = ? {source_clause}
+         GROUP BY severity
+        """,
+        [analysis_id],
+    ):
+        key = str(row["severity"] or "").lower()
+        if key in all_counts:
+            all_counts[key] = int(row["n"])
+
+    # Stream ids the diagram can actually address: only conversations that carry one
+    # are reachable by key, so anything else is reported rather than fabricated.
+    conversations: dict[str, dict[str, Any]] = {}
+    for row in db.query_all(
+        """
+        SELECT conv_id, transport, stream_id, ip_a, ip_b, port_a, port_b
+          FROM conversations
+         WHERE analysis_id = ?
+        """,
+        (analysis_id,),
+    ):
+        key = _conversation_key(row["transport"], row["stream_id"])
+        if key is not None and key not in conversations:
+            conversations[key] = dict(row)
+
+    # Frames -> stream ids, in capped chunks.
+    findings_payload: list[dict[str, Any]] = []
+    wanted: list[int] = []
+    for row in rows:
+        numbers = _loads(row["packet_numbers"], [])
+        if not isinstance(numbers, list):
+            numbers = []
+        parsed: list[int] = []
+        for number in numbers:
+            try:
+                parsed.append(int(number))
+            except (TypeError, ValueError):
+                continue
+        findings_payload.append(
+            {
+                "finding_id": row["id"],
+                "rule_id": row["rule_id"],
+                "severity": str(row["severity"] or "").lower(),
+                "title": row["title"],
+                "packet_numbers": parsed,
+            }
+        )
+        wanted.extend(parsed)
+
+    wanted = sorted(set(wanted))
+    truncated = len(wanted) > _MAX_LINK_PACKETS
+    if truncated:
+        wanted = wanted[:_MAX_LINK_PACKETS]
+
+    frame_streams: dict[int, list[str]] = {}
+    for chunk in _chunks(wanted):
+        if not chunk:
+            continue
+        marks = ", ".join("?" for _ in chunk)
+        for row in db.query_all(
+            f"""
+            SELECT number, tcp_stream, udp_stream
+              FROM packets
+             WHERE analysis_id = ? AND number IN ({marks})
+            """,
+            [analysis_id, *chunk],
+        ):
+            keys: list[str] = []
+            tcp_key = _conversation_key("tcp", row["tcp_stream"])
+            udp_key = _conversation_key("udp", row["udp_stream"])
+            if tcp_key is not None:
+                keys.append(tcp_key)
+            if udp_key is not None:
+                keys.append(udp_key)
+            frame_streams[int(row["number"])] = keys
+
+    by_conversation: dict[str, dict[str, Any]] = {}
+    by_ip: dict[str, dict[str, Any]] = {}
+    alerts: list[dict[str, Any]] = []
+    unlinked = 0
+
+    for item in findings_payload:
+        keys: set[str] = set()
+        for number in item["packet_numbers"]:
+            for key in frame_streams.get(number, ()):
+                if key in conversations:
+                    keys.add(key)
+
+        alerts.append(item)
+
+        if keys:
+            item["conversations"] = sorted(keys)
+            item["linked_by"] = "packets"
+        else:
+            item["conversations"] = []
+            item["linked_by"] = "none"
+            unlinked += 1
+
+        for key in keys:
+            entry = by_conversation.get(key)
+            if entry is None:
+                entry = {
+                    "severity": item["severity"],
+                    "finding_ids": [],
+                    "rules": [],
+                    "titles": [],
+                }
+                by_conversation[key] = entry
+            entry["severity"] = _max_severity(entry["severity"], item["severity"])
+            if item["finding_id"] not in entry["finding_ids"]:
+                entry["finding_ids"].append(item["finding_id"])
+            if item["rule_id"] not in entry["rules"]:
+                entry["rules"].append(item["rule_id"])
+            if item["title"] not in entry["titles"]:
+                entry["titles"].append(item["title"])
+
+            conversation = conversations[key]
+            for ip in (conversation.get("ip_a"), conversation.get("ip_b")):
+                if not ip:
+                    continue
+                ip_entry = by_ip.get(ip)
+                if ip_entry is None:
+                    ip_entry = {"severity": item["severity"], "finding_ids": [], "conversations": []}
+                    by_ip[ip] = ip_entry
+                ip_entry["severity"] = _max_severity(ip_entry["severity"], item["severity"])
+                if item["finding_id"] not in ip_entry["finding_ids"]:
+                    ip_entry["finding_ids"].append(item["finding_id"])
+                if key not in ip_entry["conversations"]:
+                    ip_entry["conversations"].append(key)
+
+    counts = {name: 0 for name in SEVERITY_ORDER}
+    for item in alerts:
+        if item["severity"] in counts:
+            counts[item["severity"]] += 1
+
+    for entry in by_conversation.values():
+        entry["finding_ids"].sort()
+        entry["rules"].sort()
+    for entry in by_ip.values():
+        entry["finding_ids"].sort()
+        entry["conversations"].sort()
+
+    return {
+        "analysis_id": analysis_id,
+        "min_severity": min_severity,
+        "source": source,
+        "counts": counts,
+        "all_counts": all_counts,
+        "alerts": alerts,
+        "by_conversation": by_conversation,
+        "by_ip": by_ip,
+        "linked_conversations": len(by_conversation),
+        "unlinked_findings": unlinked,
+        "packets_scanned": len(wanted),
+        "packets_truncated": truncated,
+        "note": ALERT_LINK_NOTE,
     }

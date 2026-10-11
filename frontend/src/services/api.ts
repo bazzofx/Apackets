@@ -42,11 +42,13 @@ import type {
   PacketFilterRequest,
   PacketFilterResponse,
   PacketListParams,
+  ConversationAlertsResponse,
   PacketListResponse,
   Paginated,
   Settings,
   SettingsUpdate,
   SettingsUpdateResponse,
+  Severity,
   SortOrder,
   StreamDetail,
   StreamMode,
@@ -835,5 +837,25 @@ export const suricataApi = {
   alerts: (analysisId: string, params?: SuricataAlertParams) =>
     request<SuricataAlertsResponse>(
       `/analyses/${analysisId}/suricata/alerts${buildQuery(params as Record<string, unknown>)}`,
+    ),
+}
+export interface ConversationAlertsParams {
+  /** `informational | low | medium | high`; the endpoint defaults to `medium`. */
+  min_severity?: Severity
+  /** `suricata` (default) excludes the built-in engine's findings. */
+  source?: 'suricata' | 'all'
+}
+
+/**
+ * Alerts tied to conversations, for the flow overlay.
+ *
+ * A separate endpoint from `suricataApi.alerts`: this one resolves each finding's
+ * recorded frames to a stream id, so its `by_conversation` map is keyed exactly
+ * the way `FlowBand.keys` and `FlowNode.keys` are.
+ */
+export const alertsApi = {
+  conversations: (analysisId: string, params?: ConversationAlertsParams) =>
+    request<ConversationAlertsResponse>(
+      `/analyses/${analysisId}/alerts/conversations${buildQuery(params as Record<string, unknown>)}`,
     ),
 }

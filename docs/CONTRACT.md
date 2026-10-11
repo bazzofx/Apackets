@@ -551,6 +551,26 @@ skipped; only extraction failure of packets fails the whole analysis.
 * `GET /api/analyses/{id}/findings/{finding_id}` — full finding.
 * `GET /api/analyses/{id}/findings/rules` — `{"items":[{rule metadata}]}` listing
   every rule with id, title, severity, description, enabled, and hit count.
+* `GET /api/analyses/{id}/alerts/conversations` — alerts above a severity, resolved to the
+  conversations they belong to (feeds the Conversations flow highlight layer).
+  Params: `min_severity` (`informational|low|medium|high`, default `medium`; invalid →
+  `400 invalid_min_severity`) and `source` (`suricata|all`, **default `all`**; invalid → 422).
+  `source=all` covers the imported Suricata rules **and** the built-in detection engine, so the
+  overlay agrees with the Findings page — defaulting to Suricata alone reported zero medium
+  alerts on a capture whose medium findings were all built-in. Pass `source=suricata` to isolate
+  the imported rules; each alert's `rule_id` states its origin (`suricata:<sid>` vs a built-in
+  rule name).
+  Returns `counts` (at/above the threshold), `all_counts` (every severity, so a UI can disclose
+  what is hidden), `alerts[]` (each with `conversations`, `packet_numbers`,
+  `linked_by` ∈ `packets|none`), `by_conversation` keyed by the flow's own conversation key
+  `transport:stream_id` with value `{severity, finding_ids, rules, titles}`, `by_ip`, plus
+  `linked_conversations`, `unlinked_findings`, `packets_scanned`, `packets_truncated` and `note`.
+  A conversation's severity is the **most urgent** among its alerts.
+
+  The link is exact, never similarity-based: a finding's recorded frame numbers are looked up in
+  the packet index, and their TCP/UDP stream id names the conversation. A finding with no
+  frames, frames absent from the index, or frames carrying no stream id cannot be placed on the
+  diagram and is counted in `unlinked_findings` rather than guessed at.
 
 ### Objects (`routes_objects.py`)
 * `GET /api/analyses/{id}/objects` — `{"items":[...]}` (non-paginated is fine, but

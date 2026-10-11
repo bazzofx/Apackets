@@ -11,6 +11,7 @@ import Pagination from '@/components/Pagination'
 import Panel from '@/components/Panel'
 import ConversationFlow from '@/components/conversations/ConversationFlow'
 import FlowSelectionFallback from '@/components/conversations/FlowSelectionFallback'
+import { toConversationAlerts } from '@/components/conversations/alertOverlay'
 import {
   buildFlowGraph,
   flowNodeBudget,
@@ -32,7 +33,7 @@ import {
   parseConversationKey,
 } from '@/components/streams/ConversationTable'
 import { useAnalysis } from '@/hooks/useAnalysis'
-import { conversationsApi, type ConversationListParams } from '@/services/api'
+import { alertsApi, conversationsApi, type ConversationListParams } from '@/services/api'
 import type {
   Conversation,
   ConversationsListResponse,
@@ -88,6 +89,7 @@ const CONVERSATION_URL_KEYS = [
   'page_size',
   'stream',
   'smode',
+  'alerts',
   'tab',
   'node',
   'expand',
@@ -211,6 +213,37 @@ function ConversationsContent() {
     enabled: Boolean(analysisId) && tab === 'flow',
     placeholderData: keepPreviousData,
   })
+
+  /**
+   * Alerts tied to conversations, for the overlay.
+   *
+   * Fetched only while the Flow tab is open, which is the only place the control
+   * is on screen: the Info tab never draws the diagram, so it never needs this.
+   * The default threshold is the endpoint's own (`medium`, i.e. high + medium).
+   */
+  const alertsQuery = useQuery({
+    queryKey: ['conversation-alerts', analysisId],
+    queryFn: () => alertsApi.conversations(analysisId as string),
+    enabled: Boolean(analysisId) && tab === 'flow',
+    retry: false,
+    placeholderData: keepPreviousData,
+  })
+
+  const alerts = useMemo(
+    () => (alertsQuery.data === undefined ? null : toConversationAlerts(alertsQuery.data)),
+    [alertsQuery.data],
+  )
+  const alertsError = useMemo(() => {
+    const error = alertsQuery.error
+    if (error === null || error === undefined) return null
+    return error instanceof Error ? error.message : String(error)
+  }, [alertsQuery.error])
+
+  /** The layer is a URL flag, so a flagged view is shareable and survives reload. */
+  const alertsOn = url.get('alerts') === '1'
+  const toggleAlerts = useCallback(() => {
+    url.patch({ alerts: alertsOn ? null : '1' }, { resetPage: false })
+  }, [alertsOn, url])
 
   const items: Conversation[] = list.data?.items ?? []
   const total = list.data?.total ?? 0
@@ -545,6 +578,12 @@ function ConversationsContent() {
               onToggleSubnet={toggleSubnet}
               onSelectConversation={selectConversation}
               onClearPath={clearPath}
+              alerts={alerts}
+              alertsOn={alertsOn}
+              alertsBusy={alertsQuery.isFetching}
+              alertsError={alertsError}
+              onToggleAlerts={toggleAlerts}
+              onRetryAlerts={() => void alertsQuery.refetch()}
               filtered={activeFilterCount > 0}
               onClearFilters={clearFilters}
             />

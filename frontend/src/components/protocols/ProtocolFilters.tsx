@@ -52,6 +52,7 @@ export const NON_FILTER_KEYS: ReadonlySet<string> = new Set([
   /* Conversations: the tab, the diagram selection, the expanded groups, the
      selected conversation and its stream view mode. */
   'tab',
+  'alerts',
   'node',
   'expand',
   'stream',
