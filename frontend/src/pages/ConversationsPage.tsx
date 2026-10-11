@@ -250,6 +250,32 @@ function ConversationsContent() {
   const flowItems: Conversation[] = flow.data?.items ?? []
   const flowTotal = flow.data?.total ?? 0
 
+  /**
+   * The alerts filter.
+   *
+   * With the layer on the diagram is FILTERED rather than highlighted: only the
+   * conversations the alert endpoint tied to a finding are drawn, so there is
+   * nothing to point at and no colour, outline or animation rules to get wrong.
+   * The key is `transport:stream_id` - the same identity the alert map, the table
+   * and the URL already use.
+   */
+  const alertedKeys = useMemo(() => {
+    if (!alertsOn || alerts === null) return null
+    return new Set(Object.keys(alerts.byConversation))
+  }, [alertsOn, alerts])
+  /* The flow fetch holds up to 1,000 rows and the largest capture in the library
+     holds 195 conversations, so the cap cannot hide a match today. If it ever
+     could, `visibleTotal` exceeds the rows on hand and the diagram's own
+     "showing the top N of M" line says so instead of dropping matches silently. */
+  const visibleFlowItems = useMemo(
+    () =>
+      alertedKeys === null
+        ? flowItems
+        : flowItems.filter((conversation) => alertedKeys.has(conversationKey(conversation))),
+    [flowItems, alertedKeys],
+  )
+  const visibleTotal = alertedKeys === null ? flowTotal : alertedKeys.size
+
   const activeFilterCount = [transport, ip.trim(), rawPort.trim(), search.trim()].filter(
     (value) => value !== undefined && value !== '',
   ).length
@@ -264,22 +290,22 @@ function ConversationsContent() {
      has always tolerated a null row. */
   const selectedConversation = useMemo(
     () =>
-      (tab === 'flow' ? flowItems : items).find(
+      (tab === 'flow' ? visibleFlowItems : items).find(
         (conversation) => conversationKey(conversation) === streamKey,
       ) ?? null,
-    [tab, flowItems, items, streamKey],
+    [tab, visibleFlowItems, items, streamKey],
   )
 
   /** The five-column graph, built once per filtered set and shared with the diagram. */
   const graph = useMemo(
     () =>
-      buildFlowGraph(flowItems, {
+      buildFlowGraph(visibleFlowItems, {
         expandedSubnets,
         nodeBudget: flowNodeBudget(),
-        filteredTotal: flowTotal,
-        rowsFetched: flowItems.length,
+        filteredTotal: visibleTotal,
+        rowsFetched: visibleFlowItems.length,
       }),
-    [flowItems, expandedSubnets, flowTotal],
+    [visibleFlowItems, expandedSubnets, visibleTotal],
   )
 
   /**
@@ -294,13 +320,13 @@ function ConversationsContent() {
     if (selectedNodeId === null) return [] as Conversation[]
     const node = graph.nodes.find((item) => item.id === selectedNodeId)
     const keys = node === undefined ? null : new Set(node.keys)
-    const rows = flowItems.filter((conversation) =>
+    const rows = visibleFlowItems.filter((conversation) =>
       keys === null
         ? nodeMatchesConversation(selectedNodeId, conversation)
         : keys.has(conversationKey(conversation)),
     )
     return [...rows].sort((left, right) => compareRows(left, right, sort, order))
-  }, [flowItems, graph, selectedNodeId, sort, order])
+  }, [visibleFlowItems, graph, selectedNodeId, sort, order])
 
   const selectionBytes = useMemo(
     () => selectionRows.reduce((sum, conversation) => sum + (conversation.bytes_total || 0), 0),
@@ -409,8 +435,10 @@ function ConversationsContent() {
   )
 
   const clearFilters = useCallback(() => {
-    url.patch({ transport: null, ip: null, port: null, search: null })
-  }, [url])
+    /* The alerts filter is cleared along with the rest when it is on: otherwise the
+       empty state would offer a button that leaves the view exactly as empty. */
+    url.patch({ transport: null, ip: null, port: null, search: null, ...(alertsOn ? { alerts: null } : {}) })
+  }, [url, alertsOn])
 
   const activeTab = CONVERSATIONS_TABS.find((item) => item.value === tab) ?? CONVERSATIONS_TABS[0]
 
@@ -465,7 +493,7 @@ function ConversationsContent() {
                   : `${formatNumber(allConversations)} conversations in this analysis`}
                 {allBytes !== null ? ` · ${formatBytes(allBytes)} total` : ''}
               </span>
-              <ResetFiltersButton onClick={clearFilters} disabled={activeFilterCount === 0} />
+              <ResetFiltersButton onClick={clearFilters} disabled={activeFilterCount === 0 && !alertsOn} />
             </>
           }
         >
@@ -570,7 +598,7 @@ function ConversationsContent() {
           <>
             <ConversationFlow
               graph={graph}
-              conversations={flowItems}
+              conversations={visibleFlowItems}
               busy={flow.isFetching}
               selectedKey={streamKey === '' ? null : streamKey}
               selectedNodeId={selectedNodeId}
@@ -584,7 +612,7 @@ function ConversationsContent() {
               alertsError={alertsError}
               onToggleAlerts={toggleAlerts}
               onRetryAlerts={() => void alertsQuery.refetch()}
-              filtered={activeFilterCount > 0}
+              filtered={activeFilterCount > 0 || alertsOn}
               onClearFilters={clearFilters}
             />
 

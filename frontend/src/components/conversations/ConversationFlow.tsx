@@ -224,19 +224,19 @@ function Legend({
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span
             className="flex items-center gap-1 text-2xs text-muted"
-            title="Conversations linked to a high-severity alert, from the imported Suricata rules or the built-in engine: the connection turns red and glows, and both of its ends are ringed."
+            title="Conversations linked to a high-severity alert, from the imported Suricata rules or the built-in engine. With the alerts filter on these are the only conversations drawn, so nothing is highlighted: the diagram IS the alert list."
           >
             <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: tokens.sevHigh }} />
-            high alert <span className="mono">{formatNumber(alertCounts.high)}</span> — red connection, ringed and glowing
+            high alert <span className="mono">{formatNumber(alertCounts.high)}</span> — 
           </span>
           <span
             className="flex items-center gap-1 text-2xs text-muted"
-            title="Conversations linked to a medium-severity alert, from the imported Suricata rules or the built-in engine: the connection turns amber and glows, and both of its ends are ringed."
+            title="Conversations linked to a medium-severity alert, from the imported Suricata rules or the built-in engine. With the alerts filter on these are the only conversations drawn."
           >
             <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: tokens.sevMedium }} />
-            medium alert <span className="mono">{formatNumber(alertCounts.medium)}</span> — amber connection, ringed and glowing
+            medium alert <span className="mono">{formatNumber(alertCounts.medium)}</span> — 
           </span>
-          <span className="text-2xs text-faint">the glow marks the alerted connection; the ring marks both ends, so no cue is colour alone</span>
+          <span className="text-2xs text-faint">showing only the conversations linked to an alert - everything else is filtered out of the diagram, so no highlighting is needed. The counts beside each level are alerts, and one conversation can carry more than one.</span>
         </span>
       ) : null}
       <span className="ml-auto flex items-center gap-1 text-2xs text-faint">
@@ -418,10 +418,13 @@ function BandShape({ band, tokens, emphasised, dimmed, alert, onHover, onPick }:
   const udp = band.transport === 'udp'
   const path = ribbonPath(band)
   const alerted = alert !== null && alert !== undefined
-  const alertColour = alerted ? (alert.level === 'high' ? tokens.sevHigh : tokens.sevMedium) : null
   const fillOpacity = emphasised ? 0.74 : dimmed ? 0.07 : 0.3
   const strokeOpacity = emphasised ? 0.95 : dimmed ? 0.15 : 0.5
   const hitWidth = Math.min(Math.max(band.thickness + 6, 9), 16)
+  /* The alert is information here, not decoration. With the layer on the diagram is
+     FILTERED to the alerted conversations, so there is nothing left to highlight and
+     the band keeps the colour its own state gives it. The evidence stays on the
+     markup and in the hover readout. */
   const alertData = alerted
     ? { 'data-alert': alert.level, 'data-alert-rules': alert.rules.join(',') }
     : {}
@@ -430,27 +433,14 @@ function BandShape({ band, tokens, emphasised, dimmed, alert, onHover, onPick }:
       onMouseEnter={() => onHover({ kind: 'band', id: band.id })}
       onMouseLeave={() => onHover(null)}
       {...alertData}
-      className={alerted ? 'flow-alert-glow' : undefined}
-      style={alerted && alertColour !== null ? { color: alertColour } : undefined}
     >
-      {/* The ring is the non-colour cue: a flagged band is outlined as well as
-          recoloured, so the overlay survives a monochrome screenshot. */}
-      {alerted && alertColour !== null ? (
-        <path
-          d={path}
-          fill="none"
-          stroke={alertColour}
-          strokeOpacity={0.6}
-          strokeWidth={Math.max(3, band.thickness + 3)}
-        />
-      ) : null}
       <path
         d={path}
-        fill={alerted && alertColour !== null ? alertColour : colour}
-        fillOpacity={alerted ? (dimmed ? 0.25 : 0.6) : fillOpacity}
-        stroke={alerted && alertColour !== null ? alertColour : colour}
-        strokeOpacity={alerted ? 1 : strokeOpacity}
-        strokeWidth={alerted ? 2.2 : udp ? 1 : 1.1}
+        fill={colour}
+        fillOpacity={fillOpacity}
+        stroke={colour}
+        strokeOpacity={strokeOpacity}
+        strokeWidth={udp ? 1 : 1.1}
         strokeDasharray={udp ? '6 4' : undefined}
       />
       <path
@@ -528,22 +518,20 @@ function NodeShape({
   const enter = () => onHover({ kind: 'node', id: node.id })
   const leave = () => onHover(null)
   const alerted = alert !== null && alert !== undefined
-  const alertColour = alerted ? (alert.level === 'high' ? tokens.sevHigh : tokens.sevMedium) : null
   const stroke = selected
     ? tokens.accent
-    : alerted && alertColour !== null
-      ? alertColour
-      : onPath
-        ? tokens.accent2
-        : isState
-          ? colour
-          : tokens.border
-  const strokeWidth = selected ? 2 : alerted ? 2.6 : onPath ? 1.5 : 0.75
+    : onPath
+      ? tokens.accent2
+      : isState
+        ? colour
+        : tokens.border
+  const strokeWidth = selected ? 2 : onPath ? 1.5 : 0.75
   const alertData = alerted
     ? { 'data-alert': alert.level, 'data-alert-rules': alert.rules.join(',') }
     : {}
-  /* A flagged node keeps the severity colour and the ring, and deliberately does
-     not glow or move: the glow belongs to the connection itself. */
+  /* A flagged endpoint is not highlighted either: with the layer on, the filter has
+     already removed every conversation that is not alerted, so the diagram has
+     nothing left to point at. The alert stays in the node's summary line. */
   const groupClass = selectable ? 'cursor-pointer' : ''
   const fillOpacity = isState
     ? onPath || selected
@@ -564,7 +552,6 @@ function NodeShape({
       aria-pressed={selectable ? selected : undefined}
       className={groupClass === '' ? undefined : groupClass}
       {...alertData}
-      style={alerted && alertColour !== null ? { color: alertColour } : undefined}
       onMouseEnter={enter}
       onMouseLeave={leave}
       onFocus={enter}
@@ -577,19 +564,6 @@ function NodeShape({
         }
       }}
     >
-      {alerted && alertColour !== null ? (
-        <rect
-          x={node.x - 2.5}
-          y={node.y - 2.5}
-          width={node.width + 5}
-          height={node.height + 5}
-          rx={isState ? 4 : 3}
-          fill="none"
-          stroke={alertColour}
-          strokeOpacity={0.65}
-          strokeWidth={2}
-        />
-      ) : null}
       <rect
         x={node.x - 2}
         y={node.y + node.height / 2 - hitHeight / 2}
@@ -923,9 +897,6 @@ export function ConversationFlow({
     }
     return found
   }, [alertLayerOn, alerts, layout.nodes])
-  /* With the layer on and nothing hovered the flagged paths are the subject and
-     everything else recedes; hovering hands the emphasis back to the pointer. */
-  const alertDimsRest = alertLayerOn && hover === null
   /* The button never hides why it is unavailable: no alerts at all, only lower
      severities, or an endpoint that could not be reached. */
   const alertButtonTitle =
@@ -936,10 +907,10 @@ export function ConversationFlow({
         : alertSummary.above === 0
           ? 'This analysis has ' +
             formatNumber(alertSummary.total) +
-            ' alert(s), but none at medium or higher, so there is nothing to highlight: ' +
+            ' alert(s), but none at medium or higher, so there is nothing to filter to: ' +
             formatNumber(alertSummary.below) +
             ' are below the threshold.'
-          : 'Highlight the connections linked to high and medium alerts, from the imported Suricata rules and the built-in detection engine. ' +
+          : 'Show ONLY the conversations linked to high and medium alerts, from the imported Suricata rules and the built-in detection engine; every other conversation is filtered out of the diagram. ' +
             (alerts === null || alerts === undefined ? '' : alerts.note)
   const bounds = useMemo(() => ({ width: layout.width, height: layout.plotHeight }), [layout])
   const plotPoint = useCallback(
@@ -1092,7 +1063,7 @@ export function ConversationFlow({
         title={filtered ? 'No conversations match the current filters' : 'No conversations in this capture'}
         description={
           filtered
-            ? 'The flow diagram only draws conversations that pass the toolbar filters above. Clear or widen them to see the capture again.'
+            ? 'The flow diagram only draws conversations that pass the toolbar filters above - and, when the Alerts filter is on, only the conversations linked to an alert. Clear or widen them to see the capture again.'
             : 'No conversation was reconstructed from this capture, so there is nothing to draw. This is not an error.'
         }
         action={
@@ -1224,14 +1195,14 @@ export function ConversationFlow({
             <button
               type="button"
               className={'btn px-2 py-1' + (alertLayerOn ? ' btn-primary' : '')}
-              aria-label="Highlight conversations linked to alerts"
+              aria-label="Show only conversations linked to alerts"
               aria-pressed={alertLayerOn}
               disabled={!alertsReady || alertSummary.above === 0}
               title={alertButtonTitle}
               onClick={onToggleAlerts}
             >
               <ShieldAlert size={12} aria-hidden />
-              Alerts
+              Alerts only
               {alertsBusy === true ? ' …' : ''}
             </button>
             {alertSummary.high > 0 ? (
@@ -1345,7 +1316,7 @@ export function ConversationFlow({
                     band={band}
                     tokens={tokens}
                     emphasised={emphasis.bands.has(band.id)}
-                    dimmed={emphasis.active || (alertDimsRest && !alertByBand.has(band.id))}
+                    dimmed={emphasis.active}
                     alert={alertByBand.get(band.id) ?? null}
                     onHover={setHover}
                     onPick={(picked) => withClickGuard(() => openLargest(picked))}
@@ -1359,7 +1330,7 @@ export function ConversationFlow({
                     label={labelOf.get(node.id)}
                     selected={selectedNodeId === node.id}
                     onPath={emphasis.nodes.has(node.id)}
-                    dimmed={emphasis.active || (alertDimsRest && !alertByNode.has(node.id))}
+                    dimmed={emphasis.active}
                     alert={alertByNode.get(node.id) ?? null}
                     onHover={setHover}
                     onActivate={(activated) => withClickGuard(() => activateNode(activated))}
