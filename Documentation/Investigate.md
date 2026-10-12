@@ -5,9 +5,10 @@ name or URL, then read a grid of small coloured widgets — one per question —
 with its own chart, its own number and a link to the rows behind it.
 
 The page is `frontend/src/pages/InvestigatePage.tsx` and its route is
-`/investigate`. It sits in the left-hand navigation directly after **Threat Map**,
-and it is the one page in the application laid out as a lookup rather than a
-listing: a centred headline with the search box inside it, then a field of tiles.
+`/investigate`. It sits in the left-hand navigation under **Investigate**, directly
+after **Threat Map**, and it is the one page in the application laid out as a lookup
+rather than a listing: a centred headline with the search box inside it, then a field
+of tiles.
 
 The normative interface for the section is
 [`docs/ENTITY_PROFILE.md`](../docs/ENTITY_PROFILE.md) — the two endpoints, the
@@ -150,6 +151,11 @@ a contract cap reports it, and the page lists those ids above the grid.
 Timelines bucket at 60 seconds. The route exposes no override for that, because the
 page has no controls: it reads an indexed capture rather than a live feed.
 
+Those are the backend's caps, and they bound the response. The page adds one of its own
+on top — a tile draws the first eight rows of a table and the first eight rows and columns
+of a heatmap — because sixteen tiles in a grid cannot each hold fifty rows. It states the
+difference in a chip (`+33 rows`) rather than quietly showing less, and §7 describes it.
+
 ---
 
 ## 5. The sixteen questions asked of an address
@@ -211,15 +217,44 @@ field, pressing Escape, or closing the strip leaves the page.
 
 **Each question is a widget with its own hue.** The hues cycle the theme's eight
 chart hues by position, so a grid of sixteen reads as sixteen measured things rather
-than sixteen identical cards, and the colours follow the active theme. Each tile
-carries its number, the question, the availability chip (`computed`, `nothing
-matched`, `not applicable`), the headline number, its charts, what it may indicate,
-its caveat, the question id, and links into the rest of the app.
+than sixteen identical cards, and the colours follow the active theme.
+
+**A widget prints three things, and explains itself on hover.** It shows the
+question's title, the sentence it answers, and its data — the headline number and the
+charts, drawn larger here than the Threat Map draws them because on a tile the chart
+is the content. Everything else is on the tile's tooltip: what the pattern may
+indicate, what it does not prove, why a question could not be answered, each chart's
+own note, and the question id. A small mark in the tile's header is the affordance, so
+the hover is discoverable rather than secret. Nothing is lost — the explanation is
+only out of the way, because sixteen paragraphs of caveat is not a dashboard.
+
+**A question the capture could not answer is greyed out, not hidden.** The grid keeps
+its shape, so a gap reads as a gap and the coloured tiles are exactly the questions
+this capture answered. `not applicable` — the capture holds nothing to measure — is
+greyed hardest and loses its hue; `nothing matched` — something was measured and
+nothing crossed the threshold — keeps more of its colour, because its numbers are real.
+Both carry a chip naming their state, which is the one word a widget in that state
+prints.
+
+**Links keep the endpoint's label and add the destination's icon.** The label is what
+distinguishes one link from the next — a peer address, a domain, a port, a finding id —
+so it is printed and truncated to the chip's width rather than replaced, and it is the
+tooltip that spells it out in full alongside the page it opens. Five links to five pages
+read alike without the destination, so each chip carries that section's own icon, read
+from `sections.ts` and therefore the same icon the sidebar draws.
+
+**A chart too long for a tile is shortened and counted.** The backend caps a table at
+fifty rows and a heatmap at fifteen by fifteen, which is the right size for a card in a
+column; in a grid of sixteen it is a wall. A tile therefore draws the first eight rows
+(and the first eight columns) and prints one chip for what it did not draw — `+33 rows` —
+whose tooltip says how many came back and where the rest are. The rows are not hidden
+data: they are on the pages the widget links to, and the chip says so.
 
 **The entity strip above the grid** holds the facts that are the same whichever
 question is asked: the value, its kind, the label, scope, MAC, packets, bytes, first
-and last seen, the names attributed to it, and the backend's note about it. A fact
-the capture cannot supply shows an em dash — nothing on this page is filled in.
+and last seen, and the names attributed to it. A fact the capture cannot supply shows an
+em dash — nothing on this page is filled in — and the backend's note about the entity is
+on the strip's tooltip, since it explains those facts rather than adding to them.
 
 ---
 
@@ -273,8 +308,10 @@ never saw this request".
   such objects the capture holds rather than adding them to whoever looks plausible.
 * **A MAC is not an identity.** When the same MAC appears for other addresses the
   note says so, and the strip repeats it, because a shared MAC does not identify a host.
-* **A match is a lead, not a verdict.** Every widget carries its caveat, and the page
-  says to read a widget as a direction to look in and then check the rows behind it.
+* **A match is a lead, not a verdict.** Every widget carries its caveat and the reason
+  behind its state, one hover away, and the page labels the hover rather than leaving it
+  to be discovered: read a widget as a direction to look in, then check the rows behind
+  it through the links it carries.
 * **Nothing is estimated.** Every number is a count over indexed rows; a question that
   cannot be computed says why; a visual cut to its cap says so; an unknown entity is
   answered with sixteen reasons rather than a placeholder.

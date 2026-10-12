@@ -1,26 +1,34 @@
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import clsx from 'clsx'
-import { ArrowUpRight, TriangleAlert } from 'lucide-react'
-import CopyButton from '@/components/CopyButton'
+import { ArrowUpRight, Info, type LucideIcon } from 'lucide-react'
 import { AVAILABILITY_TONE, TONE_TEXT, availabilityChipLabel } from '@/components/threat/visualKit'
+import { SECTION_BY_ROUTE } from '@/theme/sections'
 import { formatNumber } from '@/utils/format'
 import type { ThreatHuntIndicator } from '@/types'
 import { EntityVisual, hasVisualData } from './EntityVisual'
 
 /**
- * One Investigate widget: one question, the charts that answer it, and the links
- * that open the rows behind them.
+ * One Investigate widget: one question, its charts, its own hue.
  *
  * The card contract is the Threat Map's (docs/ENTITY_PROFILE.md §3, docs/THREAT_HUNT.md
- * §3.1), so an indicator is drawn here exactly as it is drawn there — same fields,
- * same renderers, same honesty rules. What differs is the treatment: on this page
- * each widget is a tile in a grid and carries its own hue from the theme's chart
- * palette, because the whole point of the section is to answer sixteen questions at
- * a glance and a field of identical grey cards answers none of them.
+ * §3.1), so an indicator is drawn here exactly as it is drawn there. What differs is the
+ * treatment, because this page is a grid of sixteen answers rather than a stack of
+ * sixteen dossiers:
  *
- * Nothing here fetches: the page owns the single query, so a tile renders from a
- * fixture.
+ * * the tile prints only what the reader came for — the question's title, the sentence
+ *   it answers, its headline number and its data labels. Everything explanatory (what
+ *   the pattern may indicate, what it does not prove, why a question could not be
+ *   answered, each chart's own note, the question id) is on the tile's tooltip, one
+ *   hover away and never in the way;
+ * * a question the capture could not answer is greyed out rather than hidden, so the
+ *   grid keeps its shape and a missing answer reads as a missing answer;
+ * * the chart inside is drawn larger than the Threat Map draws it (the `signal pages`
+ *   block of index.css) because on a tile it is the thing worth reading;
+ * * a link is named after the section it opens instead of describing it, since that
+ *   sentence belongs to the tooltip too.
+ *
+ * Nothing here fetches: the page owns the single query, so a tile renders from a fixture.
  */
 
 /** How many hues the theme publishes; the tiles cycle through them. */
@@ -50,18 +58,36 @@ function availabilityLead(availability: string): string {
   return `The backend marked this question “${availability}”.`
 }
 
+/**
+ * Where a link goes, as an icon.
+ *
+ * The endpoint's label is what distinguishes one link from the next — a peer address, a
+ * domain, a port, a finding id — so the label stays and is truncated by the stylesheet
+ * rather than replaced. What the label does not say is *which page* it opens, and five
+ * links to five pages all read alike without it, so the destination's own icon from
+ * `sections.ts` (the sidebar's icon) is drawn beside it and the section's name goes in
+ * the tooltip.
+ */
+function destination(to: string): { label: string; icon: LucideIcon } | null {
+  const first = to.split('?')[0]?.split('/').filter(Boolean)[0]
+  if (first === undefined) return null
+  const section = SECTION_BY_ROUTE['/' + first]
+  if (section === undefined) return null
+  return { label: section.label, icon: section.icon }
+}
+
 export interface QuestionTileProps {
   question: ThreatHuntIndicator
   /**
-   * Position in the contract's question list, 0-based. The tile shows it as a
-   * number and takes its hue from it, so a question keeps the same colour on every
-   * entity it is opened for.
+   * Position in the contract's question list, 0-based. The tile shows it as a number
+   * and takes its hue from it, so a question keeps the same colour on every entity it
+   * is opened for.
    */
   index: number
   /**
-   * Whether the response reported this question's visual as cut to a contract cap.
-   * The headline counts everything; only the chart is shortened, and the tile says
-   * so rather than letting a truncated drawing read as the whole picture.
+   * Whether the response reported this question's visual as cut to a contract cap. The
+   * headline counts everything; only the chart is shortened, and the tile says so rather
+   * than letting a truncated drawing read as the whole picture.
    */
   capped?: boolean
 }
@@ -78,46 +104,62 @@ export function QuestionTile({ question, index, capped = false }: QuestionTilePr
       ? question.availability_reason
       : null
   const caveat =
-    typeof question.caveat === 'string' && question.caveat.trim() !== '' ? question.caveat : null
+    typeof question.caveat === 'string' && question.caveat.trim() !== ''
+      ? question.caveat
+      : 'The backend sent no caveat for this question, so treat it as a lead to verify against the packets rather than as a conclusion.'
+
+  /* Everything the tile refuses to print. It is one hover away, on the tile itself and
+     on the mark in its header, so no explanation is lost — only moved out of the way. */
+  const hover = [
+    `What it may indicate: ${question.interpretation}`,
+    `What it does not prove: ${caveat}`,
+    available ? null : `${availabilityLead(availability)} ${reason ?? 'The backend did not state why.'}`,
+    ...visuals
+      .map((visual) => (typeof visual.note === 'string' && visual.note.trim() !== '' ? visual.note : null))
+      .filter((note): note is string => note !== null),
+    capped ? 'The chart on this tile was cut to its contract cap; the number counts every row.' : null,
+    `Question id: ${question.id}`,
+  ]
+    .filter((line): line is string => line !== null)
+    .join('\n\n')
 
   return (
     <article
       className="profile-tile"
       style={profileHueStyle(index)}
       data-profile-tile={question.id}
-      data-profile-tile-availability={availability}
+      data-profile-tile-state={availability}
+      title={hover}
     >
-      <header className="flex items-baseline gap-2">
+      <header className="flex items-baseline gap-1.5">
         <span className="profile-tile-index shrink-0" aria-hidden>
           {number}
         </span>
-        <h3 className="min-w-0 flex-1 text-sm font-semibold leading-snug text-text">{question.title}</h3>
-        <span
-          className={clsx('chip shrink-0', AVAILABILITY_TONE[availability] ?? AVAILABILITY_TONE.empty)}
-          title={
-            available
-              ? 'Answered from this analysis’ indexed tables, with something to show.'
-              : 'Not answered by this capture — the reason is stated below.'
-          }
-        >
-          {availabilityChipLabel(availability)}
-        </span>
+        <h3 className="profile-tile-title min-w-0 flex-1">{question.title}</h3>
+        {available ? null : (
+          <span
+            className={clsx('chip shrink-0', AVAILABILITY_TONE[availability] ?? AVAILABILITY_TONE.empty)}
+            data-profile-tile-chip={availability}
+          >
+            {availabilityChipLabel(availability)}
+          </span>
+        )}
+        {capped ? (
+          <span
+            className="chip shrink-0 border-warn/40 bg-warn/10 text-warn"
+            data-profile-tile-capped={question.id}
+          >
+            capped
+          </span>
+        ) : null}
+        {/* The hover affordance: everything this tile is not printing is in here. */}
+        <Info size={11} className="shrink-0 text-faint" aria-hidden data-profile-tile-info />
       </header>
 
-      {capped ? (
-        <span
-          className="chip w-fit border-warn/40 bg-warn/10 text-warn"
-          data-profile-tile-capped={question.id}
-          title="The chart below was cut to this question’s contract cap. The number above counts every row the capture holds."
-        >
-          chart capped
-        </span>
-      ) : null}
+      <p className="profile-tile-question">{question.question}</p>
 
-      <p className="text-2xs leading-relaxed text-muted">{question.question}</p>
-
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5" data-profile-tile-headline>
-        <span className={clsx('mono profile-tile-headline text-xl leading-none', !available && 'opacity-70')}>
+      <div className="flex flex-wrap items-baseline gap-x-2" data-profile-tile-headline>
+        <span className={clsx('mono profile-tile-headline text-2xl leading-none', !available && 'opacity-80')}>
           {formatNumber(question.headline.value)}
         </span>
         <span className={clsx('text-xs', TONE_TEXT[question.headline.tone] ?? 'text-text')}>
@@ -125,16 +167,8 @@ export function QuestionTile({ question, index, capped = false }: QuestionTilePr
         </span>
       </div>
 
-      {!available ? (
-        <p className="text-2xs leading-relaxed text-faint" data-profile-tile-reason={question.id}>
-          <span className="text-muted">{availabilityLead(availability)}</span>{' '}
-          {reason ??
-            'The backend did not state why, so read this widget as “not answered” rather than as a negative result.'}
-        </p>
-      ) : null}
-
       {drawable.length > 0 ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1.5">
           {drawable.map((visual, visualIndex) => (
             <EntityVisual key={`${visual.kind}-${String(visualIndex)}`} visual={visual} />
           ))}
@@ -145,36 +179,25 @@ export function QuestionTile({ question, index, capped = false }: QuestionTilePr
         </p>
       ) : null}
 
-      <div className="profile-tile-rule flex flex-col gap-0.5">
-        <span className="text-2xs uppercase tracking-wider text-faint">What it may indicate</span>
-        <p className="text-xs leading-relaxed text-text">{question.interpretation}</p>
-      </div>
-
-      <div className="flex items-start gap-1.5 border-t border-border pt-2">
-        <TriangleAlert size={12} className="mt-0.5 shrink-0 text-faint" aria-hidden />
-        <p className="text-2xs italic leading-relaxed text-faint">
-          {caveat ??
-            'The backend sent no caveat for this question. Treat it as a lead to verify against the packets, not as a conclusion.'}
-        </p>
-      </div>
-
-      <footer className="mt-auto flex flex-wrap items-center gap-1.5 pt-1">
-        <span className="chip border-border2 bg-surface2 text-faint" title="Stable question id">
-          {question.id}
-        </span>
-        <CopyButton value={question.id} label="Copy the question id" />
-        {links.map((link, linkIndex) => (
-          <Link
-            key={`${link.to}-${String(linkIndex)}`}
-            to={link.to}
-            className="chip border-border2 bg-surface2 text-muted hover:bg-surface2/60 hover:text-text"
-            title={`Open ${link.to}`}
-          >
-            <ArrowUpRight size={11} aria-hidden />
-            {link.label}
-          </Link>
-        ))}
-      </footer>
+      {links.length > 0 ? (
+        <footer className="mt-auto flex flex-wrap items-center gap-1 pt-0.5">
+          {links.map((link, linkIndex) => {
+            const target = destination(link.to)
+            const Icon = target?.icon
+            return (
+              <Link
+                key={`${link.to}-${String(linkIndex)}`}
+                to={link.to}
+                className="chip max-w-[11rem] border-border2 bg-surface2 text-muted hover:bg-surface2/60 hover:text-text"
+                title={`${link.label} — opens ${target?.label ?? link.to}${target === null ? '' : ` (${link.to})`}`}
+              >
+                {Icon === undefined ? <ArrowUpRight size={10} aria-hidden /> : <Icon size={10} aria-hidden />}
+                <span className="truncate">{link.label}</span>
+              </Link>
+            )
+          })}
+        </footer>
+      ) : null}
     </article>
   )
 }

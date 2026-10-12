@@ -57,10 +57,16 @@ export function Page({
     >
       <header className="page-head">
         <div className="page-head-text">
-          <div className="page-eyebrow">
-            <Icon size={13} aria-hidden />
-            <span>{section.group}</span>
-          </div>
+          {/* The eyebrow says which group of the sidebar the page belongs to. Three
+              pages are their group's own name - Dashboard under Dashboard, Investigate
+              under Investigate, Settings under Settings - and repeating a word directly
+              above itself is noise, so it is dropped only for those. */}
+          {section.group === section.label ? null : (
+            <div className="page-eyebrow">
+              <Icon size={13} aria-hidden />
+              <span>{section.group}</span>
+            </div>
+          )}
           <h1 className="page-title">{section.label}</h1>
           <p className="page-purpose">{section.purpose}</p>
           {meta ? <div className="page-meta">{meta}</div> : null}

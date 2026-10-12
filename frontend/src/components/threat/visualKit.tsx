@@ -104,7 +104,11 @@ export function VisualFrame({ kind, title, note, caption, children }: VisualFram
           {heading}
         </figcaption>
       ) : null}
-      {caption ? <div className="text-2xs leading-relaxed text-faint">{caption}</div> : null}
+      {caption ? (
+        <div className="text-2xs leading-relaxed text-faint" data-threat-visual-caption>
+          {caption}
+        </div>
+      ) : null}
       {children}
       {footer !== null ? (
         <p className="text-2xs leading-relaxed text-faint" data-threat-visual-note>

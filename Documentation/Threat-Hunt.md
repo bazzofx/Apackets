@@ -6,8 +6,8 @@ exfiltrating — each with the threshold it applied, the chart behind the number
 links to the rows themselves, and a statement of what the pattern does *not*
 prove.
 
-It is reachable at `/threat-hunt`, in the left-hand navigation directly after
-**Findings**. The detections are defined by two documents outside this set:
+It is reachable at `/threat-hunt`, in the left-hand navigation under **Investigate**,
+directly after **Findings**. The detections are defined by two documents outside this set:
 [`docs/THREAT_HUNT.md`](../docs/THREAT_HUNT.md) is the normative contract for the
 section (indicator ids, envelope, visual shapes, caps, allowed link parameters),
 and [`docs/CONTRACT.md`](../docs/CONTRACT.md) §8 covers the recorded detection

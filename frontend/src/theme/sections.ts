@@ -51,8 +51,15 @@ import {
  */
 export type PageVariant = 'hero' | 'console' | 'ledger' | 'split' | 'signal'
 
-/** The sidebar grouping a page belongs to, used as the eyebrow over its title. */
-export type SectionGroup = 'Overview' | 'Capture' | 'Protocols' | 'System'
+/**
+ * The sidebar grouping a page belongs to.
+ *
+ * It is both the heading the sidebar draws above the group's items and the eyebrow over
+ * each of those pages' titles, so the two can never disagree about where a page lives.
+ * The names are the working groups of an investigation: the capture at a glance, what it
+ * connected to, what it can be asked, what the protocols said, and the plumbing.
+ */
+export type SectionGroup = 'Dashboard' | 'Connections' | 'Investigate' | 'Protocols' | 'Settings'
 
 export interface SectionIdentity {
   /** Stable key, e.g. `dns`. */
@@ -77,7 +84,7 @@ export const SECTIONS = {
   dashboard: {
     id: 'dashboard',
     route: '/',
-    group: 'Overview',
+    group: 'Dashboard',
     label: 'Dashboard',
     purpose:
       'The capture at a glance: the headline counts, who talked to whom, and how the traffic splits across protocols.',
@@ -88,7 +95,7 @@ export const SECTIONS = {
   info: {
     id: 'info',
     route: '/info',
-    group: 'Overview',
+    group: 'Dashboard',
     label: 'Info',
     purpose:
       'The full reference view: every counter, series and ranking the backend computes for this capture, in one page.',
@@ -99,7 +106,7 @@ export const SECTIONS = {
   conversations: {
     id: 'conversations',
     route: '/conversations',
-    group: 'Capture',
+    group: 'Connections',
     label: 'Conversations',
     purpose:
       'Every distinct flow in the capture, with the five-stage diagram of who talked to whom and how much they moved.',
@@ -110,7 +117,7 @@ export const SECTIONS = {
   hosts: {
     id: 'hosts',
     route: '/hosts',
-    group: 'Capture',
+    group: 'Dashboard',
     label: 'Hosts',
     purpose:
       'An inventory of the addresses observed in this capture: their roles, their peers, and the services they offered.',
@@ -121,7 +128,7 @@ export const SECTIONS = {
   findings: {
     id: 'findings',
     route: '/findings',
-    group: 'Capture',
+    group: 'Connections',
     label: 'Findings',
     purpose:
       'Everything the built-in detection engine and the imported Suricata rules flagged, with the evidence behind each hit.',
@@ -134,7 +141,7 @@ export const SECTIONS = {
   threatHunt: {
     id: 'threat-hunt',
     route: '/threat-hunt',
-    group: 'Capture',
+    group: 'Investigate',
     label: 'Threat Map',
     purpose:
       'The hunt hypotheses, detection by detection, each with the measured evidence that fired it or the reason it stayed quiet.',
@@ -145,7 +152,7 @@ export const SECTIONS = {
   investigate: {
     id: 'investigate',
     route: '/investigate',
-    group: 'Capture',
+    group: 'Investigate',
     label: 'Investigate',
     purpose:
       'Look up one address, domain or URL and see everything this capture recorded about it, one question per widget.',
@@ -157,7 +164,7 @@ export const SECTIONS = {
   objects: {
     id: 'objects',
     route: '/objects',
-    group: 'Capture',
+    group: 'Investigate',
     label: 'Files and Objects',
     purpose:
       'Files carved out of the capture, with their hashes, their sizes and the HTTP transactions they were correlated against.',
@@ -168,7 +175,7 @@ export const SECTIONS = {
   packets: {
     id: 'packets',
     route: '/packets',
-    group: 'Capture',
+    group: 'Connections',
     label: 'Packets',
     purpose:
       'The frame-level ledger over the indexed packets, with layer trees, hex dumps and display-filter support.',
@@ -212,7 +219,7 @@ export const SECTIONS = {
   files: {
     id: 'files',
     route: '/files',
-    group: 'System',
+    group: 'Settings',
     label: 'PCAP Files',
     purpose:
       'Upload, track and manage the captures this installation holds, and see what each one is doing.',
@@ -225,7 +232,7 @@ export const SECTIONS = {
   settings: {
     id: 'settings',
     route: '/settings',
-    group: 'System',
+    group: 'Settings',
     label: 'Settings',
     purpose:
       'The configuration in force, the limits you can change at runtime, indicators, Suricata rules and themes.',
@@ -241,13 +248,13 @@ export type SectionKey = keyof typeof SECTIONS
 export const SECTION_LIST: SectionIdentity[] = [
   SECTIONS.dashboard,
   SECTIONS.info,
-  SECTIONS.conversations,
   SECTIONS.hosts,
+  SECTIONS.conversations,
+  SECTIONS.packets,
   SECTIONS.findings,
   SECTIONS.threatHunt,
   SECTIONS.investigate,
   SECTIONS.objects,
-  SECTIONS.packets,
   SECTIONS.http,
   SECTIONS.dns,
   SECTIONS.tls,

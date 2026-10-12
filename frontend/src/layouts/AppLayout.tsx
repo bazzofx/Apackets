@@ -171,11 +171,22 @@ export function AppLayout() {
     void queryClient.invalidateQueries()
   }
 
+  /* The order is the order an analyst works in, and every item belongs to one of the
+     five groups the sidebar draws a heading for: the capture at a glance, what it
+     connected to, what it can be asked, what the protocols said, and the plumbing.
+     `section` names the heading *above* the item, so it goes on the first item of each
+     group and nowhere else. */
   const navItems: NavItem[] = [
-    { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/', label: 'Dashboard', icon: LayoutDashboard, section: 'Dashboard' },
     { to: '/info', label: 'Info', icon: Info, title: 'Full reference view for this capture' },
-    { to: '/conversations', label: 'Conversations', icon: ArrowLeftRight },
     { to: '/hosts', label: 'Hosts', icon: Server },
+    {
+      to: '/conversations',
+      label: 'Conversations',
+      icon: ArrowLeftRight,
+      section: 'Connections',
+    },
+    { to: '/packets', label: 'Packets', icon: List },
     {
       to: '/findings',
       label: 'Findings',
@@ -190,6 +201,7 @@ export function AppLayout() {
       to: '/threat-hunt',
       label: 'Threat Map',
       icon: Radar,
+      section: 'Investigate',
       title: 'The brief’s detections, computed over this capture’s indexed tables',
     },
     {
@@ -199,9 +211,8 @@ export function AppLayout() {
       title: 'Look up one address, domain or URL and see everything this capture knows about it',
     },
     { to: '/objects', label: 'Files and Objects', icon: Package },
-    { to: '/packets', label: 'Packets', icon: List },
-    /* The protocol browsers are their own subsection: they answer "what did this
-       protocol say", where everything above answers "what is in this capture". */
+    /* The protocol browsers are their own group: they answer "what did this protocol
+       say", where everything above answers "what is in this capture". */
     { to: '/http', label: 'HTTP', icon: Globe, section: 'Protocols' },
     { to: '/dns', label: 'DNS', icon: Search },
     { to: '/tls', label: 'TLS', icon: Lock },
@@ -209,6 +220,7 @@ export function AppLayout() {
       to: '/files',
       label: 'PCAP Files',
       icon: FolderOpen,
+      section: 'Settings',
       badge: analyses.length > 0 ? String(analyses.length) : undefined,
       title: 'Uploaded captures',
     },

@@ -21,20 +21,44 @@ section, plus the machinery they all depend on.
 
 The order below is the order of the left-hand navigation.
 
+The headings below are the five headings the sidebar draws, in its order.
+
+### Dashboard
+
 | Section | Document | Route |
 |---|---|---|
 | Dashboard | [Dashboard.md](Dashboard.md) | `/` |
 | Info | [Info.md](Info.md) | `/info` |
-| Conversations | [Conversations.md](Conversations.md) | `/conversations` |
 | Hosts | [Hosts.md](Hosts.md) | `/hosts` |
+
+### Connections
+
+| Section | Document | Route |
+|---|---|---|
+| Conversations | [Conversations.md](Conversations.md) | `/conversations` |
+| Packets | [Packets.md](Packets.md) | `/packets` |
 | Findings | [Findings.md](Findings.md) | `/findings` |
+
+### Investigate
+
+| Section | Document | Route |
+|---|---|---|
 | Threat Map | [Threat-Hunt.md](Threat-Hunt.md) | `/threat-hunt` |
 | Investigate | [Investigate.md](Investigate.md) | `/investigate` |
 | Files and Objects | [Files-and-Objects.md](Files-and-Objects.md) | `/objects` |
-| Packets | [Packets.md](Packets.md) | `/packets` |
+
+### Protocols
+
+| Section | Document | Route |
+|---|---|---|
 | HTTP | [HTTP.md](HTTP.md) | `/http` |
 | DNS | [DNS.md](DNS.md) | `/dns` |
 | TLS | [TLS.md](TLS.md) | `/tls` |
+
+### Settings
+
+| Section | Document | Route |
+|---|---|---|
 | PCAP Files | [PCAP-Files.md](PCAP-Files.md) | `/files` |
 | Settings | [Settings.md](Settings.md) | `/settings` |
 

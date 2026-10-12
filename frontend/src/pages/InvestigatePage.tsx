@@ -99,9 +99,11 @@ function QuestionIndex({ kind }: { kind: ProfileKind }) {
           <div className="panel-title">
             {formatNumber(refs.length)} questions about one {KIND_LABEL[kind] === 'IP' ? 'address' : KIND_LABEL[kind]}
           </div>
-          <div className="panel-subtitle">
-            each becomes a widget with its own chart once an entity is opened — the numbers are the ids the
-            endpoint answers with, so the two cannot drift apart
+          <div
+            className="panel-subtitle"
+            title="Each question becomes a widget with its own chart once an entity is opened. The numbers are the contract's question ids, so this list and the response cannot drift apart."
+          >
+            one widget each, with its own chart
           </div>
         </div>
       </div>
@@ -260,20 +262,27 @@ function InvestigateProfile({
         </SectionNote>
       ) : null}
 
-      <div className="flex flex-wrap items-baseline justify-between gap-2 px-1">
+      <div className="flex flex-wrap items-center gap-2 px-1">
         <p className="text-xs text-muted">
           <span className="mono text-text">{formatNumber(answered)}</span> of{' '}
-          <span className="mono text-text">{formatNumber(questions.length)}</span> questions were answered by
-          this capture.
+          <span className="mono text-text">{formatNumber(questions.length)}</span> answered
         </p>
         {capped.length > 0 ? (
-          <p className="text-2xs text-faint" title="Visuals that were cut to their contract cap">
-            Capped at the contract’s limit: {capped.map(([key]) => key).join(', ')}
-          </p>
+          <span
+            className="chip border-warn/40 bg-warn/10 text-warn"
+            title={`These questions' charts were cut to their contract cap; their numbers count every row: ${capped
+              .map(([key]) => key)
+              .join(', ')}`}
+          >
+            {formatNumber(capped.length)} chart(s) capped
+          </span>
         ) : null}
+        <span className="ml-auto text-2xs text-faint" title="A greyed widget is a question this capture could not answer; hover any widget for what it may indicate, what it does not prove and why.">
+          greyed = not answered · hover a widget for its reasoning
+        </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3" data-profile-grid>
+      <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" data-profile-grid>
         {questions.map((question, index) => (
           <QuestionTile
             key={question.id}
@@ -284,11 +293,11 @@ function InvestigateProfile({
         ))}
       </div>
 
-      <p className="px-1 pb-1 text-2xs leading-relaxed text-faint">
-        Every number above is read from this analysis’ indexed tables and nothing is estimated, sampled or
-        filled in. A question this capture cannot answer says so instead of showing a zero, and a widget
-        below its threshold still shows the numbers that stayed under it. Read a widget as a direction to
-        look in, then check the rows behind it through the links it carries.
+      <p
+        className="px-1 pb-1 text-2xs text-faint"
+        title="Every number is read from this analysis' indexed tables: nothing is estimated, sampled or filled in. A question this capture cannot answer says so instead of showing a zero, and a widget below its threshold still shows the numbers that stayed under it. Read a widget as a direction to look in, then check the rows behind it through the links it carries."
+      >
+        Measured from this capture’s index, never estimated.
       </p>
     </div>
   )
@@ -305,11 +314,11 @@ function InvestigateStart() {
       <div className="w-full">
         <QuestionIndex kind={selected} />
       </div>
-      <p className="max-w-3xl px-1 text-2xs leading-relaxed text-faint">
-        Type an address, a name or a URL into the search above and pick a suggestion, or press Enter to open
-        exactly what you typed. Matching is over this capture’s own tables, so a name that never appears here
-        is never offered — and an entity this capture never recorded still opens, with every question stating
-        why it cannot be answered.
+      <p
+        className="max-w-3xl px-1 text-2xs text-faint"
+        title="Type an address, a name or a URL into the search above and pick a suggestion, or press Enter to open exactly what you typed. Matching is over this capture's own tables, so a name that never appears here is never offered - and an entity this capture never recorded still opens, with every question stating why it cannot be answered."
+      >
+        Search an address, a name or a URL. Nothing is resolved online.
       </p>
     </div>
   )

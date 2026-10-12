@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
-import { Clock, Database, Fingerprint, Globe, Network, ShieldAlert } from 'lucide-react'
+import { Clock, Database, Fingerprint, Globe, Info, Network, ShieldAlert } from 'lucide-react'
 import CopyButton from '@/components/CopyButton'
 import { formatBytes, formatNumber, formatTimestamp } from '@/utils/format'
 import type { EntityProfile, ProfileKind } from '@/types'
@@ -43,9 +43,13 @@ export function EntitySummary({ profile, onClear }: EntitySummaryProps) {
   const summary = profile.summary
   const kind: ProfileKind = profile.kind
   const hostnames = summary.hostnames ?? []
+  /* The backend's note about this entity is an explanation, so it belongs on the
+     strip's tooltip with every other one rather than in the row: the strip prints the
+     facts and the note says what they do and do not mean. */
+  const note = typeof summary.note === 'string' && summary.note.trim() !== '' ? summary.note : null
 
   return (
-    <section className="profile-strip" data-profile-summary={profile.entity}>
+    <section className="profile-strip" data-profile-summary={profile.entity} title={note ?? undefined}>
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
         <span
           className="chip signal-kind"
@@ -115,10 +119,6 @@ export function EntitySummary({ profile, onClear }: EntitySummaryProps) {
         </span>
       </div>
 
-      {summary.note !== null && summary.note.trim() !== '' ? (
-        <p className="w-full text-2xs leading-relaxed text-faint">{summary.note}</p>
-      ) : null}
-
       <div className="flex w-full flex-wrap items-center gap-1.5">
         <Link
           to={kind === 'ip' ? '/hosts' : kind === 'domain' ? '/dns' : '/http'}
@@ -137,8 +137,17 @@ export function EntitySummary({ profile, onClear }: EntitySummaryProps) {
             Findings
           </Link>
         ) : null}
-        <button type="button" className="btn btn-ghost" onClick={onClear}>
-          Close this profile
+        <span className="ml-auto flex items-center gap-1.5 text-2xs text-faint" title={note ?? undefined}>
+          <Info size={11} aria-hidden data-profile-summary-info />
+          hover for what these mean
+        </span>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          onClick={onClear}
+          title="Clear the lookup and return to the search"
+        >
+          Close
         </button>
       </div>
     </section>
