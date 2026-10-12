@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { ArrowLeftRight, Loader2, TriangleAlert, X } from 'lucide-react'
+import { ArrowLeftRight, Loader2, X } from 'lucide-react'
 import ErrorState from '@/components/ErrorState'
 import { countryName } from '@/theme/worldMap'
 import { geoApi } from '@/services/api'
@@ -263,11 +263,6 @@ export function DestinationPanel({
               addresses are listed. The totals above count them all.
             </p>
           ) : null}
-
-          <p className="flex items-start gap-1.5 border-t border-border px-2.5 py-2 text-2xs italic leading-relaxed text-faint">
-            <TriangleAlert size={11} className="mt-0.5 shrink-0" aria-hidden />
-            {data.note}
-          </p>
         </>
       )}
     </div>

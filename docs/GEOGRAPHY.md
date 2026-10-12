@@ -327,6 +327,11 @@ panel is the same shape.
   An address with no conversation says so — the button is disabled and its tooltip explains why
   — rather than opening somewhere unrelated. The panel is fetched on the click, so a reader who
   never opens one never pays for it.
+* The response's `note` is still served — it is the one-sentence statement of §7 in the payload,
+  and the tests assert it — but by request the **panel does not print it**: a paragraph of limits
+  at the foot of a list of addresses outweighed the addresses. The same limits stay on the page
+  in the country list under the map, which carries *a country is where the address block is
+  registered, not where the host is* with the full sentence in its tooltip.
 
 ## 7. Honest limits, stated on the page
 
