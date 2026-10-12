@@ -22,7 +22,7 @@ from app.core.config import settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import get_logger, setup_logging
 from app.db import database as db
-from app.services import tshark
+from app.services import tshark, wireshark
 from app.services.jobs import jobs
 
 log = get_logger("apackets.main")
@@ -44,6 +44,7 @@ ROUTER_SPECS: tuple[tuple[str, str], ...] = (
     ("app.api.routes_suricata", "router"),
     ("app.api.routes_threat_hunt", "router"),
     ("app.api.routes_profile", "router"),
+    ("app.api.routes_wireshark", "router"),
 )
 
 # Static frontend build produced by `npm run build` in ./frontend.
@@ -136,6 +137,8 @@ def capabilities() -> dict:
         "version": __version__,
         "features": available,
         "tshark": tshark.version().get("available", False),
+        # Whether the packet pivot in the IP context menu can be offered here.
+        "wireshark": wireshark.availability(),
     }
 
 

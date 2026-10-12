@@ -5,6 +5,11 @@ shape stays exactly as documented in ``docs/CONTRACT.md``; the models here cover
 request payloads, where validation matters most.
 """
 
-from app.schemas.requests import FilterRequest, IndicatorCreate, SettingsUpdate
+from app.schemas.requests import (
+    FilterRequest,
+    IndicatorCreate,
+    SettingsUpdate,
+    WiresharkRequest,
+)
 
-__all__ = ["FilterRequest", "IndicatorCreate", "SettingsUpdate"]
+__all__ = ["FilterRequest", "IndicatorCreate", "SettingsUpdate", "WiresharkRequest"]

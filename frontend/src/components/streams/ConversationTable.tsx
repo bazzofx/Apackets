@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react'
 import CopyButton from '@/components/CopyButton'
 import MonoCell from '@/components/MonoCell'
+import { flowAddress, flowPort } from '@/components/conversations/flowLayout'
 import type { Conversation, ConversationState, SortOrder } from '@/types'
 import { formatBytes, formatDuration, formatNumber, formatTimestamp } from '@/utils/format'
 
@@ -224,14 +225,30 @@ export function ConversationTable({
                 }}
                 title={conversation.conv_id}
               >
+                {/* Each endpoint cell carries its address, and the row's own
+                    transport and stream, so the context menu can pivot to this
+                    exact conversation rather than to everything the address did
+                    (see components/context/IpContextMenu.tsx). */}
                 <td>
-                  <span className="flex items-center">
+                  <span
+                    className="flex items-center"
+                    data-ip={flowAddress(conversation, 'a')}
+                    data-ip-transport={conversation.transport}
+                    data-ip-stream={conversation.stream_id}
+                    data-ip-port={flowPort(conversation, 'a') ?? undefined}
+                  >
                     <MonoCell maxWidth={210}>{conversation.endpoint_a}</MonoCell>
                     <CellCopy value={conversation.endpoint_a} label="Copy endpoint A" />
                   </span>
                 </td>
                 <td>
-                  <span className="flex items-center">
+                  <span
+                    className="flex items-center"
+                    data-ip={flowAddress(conversation, 'b')}
+                    data-ip-transport={conversation.transport}
+                    data-ip-stream={conversation.stream_id}
+                    data-ip-port={flowPort(conversation, 'b') ?? undefined}
+                  >
                     <MonoCell maxWidth={210}>{conversation.endpoint_b}</MonoCell>
                     <CellCopy value={conversation.endpoint_b} label="Copy endpoint B" />
                   </span>

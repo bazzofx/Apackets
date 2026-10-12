@@ -386,6 +386,7 @@ multicast group or a broadcast address from a routable internet host.
 | **Look up registration data** in the rail | No route: it calls `POST /hosts/{ip}/lookup`, the only action in the app that sends an address to a public service. Nothing moves until it is pressed |
 | **Open the registry's own RDAP record** | The registry's own page for the network, in a new tab — an external URL the registry published, not part of this app |
 | Scope filter, sort, pagination, view | The same page, re-queried; nothing is hidden in client state, so the URL is the whole view |
+| **Right-click an address** (any row, any endpoint, or the host detail's identity block) | A menu with three actions: **Pivot <ip> to Hunt** (`/investigate?kind=ip&entity=<ip>`), **Show Conversations with <ip>** (`/conversations?ip=<ip>`, plus `&stream=<transport>:<id>` when the element was one conversation), and **Pivot to Wireshark**, which opens this capture in the Wireshark GUI filtered — see [Architecture.md](Architecture.md) §6.1. The menu is application-wide: [Conversations](Conversations.md), [Packets](Packets.md) and [Dashboard](Dashboard.md) offer it on the addresses they draw |
 
 There is no link from the Hosts page into the Findings page: a finding is addressed by its
 own id (`/findings/{id}`) and there is no host filter on that page. To reach the findings

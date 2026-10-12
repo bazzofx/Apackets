@@ -570,6 +570,7 @@ export function WorldMap({
                 className="mono text-accent2 hover:underline"
                 onClick={() => onSelectIp(ip)}
                 title={`Open ${ip}`}
+                data-ip={ip}
               >
                 {ip}
               </button>

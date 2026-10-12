@@ -137,6 +137,16 @@ def _reset_binary_cache() -> None:
     _binary_cache.clear()
 
 
+def install_dirs() -> list[Path]:
+    """The directories a Wireshark install is looked for in.
+
+    Public because the other Wireshark binary this application can start (the
+    GUI, in :mod:`app.services.wireshark`) ships in the same directory: one list
+    of hints means the two can never disagree about where Wireshark lives.
+    """
+    return list(_WINDOWS_HINTS)
+
+
 def version() -> dict:
     """TShark availability + version, safe to call when TShark is absent."""
     binary = resolve_binary("tshark")

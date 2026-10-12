@@ -866,6 +866,30 @@ export interface HostGraph {
 }
 
 /* ------------------------------------------------------------------ */
+/* The packet pivot: opening a capture in Wireshark                     */
+/* ------------------------------------------------------------------ */
+
+/** Whether this installation can open the capture in the Wireshark GUI. */
+export interface WiresharkAvailability {
+  analysis_id: string
+  available: boolean
+  executable: string | null
+  /** Wireshark ships with TShark, so this is the dissection tool's version. */
+  version: string | null
+  /** Why it is unavailable, when it is. */
+  reason: string | null
+}
+
+/** What a launch produced: the filter is composed by the backend, not the client. */
+export interface WiresharkLaunchResult {
+  analysis_id: string
+  launched: boolean
+  executable: string
+  filter: string
+  pid: number
+}
+
+/* ------------------------------------------------------------------ */
 /* findings (contract §3, §5)                                          */
 /* ------------------------------------------------------------------ */
 

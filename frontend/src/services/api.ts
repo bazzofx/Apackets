@@ -41,8 +41,7 @@ import type {
   IndicatorCreate,
   IndicatorsResponse,
   IpLookupResponse,
-  JobsResponse,
-  NeighborsResponse,
+  JobsResponse,  NeighborsResponse,
   ObjectsResponse,
   PacketDetail,
   PacketFilterRequest,
@@ -76,6 +75,8 @@ import type {
   TlsListResponse,
   TlsSession,
   Transport,
+  WiresharkAvailability,
+  WiresharkLaunchResult,
 } from '@/types'
 
 /* ------------------------------------------------------------------ */
@@ -983,4 +984,29 @@ export const geoApi = {
     request<GeographyCountryDetail>(
       `/analyses/${analysisId}/geography/${encodeURIComponent(code)}`,
     ),
+}
+
+/* ------------------------------------------------------------------ */
+/* The packet pivot: the capture in Wireshark                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The two calls behind "Pivot to Wireshark" in the IP context menu.
+ *
+ * `status` starts nothing and reports whether this installation has a Wireshark
+ * GUI to open. `launch` sends an address and, at most, which of its
+ * conversations is meant — never a display filter: the backend composes that, so
+ * no request from here can put syntax on a command line.
+ */
+export const wiresharkApi = {
+  status: (analysisId: string) =>
+    request<WiresharkAvailability>(`/analyses/${analysisId}/wireshark`),
+  launch: (
+    analysisId: string,
+    payload: { ip: string; transport?: string | null; stream_id?: number | null; port?: number | null },
+  ) =>
+    request<WiresharkLaunchResult>(`/analyses/${analysisId}/wireshark`, {
+      method: 'POST',
+      json: payload,
+    }),
 }

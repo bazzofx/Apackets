@@ -328,6 +328,11 @@ listed on [Files and Objects](Files-and-Objects.md). The normative parameter lis
 [`docs/CONTRACT.md`](../docs/CONTRACT.md) §5, and the packet summary and detail shapes are
 §7 of the same document.
 
+**Right-clicking a source or destination address** opens the application's address menu:
+**Pivot <ip> to Hunt**, **Show Conversations with <ip>**, and **Pivot to Wireshark** — here
+the last one filters the capture to every frame the address appears in, since a packet row
+is one frame rather than a conversation. See [Architecture.md](Architecture.md) §6.1.
+
 ## 5. Limits and honest caveats
 
 * **The page cannot work from the index alone.** Every endpoint it calls begins with

@@ -30,3 +30,17 @@ class IndicatorCreate(BaseModel):
     value: str = Field(..., min_length=1, max_length=512)
     note: str | None = Field(default=None, max_length=512)
     analysis_id: str | None = None
+
+
+class WiresharkRequest(BaseModel):
+    """Body of ``POST /api/analyses/{id}/wireshark`` — the packet pivot.
+
+    Structured on purpose: the client names an address and, at most, which of
+    its conversations is meant. It never sends a display filter, so no request
+    can reach the Wireshark command line as filter syntax.
+    """
+
+    ip: str = Field(..., min_length=1, max_length=64, description="The address to open on")
+    transport: str | None = Field(default=None, max_length=16, description="e.g. tcp")
+    stream_id: int | None = Field(default=None, ge=0, description="The conversation's stream id")
+    port: int | None = Field(default=None, ge=0, le=65535, description="Used when no stream applies")

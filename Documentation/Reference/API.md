@@ -121,6 +121,7 @@ capture.
 | `routes_profile.py` | `/api/analyses/{analysis_id}` | `profile` | `GET /profile?q=&limit=` (resolve a query to the entities this capture contains) and `GET /profile/{kind}/{entity}` (every question of §4 for one of them). An entity the capture never recorded answers `200` with every question `not_applicable`, so no lookup 404s on a stale link. See [Investigate.md](../Investigate.md). |
 | `routes_settings.py` | `/api` | `settings` | `GET|PUT /settings`, `GET|POST /indicators`, `DELETE /indicators/{id}`. |
 | `routes_suricata.py` | `/api` | `suricata` | Rule CRUD and listing under `/suricata/rules…`, `/suricata/rules/stats`, `/suricata/config` (`GET|PUT`), import and seed, plus the per-analysis `/analyses/{analysis_id}/suricata/alerts` and `/analyses/{analysis_id}/suricata/run`. |
+| `routes_wireshark.py` | `/api/analyses/{analysis_id}` | `wireshark` | `GET /wireshark` (whether a Wireshark GUI exists here, and where — starts nothing) and `POST /wireshark` (opens this analysis's capture in it, filtered to `{ip, transport?, stream_id?, port?}`). The only route that starts a program for the operator; it accepts no filter string. See [Architecture.md §6.1](../Architecture.md). |
 
 Two meta endpoints come from `main.py` rather than a feature router:
 `GET /api/capabilities` and the OpenAPI document itself.

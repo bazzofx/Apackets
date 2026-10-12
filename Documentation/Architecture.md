@@ -213,7 +213,10 @@ the analysis and upload again.
 
 **TShark is the only packet decoder. No protocol parsing is reimplemented in
 Python, and `backend/app/services/tshark.py` is the only module that spawns a
-subprocess.**
+subprocess to do work.** There is exactly one exception, added deliberately and
+scoped as tightly as it can be: `backend/app/services/wireshark.py` starts the
+Wireshark *GUI* when an operator asks for it (§6.1). Nothing else in the
+application starts a program.
 
 The rules the module holds itself to, all of which are visible at the top of the
 file:
@@ -263,6 +266,42 @@ Consequences that show up in behaviour:
 * **No payload inspection anywhere else.** HTTP bodies are previewed, not
   interpreted; TLS is not decrypted; Threat Map reads metadata only — see
   [Threat-Hunt.md](Threat-Hunt.md) §7.
+
+### 6.1 The one process that is not a dissection: the Wireshark GUI
+
+The IP context menu's **Pivot to Wireshark** action opens the analysis's own
+capture in Wireshark, filtered. That means starting a program the operator will
+keep using after the request that started it ends, so the door is built as
+narrowly as one can be:
+
+* **The client never sends a filter.** It sends an address and, at most, which of
+  that address's conversations is meant (`transport`, `stream_id`, `port`). The
+  display filter is composed in `backend/app/services/wireshark.py` from a
+  canonicalised address and integers, so no request can reach a command line as
+  filter syntax. A body field the model does not declare — a `filter` string,
+  say — is ignored by Pydantic and never reaches the process.
+* **The capture path comes from the analysis row**, resolved by the same
+  `capture_path` dependency every other capture-reading route uses, so no request
+  can name a file.
+* **`shell=False`, an explicit argument vector, and `DETACHED_PROCESS`.** The GUI
+  outlives the request, so it is started detached and reaped by a daemon thread
+  rather than waited on. `CREATE_NEW_PROCESS_GROUP` keeps a Ctrl-C in the server's
+  console from closing the analyst's window; elsewhere `start_new_session` does
+  the same job.
+* **The filter is the number this application already stored.** TShark's
+  `tcp.stream` *is* `conversations.stream_id`, so `tcp.stream == 30` selects the
+  conversation the analyst was looking at — verified against a real capture, where
+  the composed filter matched exactly the stream's frame count. UDP has no such
+  field (Wireshark's `udp.stream` is not the stored number), so a UDP conversation
+  is filtered by address and port instead, and the menu says which of the two it
+  used.
+* **Absence is reported, not guessed.** `resolve_binary()` looks in the
+  configured path (`APACKETS_WIRESHARK_PATH`), on `PATH`, next to the TShark this
+  application already uses, and in the known install directories, then reports the
+  path as it exists on disk. When there is no GUI, `GET
+  /api/analyses/{id}/wireshark` says so and the menu shows the reason instead of a
+  button that would fail. No process is started to answer that question — the
+  version reported is TShark's, memoised once per process.
 
 ---
 
@@ -364,6 +403,7 @@ security model and the known limitations.
 | Every subprocess launch (and nothing else spawns one) | `backend/app/services/tshark.py` |
 | Address-to-country lookup, and the one download in the app | `backend/app/services/geoip.py`, `backend/app/api/routes_geo.py` (see [GEOGRAPHY.md](../docs/GEOGRAPHY.md)) |
 | Registration (whois/RDAP) lookup, its cache, and the only route that sends an address off the machine | `backend/app/services/ip_lookup.py`, `frontend/src/components/hosts/HostLookupPanel.tsx` (see [IP_LOOKUP.md](../docs/IP_LOOKUP.md)) |
+| Opening a capture in the Wireshark GUI, and the right-click menu that offers it | `backend/app/services/wireshark.py`, `backend/app/api/routes_wireshark.py`, `frontend/src/components/context/IpContextMenu.tsx` (see §6.1) |
 | Upload validation and capture metadata | `backend/app/services/capture_parser.py` |
 | Packet extraction into SQLite | `backend/app/services/packet_indexer.py` |
 | Conversations, streams and reassembly | `backend/app/services/conversation_analyzer.py`, `stream_analyzer.py` |

@@ -188,7 +188,21 @@ export function DestinationPanel({
             {data.targets.map((target) => {
               const follow = target.first_conversation
               return (
-                <li key={target.ip} className="world-target" data-destination-target={target.ip}>
+                <li
+                  key={target.ip}
+                  className="world-target"
+                  data-destination-target={target.ip}
+                  /* The row is an address and, when the capture recorded one, a
+                     conversation: the context menu uses both, so the Wireshark
+                     pivot opens this exchange rather than all of the address's
+                     traffic (components/context/IpContextMenu.tsx). */
+                  data-ip={target.ip}
+                  data-ip-transport={follow?.transport ?? undefined}
+                  data-ip-stream={follow?.stream_id ?? undefined}
+                  data-ip-port={
+                    target.ports.find((entry) => entry.side === 'remote')?.port ?? undefined
+                  }
+                >
                   <button
                     type="button"
                     className="mono text-xs text-accent2 hover:underline"

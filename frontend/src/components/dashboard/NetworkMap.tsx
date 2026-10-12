@@ -331,6 +331,10 @@ export function NetworkMap({
                 tabIndex={0}
                 role="button"
                 aria-label={`${node.id}: ${formatNumber(node.packets)} packets, ${formatBytes(node.bytes)}`}
+                /* A node is one address, so it is a right-click target: the
+                   browser's own menu would otherwise be the only thing a right
+                   click does here (components/context/IpContextMenu.tsx). */
+                data-ip={node.id}
                 onMouseEnter={() => setFocusId(node.id)}
                 onFocus={() => setFocusId(node.id)}
                 onClick={() => onSelect(node.id)}

@@ -1316,5 +1316,97 @@
     border-top: 1px solid rgb(var(--c-border) / 0.7);
     padding-top: 0.625rem;
   }
+
+  /* ------------------------------------------------------------------ */
+  /* the IP context menu                                                */
+  /*                                                                    */
+  /* Rendered in a portal on <body>, so it is never clipped by the       */
+  /* scroll container or the `overflow: hidden` panel the address sits   */
+  /* in, and positioned in `fixed` coordinates at the pointer. Its own   */
+  /* layer, above every panel and overlay in the application.            */
+  /* ------------------------------------------------------------------ */
+
+  .ip-menu {
+    @apply flex flex-col py-1 text-xs;
+    position: fixed;
+    z-index: 80;
+    min-width: 17rem;
+    max-width: min(24rem, calc(100vw - 1rem));
+    border: 1px solid rgb(var(--c-border2));
+    border-radius: 0.5rem;
+    background-color: rgb(var(--c-surface));
+    box-shadow:
+      0 0 0 1px rgb(var(--c-bg) / 0.5),
+      0 18px 40px -12px rgb(var(--c-bg) / 0.85);
+  }
+
+  /* The address the menu is about, so a menu that covers its own element still
+     says which one it belongs to. */
+  .ip-menu-head {
+    @apply flex items-baseline gap-2 px-3 pb-1 pt-1.5 text-2xs;
+    color: rgb(var(--c-faint));
+    border-bottom: 1px solid rgb(var(--c-border) / 0.7);
+    margin-bottom: 0.25rem;
+  }
+
+  .ip-menu-scope {
+    @apply uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .ip-menu-item {
+    @apply flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs;
+    color: rgb(var(--c-text));
+  }
+
+  .ip-menu-item:hover:not(:disabled),
+  .ip-menu-item:focus-visible {
+    background-color: rgb(var(--c-accent) / 0.14);
+    outline: none;
+  }
+
+  .ip-menu-item:disabled {
+    color: rgb(var(--c-faint));
+    cursor: not-allowed;
+  }
+
+  .ip-menu-hint {
+    @apply ml-auto text-2xs;
+    color: rgb(var(--c-faint));
+  }
+
+  .ip-menu-note,
+  .ip-menu-error,
+  .ip-menu-ok {
+    @apply mx-2 mb-1 mt-1 flex items-start gap-1.5 rounded px-2 py-1 text-2xs leading-relaxed;
+  }
+
+  .ip-menu-note {
+    color: rgb(var(--c-muted));
+    background-color: rgb(var(--c-surface2) / 0.6);
+  }
+
+  .ip-menu-error {
+    color: rgb(var(--c-danger));
+    background-color: rgb(var(--c-danger) / 0.12);
+  }
+
+  .ip-menu-ok {
+    color: rgb(var(--c-ok));
+    background-color: rgb(var(--c-ok) / 0.12);
+  }
+
+  /* What the Wireshark pivot will show, so the difference between "this
+     conversation" and "every frame with this address" is never a surprise. */
+  .ip-menu-foot {
+    @apply px-3 pb-1 pt-1.5 text-2xs leading-relaxed;
+    color: rgb(var(--c-faint));
+    border-top: 1px solid rgb(var(--c-border) / 0.7);
+    margin-top: 0.25rem;
+  }
+
+  .ip-menu-foot-ok {
+    border-top-color: rgb(var(--c-ok) / 0.4);
+  }
 }
 

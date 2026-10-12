@@ -167,7 +167,13 @@ export function HostsTable({ hosts, selectedIp, onSelect, sort, order, onSort }:
             const tlsSni = parseStringList(host.tls_sni)
             const peers = parseStringList(host.peers)
             return (
-              <tr key={host.ip} className={selected ? 'selected' : undefined}>
+              <tr
+                key={host.ip}
+                className={selected ? 'selected' : undefined}
+                /* Anywhere on the row, so the whole row is a right-click target
+                   for this host (see components/context/IpContextMenu.tsx). */
+                data-ip={host.ip}
+              >
                 <td>
                   <button
                     type="button"

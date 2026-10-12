@@ -296,6 +296,15 @@ country, which is why the page says so; the endpoint and its caps are in
 The map node and every address button encode the address with
 `encodeURIComponent`, so an IPv6 literal such as `fe80::1` survives the round trip.
 
+**Right-clicking an address** — a node in the conversation graph, an address in the
+geography hover readout, a card in *Most data sent* / *Most data received*, or a row in a
+country's destination panel — opens the application's address menu: **Pivot <ip> to Hunt**,
+**Show Conversations with <ip>**, and **Pivot to Wireshark**. Where the element is one
+conversation (a destination panel row, which already knows the first conversation with that
+address) the menu carries it, so the Conversations link opens that exchange and the Wireshark
+pivot filters to it; where it is only an address, the pivot opens every frame it appears in.
+See [Architecture.md](Architecture.md) §6.1.
+
 ## 5. Limits and honest caveats
 
 * **One capture at a time.** Everything is scoped to the analysis selected in the top bar.

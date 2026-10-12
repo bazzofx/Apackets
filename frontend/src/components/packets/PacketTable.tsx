@@ -158,7 +158,7 @@ export function PacketTable({
                   {formatTimestamp(packet.time_epoch)}
                 </td>
                 <td>
-                  <span className="flex items-center">
+                  <span className="flex items-center" data-ip={packet.src_ip ?? undefined}>
                     <MonoCell maxWidth={190}>{packet.src_ip}</MonoCell>
                     <CellCopy value={packet.src_ip} label="Copy the source IP" />
                   </span>
@@ -174,7 +174,7 @@ export function PacketTable({
                   </span>
                 </td>
                 <td>
-                  <span className="flex items-center">
+                  <span className="flex items-center" data-ip={packet.dst_ip ?? undefined}>
                     <MonoCell maxWidth={190}>{packet.dst_ip}</MonoCell>
                     <CellCopy value={packet.dst_ip} label="Copy the destination IP" />
                   </span>

@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     # --- packet processing -------------------------------------------------
     tshark_path: str = "tshark"
     capinfos_path: str = "capinfos"
+    # The Wireshark GUI, used only by the "Pivot to Wireshark" action: it opens
+    # this capture, filtered, in a window on the operator's own desktop.
+    wireshark_path: str = "wireshark"
     tshark_timeout_s: int = 300
     # 0 == index every packet
     max_packet_rows: int = 0

@@ -30,6 +30,7 @@ import {
   type ChipItem,
 } from '@/components/hosts/chips'
 import HostLookupPanel from '@/components/hosts/HostLookupPanel'
+import { flowAddress, flowPort } from '@/components/conversations/flowLayout'
 import { buildQuery, hostsApi } from '@/services/api'
 import type { Conversation, DnsQuery, HttpTransaction, TlsSession } from '@/types'
 import {
@@ -290,8 +291,11 @@ export function HostDetailPanel({ analysisId, ip, onClose }: HostDetailPanelProp
 
   return (
     <section className="panel">
+      {/* The identity block carries the address, and only it: the tables below
+          name other addresses, so a right click there must not be read as a
+          right click on this host. */}
       <header className="panel-header items-start">
-        <div className="min-w-0">
+        <div className="min-w-0" data-ip={host.ip}>
           <div className="flex items-center gap-1.5">
             <span className="break-all mono text-sm text-text">{host.ip}</span>
             <CopyButton value={host.ip} label={`Copy ${host.ip}`} />
@@ -429,12 +433,30 @@ export function HostDetailPanel({ analysisId, ip, onClose }: HostDetailPanelProp
               {
                 key: 'a',
                 header: 'Endpoint A',
-                render: (row) => <MonoCell maxWidth={190}>{row.endpoint_a}</MonoCell>,
+                render: (row) => (
+                  <span
+                    data-ip={flowAddress(row, 'a')}
+                    data-ip-transport={row.transport}
+                    data-ip-stream={row.stream_id}
+                    data-ip-port={flowPort(row, 'a') ?? undefined}
+                  >
+                    <MonoCell maxWidth={190}>{row.endpoint_a}</MonoCell>
+                  </span>
+                ),
               },
               {
                 key: 'b',
                 header: 'Endpoint B',
-                render: (row) => <MonoCell maxWidth={190}>{row.endpoint_b}</MonoCell>,
+                render: (row) => (
+                  <span
+                    data-ip={flowAddress(row, 'b')}
+                    data-ip-transport={row.transport}
+                    data-ip-stream={row.stream_id}
+                    data-ip-port={flowPort(row, 'b') ?? undefined}
+                  >
+                    <MonoCell maxWidth={190}>{row.endpoint_b}</MonoCell>
+                  </span>
+                ),
               },
               {
                 key: 'transport',

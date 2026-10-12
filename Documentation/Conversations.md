@@ -517,6 +517,15 @@ Pages that link in:
 The alert chips do not link anywhere: they are counts. The findings themselves are read on
 [Findings](Findings.md), which is where the rule, the severity and the evidence live.
 
+**Right-clicking an endpoint** opens the application's address menu, and because a
+conversation row knows its own transport and stream, the two actions that can use them do:
+**Pivot <ip> to Hunt** opens that address's profile, **Show Conversations with <ip>** links to
+this address (adding `&stream=<transport>:<id>` so the page opens this very exchange), and
+**Pivot to Wireshark** opens the capture filtered to `ip.addr == <ip> && tcp.stream == <id>` —
+this conversation, not everything the address did. The menu and the process it can start are
+described in [Architecture.md](Architecture.md) §6.1; the same menu appears on the addresses
+drawn on [Hosts](Hosts.md), [Packets](Packets.md) and the [Dashboard](Dashboard.md).
+
 ## 5. Limits and honest caveats
 
 * **The page cannot work from the index alone.** `list_conversations`, the alert endpoint and

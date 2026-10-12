@@ -59,6 +59,7 @@ export function TrafficExtremeCard({ title, direction, host, onSelect }: Traffic
             className="text-left"
             onClick={() => onSelect?.(host.ip)}
             title={onSelect ? `Open ${host.ip} on the Hosts page` : undefined}
+            data-ip={host.ip}
           >
             <MonoCell className="text-lg text-text">{host.ip}</MonoCell>
           </button>
