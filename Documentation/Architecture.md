@@ -156,6 +156,7 @@ upload.
 | `tls_sessions` | `id` (autoincrement) | Handshake metadata only: versions, SNI, ALPN, cipher, JA3/JA3S/JA4, certificate subject/issuer/validity/serial, handshake status, alerts, `flags`. No decrypted payload. |
 | `protocol_sessions` | `id` (autoincrement) | One row per session of the five protocol families that are not HTTP, DNS or TLS — Email (SMTP, POP3, IMAP), SSH, FTP, VoIP (SIP, RTP, RTCP) and SMB. Shared columns hold the endpoints, times, volume by direction and the flags; the per-protocol fields live in a JSON `detail` object, so adding a protocol never changes the table. Fixed by [`docs/PROTOCOLS.md`](../docs/PROTOCOLS.md). |
 | `hosts` | `(analysis_id, ip)` | One row per endpoint: MAC, first/last seen, bytes and packets per direction, ports, protocols, DNS names observed, TLS SNI seen, `is_private`, `ip_version`, and the peer list with its count. |
+| `ip_lookups` | `ip` | The registration record of a **public** address: its class, the registry that answered, the origin AS, the registered country, when it was fetched and the normalised payload. Keyed by address and not by analysis, because who holds a block does not depend on which capture asked. Written only by an explicit lookup; a failed lookup writes nothing. Fixed by [`docs/IP_LOOKUP.md`](../docs/IP_LOOKUP.md). |
 | `findings` | `id` | The recorded detections — built-in rules and Suricata matches alike: rule id, severity, title, description, reason, evidence JSON, packet numbers, entities, recommendation. |
 | `objects` | `id` | Files recovered from the capture: display filename, stored path, protocol, content type, size, md5/sha1/sha256, endpoints, status (`complete`/`partial`/`failed`) and note. |
 | `indicators` | `id` (autoincrement) | Analyst-supplied indicator values used by the indicator-match rule, optionally scoped to one analysis. |
@@ -362,6 +363,7 @@ security model and the known limitations.
 | How a request is scheduled, cancelled and reported | `backend/app/services/jobs.py` |
 | Every subprocess launch (and nothing else spawns one) | `backend/app/services/tshark.py` |
 | Address-to-country lookup, and the one download in the app | `backend/app/services/geoip.py`, `backend/app/api/routes_geo.py` (see [GEOGRAPHY.md](../docs/GEOGRAPHY.md)) |
+| Registration (whois/RDAP) lookup, its cache, and the only route that sends an address off the machine | `backend/app/services/ip_lookup.py`, `frontend/src/components/hosts/HostLookupPanel.tsx` (see [IP_LOOKUP.md](../docs/IP_LOOKUP.md)) |
 | Upload validation and capture metadata | `backend/app/services/capture_parser.py` |
 | Packet extraction into SQLite | `backend/app/services/packet_indexer.py` |
 | Conversations, streams and reassembly | `backend/app/services/conversation_analyzer.py`, `stream_analyzer.py` |

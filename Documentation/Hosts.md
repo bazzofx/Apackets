@@ -91,6 +91,11 @@ Opened by clicking an IP in the table or a node in the map, and addressed by the
 query parameter so it can be linked. It shows the full `hosts` record, then four capped
 tables.
 
+From the `xl` breakpoint up the panel is **two columns**: the host itself on the left
+(everything below) and the registration rail on the right (§2.5). Narrower viewports stack
+the rail underneath rather than squeezing both. The header — address, scope chip, MAC, first
+and last seen, **Close** — spans both columns and stays where it was.
+
 Header: address (with a copy button), private/public scope chip, MAC, `ip_version`,
 first and last seen. A **Close** button clears the `host` parameter.
 
@@ -124,7 +129,53 @@ Four capped tables, each at most `DETAIL_LIST_LIMIT = 50` rows:
 Each subtitle states *"N of at most 50"*, and when any list reaches the cap the panel adds
 a visible note that a full list may hold more and points at the pivots for the complete set.
 
-### 2.5 Network map view
+### 2.5 Registration rail (whois / RDAP)
+
+The right-hand column of the detail panel: who holds the address, rather than what it did.
+It is a rail rather than another data card because it answers a different question from a
+different source. It is specified by [../docs/IP_LOOKUP.md](../docs/IP_LOOKUP.md) and served
+by `GET` / `POST /api/analyses/{id}/hosts/{ip}/lookup`.
+
+The rail is split in two, and the order matters: what the capture already knows comes
+**first**, because it needs nothing from the network.
+
+**From this capture** — computed locally, marked *no request made*:
+
+| Element | Source |
+|---|---|
+| Class chip (`Public address`, `Private address`, `Reserved address`, `Loopback address`, `Multicast address`, `Link-local address`) and, when there is nothing to ask, the API's `reason` verbatim | `kind`, `reason` |
+| **Country (geolocation)**, named in full with its code, plus the dataset it came from | `local.country`, `local.country_source` (the DB-IP Lite country dataset) |
+| **Domains seen** — the count, then each name with where it was seen (`DNS answer` or `TLS SNI`) and how many rows carried it | `local.names[]` (`name`, `from`, `rows`), capped at `LOCAL_NAME_CAP = 25` by rows seen. Those two are the only sources the API emits. DNS names come from answers carrying this address; an SNI counts only when this address is the session's **server**, because that is the direction in which a name points *at* an address. The Names chips on the left are the other direction — what this host asked for — so the same page can legitimately show a name in one column and not the other |
+| *"no request made"*, and, when a name list is capped, a note that the busiest names are shown | `local.names_truncated` |
+| When nothing named the address: a statement that a name appears only if the capture carried it and that nothing is resolved on demand | — |
+
+**From the registry** — empty until the button is pressed:
+
+| Element | Source |
+|---|---|
+| **Look up registration data** (primary) for a public address with no cached record | `POST`, the only action in the app that sends an address off the machine |
+| **Registrar / registry**, with the legacy whois host as its hint | `record.registry`, `record.port43` |
+| Network name, handle, address range, allocation type, status | `record.network_name`, `handle`, `range`, `allocation_type`, `status` |
+| **Registered country**, named in full, marked *"As registered by the RIR"* — or, when it disagrees with the geolocated country, a visible warning giving both | `record.country` vs `local.country` |
+| **ASN** as `AS<number>` with the prefix, registry, country and allocation date as its hint | `record.asn` |
+| **Contacts** — role (registrant, administrative, technical, abuse, routing), handle, name, and each email as a `mailto:` link; abuse contacts are marked | `record.contacts[]`, capped at `CONTACT_CAP = 10` |
+| **Registry remarks** | `record.remarks[]`, capped at `REMARK_CAP = 5` and 400 characters each |
+| A warning naming the steps that failed, when only part of the lookup answered | `record.failures[]` |
+| **Open the registry's own RDAP record** (external link, new tab) | `record.rdap_url` |
+| **Fetched** timestamp, the registry it came from, cache age, `stale` when past `LOOKUP_MAX_AGE_DAYS = 30`, and **Look up again** | `cache.*` (a secondary button, never the primary one) |
+| For a non-public address: an explanation that no registry holds it, and **no button at all** | `lookup_possible: false` |
+
+Two footers close the rail. The **egress statement** is always visible: only the button sends
+anything, it sends that one address to the responsible RIR's RDAP service and to Team Cymru's
+DNS service, no capture data leaves the host, and the answer is stored locally so the same
+address is not asked for twice. Below it, **What this lookup is, and is not** is collapsed —
+the API's own provenance paragraph, disclosed by clicking its header, the same way every other
+explanation in the app opens.
+
+Opening a host panel never contacts anything. The rail's first paint is local: the class, the
+geolocated country, the capture-observed names and the cached record, if one exists.
+
+### 2.6 Network map view
 
 | Element | Meaning |
 |---|---|
@@ -190,6 +241,15 @@ to the backend, plus `is_private` only when the Scope control is set. The backen
 `order`; `sort` is mapped onto a fixed SQL expression (`SORTABLE` in `routes_hosts.py`) and
 an unknown value is rejected with `400 invalid_sort`, which is why the page only offers
 allow-listed columns.
+
+The page makes four requests, and only the last one can leave the machine:
+
+| Request | When | Sends anything off the machine? |
+|---|---|---|
+| `GET /hosts` (or `/hosts/graph`) | On every filter, sort, page or view change | No |
+| `GET /hosts/{ip}` | When the detail panel opens or `host` changes | No |
+| `GET /hosts/{ip}/lookup` | With the detail panel, for the rail's first paint | No — it reads the local `ip_lookups` row and the capture |
+| `POST /hosts/{ip}/lookup` | Only while the rail's **Look up registration data** / **Look up again** button is pressed | **Yes** — that one address, to its RIR's RDAP service and to Team Cymru's DNS service |
 
 ## 4. How a host row and the map are built
 
@@ -319,6 +379,8 @@ multicast group or a broadcast address from a routable internet host.
 | DNS as client / as server | `/dns?client_ip=<ip>` / `/dns?server_ip=<ip>` — see [DNS](DNS.md) |
 | TLS pivot | `/tls?ip=<ip>` — see [TLS](TLS.md) |
 | Conversations pivot | `/conversations?ip=<ip>` — see [Conversations](Conversations.md) |
+| **Look up registration data** in the rail | No route: it calls `POST /hosts/{ip}/lookup`, the only action in the app that sends an address to a public service. Nothing moves until it is pressed |
+| **Open the registry's own RDAP record** | The registry's own page for the network, in a new tab — an external URL the registry published, not part of this app |
 | Scope filter, sort, pagination, view | The same page, re-queried; nothing is hidden in client state, so the URL is the whole view |
 
 There is no link from the Hosts page into the Findings page: a finding is addressed by its
@@ -374,6 +436,25 @@ on [Findings](Findings.md).
 * **Nothing here proves intent.** Volume, ports and peers describe observed traffic. A large
   send is a large send; a multicast group is not a remote host; a peer list is not a trust
   relationship.
+* **The registration rail is not a location and not an owner.** A registry says who holds a
+  block, not who used an address at the time of the capture. The registered country and the
+  geolocated country are both shown with their sources and are frequently different — for
+  `195.63.128.106` in `2026-10-01-traffic-analysis-exercise.pcap` the block is registered to
+  RIPE NCC (NL) while its origin AS `216071` is registered in AE. Neither is "where the host
+  was". Contacts are often an abuse desk, frequently redacted, and an empty contact list means
+  the registry published none — not that nobody owns the address.
+* **The rail's cache is shared across captures and can be stale.** `ip_lookups` is keyed by
+  address, so a second capture that contains the same peer reuses the record; past
+  `LOOKUP_MAX_AGE_DAYS = 30` the record is marked `stale` and still shown rather than hidden.
+  A record is a snapshot at its fetch time, and nothing re-checks it on its own.
+* **A lookup leaves the machine.** It is the one action here that does. The address alone is
+  sent — no payload, no capture name, no other address in the file — to the responsible RIR's
+  RDAP service and to Team Cymru's DNS service, and private, loopback, multicast, link-local
+  and reserved addresses are never sent at all. Opening a host panel sends nothing.
+* **Domains in the rail come only from the capture.** The registry does not publish the domain
+  names that point at an address, so the list is what this capture already observed in DNS
+  answers, DNS queries or TLS SNI, capped at 25 names by rows seen. There is no reverse lookup
+  and no passive-DNS service behind it.
 
 ## 7. Related
 
@@ -383,4 +464,5 @@ on [Findings](Findings.md).
 [Dashboard](Dashboard.md) for the same graph payload drawn with the precise `scope` labels ·
 [Findings](Findings.md) for alerts raised about these endpoints ·
 [Files-and-Objects](Files-and-Objects.md) for content recovered from them —
-[Hunt](Investigate.md) to read one of these addresses on its own.
+[Hunt](Investigate.md) to read one of these addresses on its own. The registration rail's
+rule is [`docs/IP_LOOKUP.md`](../docs/IP_LOOKUP.md).

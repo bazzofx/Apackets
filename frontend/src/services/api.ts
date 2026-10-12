@@ -40,6 +40,7 @@ import type {
   Indicator,
   IndicatorCreate,
   IndicatorsResponse,
+  IpLookupResponse,
   JobsResponse,
   NeighborsResponse,
   ObjectsResponse,
@@ -603,6 +604,20 @@ export const hostsApi = {
 
   get: (analysisId: string, ip: string) =>
     request<HostDetail>(`/analyses/${analysisId}/hosts/${encodeURIComponent(ip)}`),
+
+  /**
+   * Registration data for one address. The plain call only reads the server's
+   * cache; `fetchLookup` performs the lookup now and caches it (docs/IP_LOOKUP.md
+   * §5). Neither is ever called automatically — sending an address to a registry
+   * is the operator's decision, one address at a time.
+   */
+  lookup: (analysisId: string, ip: string) =>
+    request<IpLookupResponse>(`/analyses/${analysisId}/hosts/${encodeURIComponent(ip)}/lookup`),
+
+  fetchLookup: (analysisId: string, ip: string) =>
+    request<IpLookupResponse>(`/analyses/${analysisId}/hosts/${encodeURIComponent(ip)}/lookup`, {
+      method: 'POST',
+    }),
 
   graph: (analysisId: string) => request<HostGraph>(`/analyses/${analysisId}/hosts/graph`),
 }

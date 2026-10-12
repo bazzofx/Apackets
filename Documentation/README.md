@@ -99,6 +99,11 @@ The rules, which every document here follows:
    [`docs/THREAT_HUNT.md`](../docs/THREAT_HUNT.md) is the normative Threat Map
    contract. These documents explain the application; those two define it. Where a
    section depends on a rule, it links to the contract rather than restating it.
+   Four features carry their own normative contract alongside them:
+   [`docs/PROTOCOLS.md`](../docs/PROTOCOLS.md) for the five protocol-session sections,
+   [`docs/GEOGRAPHY.md`](../docs/GEOGRAPHY.md) for the Dashboard map,
+   [`docs/IP_LOOKUP.md`](../docs/IP_LOOKUP.md) for the registration rail in the host
+   detail, and [`docs/ENTITY_PROFILE.md`](../docs/ENTITY_PROFILE.md) for Hunt.
 
 ## What these documents are not
 

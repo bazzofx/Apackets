@@ -3,6 +3,14 @@
 The graph is built strictly from observed ``conversations`` rows — every edge is a
 real conversation, never an inferred subnet or name-resolution relationship.
 Node attributes are enriched from the ``hosts`` table when that row exists.
+
+``GET /hosts/{ip}/lookup`` and ``POST /hosts/{ip}/lookup`` are the registration panel
+(docs/IP_LOOKUP.md §5): the first is the panel's first paint and makes **no network
+request at all**, the second is the only route in this application that sends an address
+to a third party, and it does so only when a reader asks for it. The capture-local part
+of the answer — the country from the installed DB-IP dataset and the names *this capture*
+observed pointing at the address — is read here, from the analysis's own tables, and never
+from a registry. Everything else lives in :mod:`app.services.ip_lookup`.
 """
 
 from __future__ import annotations
@@ -18,9 +26,10 @@ from app.api.deps import (
     resolve_order,
     resolve_sort,
 )
-from app.core.errors import not_found
+from app.core.errors import ApiError, not_found, unprocessable
 from app.core.logging import get_logger
 from app.db import database as db
+from app.services import geoip, ip_lookup
 from app.services.host_analyzer import address_scope, is_private_address
 
 log = get_logger("apackets.api.hosts")
@@ -362,3 +371,142 @@ def get_host(analysis_id: str, ip: str) -> dict:
         "tls_sessions": [dict(r) for r in tls_sessions],
         "detail_limit": DETAIL_LIST_LIMIT,
     }
+
+
+# --------------------------------------------------------------------------
+# registration lookup (docs/IP_LOOKUP.md §5)
+# --------------------------------------------------------------------------
+
+# §6's cap, taken from the service so one number lives in one place.
+LOCAL_NAME_CAP = ip_lookup.LOCAL_NAME_CAP
+
+#: §2/§5.1: a name is shown only when a capture row supports it. ``dns_queries.answer_ips``
+#: is a comma-joined list, so the address is matched as a whole element rather than as a
+#: substring - ``1.2.3.4`` must not be found inside ``1.2.3.40`` - and the element list is
+#: padded with the delimiter on both sides so the first and last elements are matched too.
+DNS_NAME_SQL = """
+SELECT query_name AS name, COUNT(*) AS rows
+  FROM dns_queries
+ WHERE analysis_id = ?
+   AND query_name IS NOT NULL AND TRIM(query_name) <> ''
+   AND answer_ips IS NOT NULL
+   AND (',' || REPLACE(answer_ips, ' ', '') || ',') LIKE '%,' || ? || ',%'
+ GROUP BY query_name
+"""
+
+#: A SNI is sent by the *client* asking for a name, so it points **at** this address only
+#: when this address is the session's server - which is what §2 asks for. (The ``hosts``
+#: row's own ``tls_sni`` is keyed by the client, because that column answers the different
+#: question "what did this host ask for".)
+TLS_NAME_SQL = """
+SELECT sni AS name, COUNT(*) AS rows
+  FROM tls_sessions
+ WHERE analysis_id = ?
+   AND server_ip = ?
+   AND sni IS NOT NULL AND TRIM(sni) <> ''
+ GROUP BY sni
+"""
+
+
+def _captured_names(analysis_id: str, ip: str) -> list[dict]:
+    """Every name this capture observed pointing at *ip*, with the rows that say so.
+
+    Two sources and two provenance labels (§5.1): DNS answers that carry the address, and
+    TLS SNI values of sessions where the address is the server. Ordered by the number of
+    rows seen, so the cap keeps the names the capture saw most and not an arbitrary prefix.
+    """
+    found = [
+        {"name": row["name"], "from": "dns_answer", "rows": int(row["rows"])}
+        for row in db.query_all(DNS_NAME_SQL, (analysis_id, ip))
+    ]
+    found += [
+        {"name": row["name"], "from": "tls_sni", "rows": int(row["rows"])}
+        for row in db.query_all(TLS_NAME_SQL, (analysis_id, ip))
+    ]
+    found.sort(key=lambda item: (-item["rows"], item["name"], item["from"]))
+    return found
+
+
+def _local_country(ip: str) -> tuple[str | None, str | None]:
+    """§3.1: the country the installed DB-IP dataset has for the address, and its source.
+
+    This is ``docs/GEOGRAPHY.md``'s dataset, not the registry: registration is not
+    location, so the two claims are shown side by side and never reconciled (§7). A
+    non-public address is never offered to the dataset at all.
+    """
+    country = geoip.country_for(ip)
+    if country is None:
+        return None, None
+    provenance = geoip.load_source() or {}
+    label = " ".join(
+        str(part) for part in (provenance.get("dataset"), provenance.get("dataset_month")) if part
+    )
+    return country, label or None
+
+
+def _local_block(analysis_id: str, ip: str) -> dict:
+    """§5.1's ``local`` block: everything the panel can say without a network request."""
+    names = _captured_names(analysis_id, ip)
+    kept = names[:LOCAL_NAME_CAP]
+    country, source = _local_country(ip)
+    return {
+        "country": country,
+        "country_source": source,
+        "names": kept,
+        "names_truncated": len(kept) < len(names),
+    }
+
+
+def _require_address(ip: str) -> str:
+    """The address as §5.2 wants it, or ``422 validation_error``.
+
+    Malformed input is refused here rather than reaching the service, so a typo can never
+    become an egress attempt: nothing is sent and nothing is cached for it.
+    """
+    address = ip_lookup.parse_address(ip)
+    if address is None:
+        raise unprocessable(
+            "validation_error",
+            f"'{ip}' is not an IP address.",
+            {"ip": ip, "expected": "an IPv4 or IPv6 address, e.g. 150.171.109.217"},
+        )
+    return str(address)
+
+
+@router.get("/hosts/{ip}/lookup")
+def get_host_lookup(analysis_id: str, ip: str) -> dict:
+    """§5.1: the panel's first paint - cached record, capture-local names, class.
+
+    **Never fetches anything.** A missing cache row is an answer (``record: null``), not a
+    reason to go and ask, and no part of this response depends on the address having been
+    looked up before.
+    """
+    analysis_ready_row(analysis_id)
+    address = _require_address(ip)
+    return ip_lookup.envelope(address, local=_local_block(analysis_id, address))
+
+
+@router.post("/hosts/{ip}/lookup")
+def post_host_lookup(analysis_id: str, ip: str) -> dict:
+    """§5.2: look this one address up now and cache it, then return §5.1's envelope.
+
+    This is the only route that takes capture-derived data off the host, and it sends the
+    address alone - no capture, no filename, no analysis id, no timestamp - to at most two
+    public services. A non-public address is answered from itself with ``200`` and
+    ``lookup_possible: false`` and makes no request at all; nothing at all coming back from
+    a public address is ``502 lookup_failed`` with the reasons, and writes nothing.
+    """
+    analysis_ready_row(analysis_id)
+    address = _require_address(ip)
+
+    try:
+        ip_lookup.refresh(address)
+    except ip_lookup.LookupFailed as exc:
+        raise ApiError(
+            502,
+            "lookup_failed",
+            str(exc),
+            {"ip": address, "failures": list(exc.failures)},
+        ) from exc
+
+    return ip_lookup.envelope(address, local=_local_block(analysis_id, address))

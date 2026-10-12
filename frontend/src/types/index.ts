@@ -753,6 +753,86 @@ export interface HostDetail extends Host {
   detail_limit?: number
 }
 
+/* ------------------------------------------------------------------ */
+/* IP registration lookup (docs/IP_LOOKUP.md)                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * How the address is classified before anything is queried. Only `public`
+ * addresses have a registry to ask, so `lookup_possible` follows from this.
+ */
+export type IpLookupKind =
+  | 'public'
+  | 'private'
+  | 'reserved'
+  | 'loopback'
+  | 'multicast'
+  | 'link_local'
+  | 'unknown'
+
+export interface IpLookupContact {
+  role: string | null
+  handle: string | null
+  name: string | null
+  emails: string[]
+}
+
+/** Origin AS, from Team Cymru's DNS service or from the RDAP record. */
+export interface IpLookupAsn {
+  number: string
+  prefix: string | null
+  country: string | null
+  registry: string | null
+  allocated: string | null
+}
+
+/** The normalised registration record; every field may be absent. */
+export interface IpLookupRecord {
+  registry: string | null
+  network_name: string | null
+  handle: string | null
+  range: { start: string; end: string } | null
+  allocation_type: string | null
+  status: string[]
+  /** Country as *registered* by the RIR — not where a packet went. */
+  country: string | null
+  port43: string | null
+  rdap_url: string | null
+  asn: IpLookupAsn | null
+  contacts: IpLookupContact[]
+  remarks: string[]
+  /** Steps that failed during a partial lookup, named rather than hidden. */
+  failures?: string[]
+}
+
+/** What the capture itself says about this address. Never sent anywhere. */
+export interface IpLookupLocal {
+  /** Geolocated from the local DB-IP Lite copy, not from the registry. */
+  country: string | null
+  country_source: string | null
+  names: { name: string; from: string; rows: number }[]
+  names_truncated: boolean
+}
+
+export interface IpLookupCache {
+  fetched_at: number | null
+  age_days: number | null
+  stale: boolean
+  source: string | null
+}
+
+export interface IpLookupResponse {
+  ip: string
+  kind: IpLookupKind
+  lookup_possible: boolean
+  reason: string | null
+  cache: IpLookupCache | null
+  /** `null` until a lookup has been run, or for any non-public address. */
+  record: IpLookupRecord | null
+  local: IpLookupLocal
+  note: string | null
+}
+
 export interface HostGraphNode {
   id: string
   label: string

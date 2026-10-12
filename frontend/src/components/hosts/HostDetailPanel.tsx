@@ -29,6 +29,7 @@ import {
   parseStringList,
   type ChipItem,
 } from '@/components/hosts/chips'
+import HostLookupPanel from '@/components/hosts/HostLookupPanel'
 import { buildQuery, hostsApi } from '@/services/api'
 import type { Conversation, DnsQuery, HttpTransaction, TlsSession } from '@/types'
 import {
@@ -316,7 +317,11 @@ export function HostDetailPanel({ analysisId, ip, onClose }: HostDetailPanelProp
         </button>
       </header>
 
-      <div className="flex flex-col gap-3 p-3">
+      {/* Two columns from `xl` up: what the capture says about this endpoint on
+          the left, registration data for the address on the right. Below `xl`
+          the lookup rail drops underneath rather than squeezing both. */}
+      <div className="grid grid-cols-1 gap-3 p-3 xl:grid-cols-[minmax(0,1fr)_23rem]">
+        <div className="flex min-w-0 flex-col gap-3">
         <div className="grid grid-cols-2 gap-x-3 gap-y-2">
           <Field label="Packets sent" title="Frames in which this IP is the source">
             <span className="mono">{formatNumber(host.packets_sent)}</span>
@@ -392,7 +397,7 @@ export function HostDetailPanel({ analysisId, ip, onClose }: HostDetailPanelProp
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-3 border-t border-border p-3">
+      <div className="flex flex-col gap-3 border-t border-border pt-3">
         <SectionPanel
           title="Conversations"
           subtitle={`${conversations.length} of at most ${limit} reassembled streams involving this IP`}
@@ -620,6 +625,9 @@ export function HostDetailPanel({ analysisId, ip, onClose }: HostDetailPanelProp
             Capture-derived names and SNI values are rendered as plain text.
           </span>
         </div>
+          </div>
+
+        <HostLookupPanel analysisId={analysisId} ip={host.ip} />
       </div>
     </section>
   )

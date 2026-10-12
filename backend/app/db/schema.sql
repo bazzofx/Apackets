@@ -419,3 +419,17 @@ CREATE INDEX IF NOT EXISTS idx_suricata_enabled  ON suricata_rules(enabled, supp
 CREATE INDEX IF NOT EXISTS idx_suricata_severity ON suricata_rules(severity);
 CREATE INDEX IF NOT EXISTS idx_suricata_protocol ON suricata_rules(protocol);
 CREATE INDEX IF NOT EXISTS idx_suricata_source   ON suricata_rules(source);
+
+-- Registration data for one address (docs/IP_LOOKUP.md §4). Keyed by address and not by
+-- analysis: registration data belongs to the address, so two captures that contain the
+-- same peer share one record. Written only by an explicit lookup - never by opening a
+-- host panel - and a lookup that produced nothing writes no row at all.
+CREATE TABLE IF NOT EXISTS ip_lookups (
+    ip         TEXT PRIMARY KEY,
+    kind       TEXT    NOT NULL,   -- 'public' | 'private' | 'reserved' | 'loopback' | 'multicast' | 'link_local' | 'unknown'
+    source     TEXT,               -- the registry's RDAP base URL, or NULL when nothing was queried
+    asn        TEXT,               -- the origin AS number as a string, or NULL
+    country    TEXT,               -- ISO 3166-1 alpha-2 from RDAP or Cymru, or NULL
+    fetched_at REAL    NOT NULL,
+    payload    TEXT    NOT NULL DEFAULT '{}'   -- the normalised record, §5.1
+);
