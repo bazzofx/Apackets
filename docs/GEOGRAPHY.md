@@ -316,7 +316,11 @@ panel is the same shape.
   appears mid-movement reads as if it belonged to where the dot *was*. It is skipped under
   `prefers-reduced-motion`, where nothing moves. The card is **docked against the right edge of
   the frame and centred vertically**, so it is in the same place for every country, is always
-  inside the frame, and never covers the country it describes: the address
+  inside the frame, and never covers the country it describes. Because the card is inside the
+  map's element, the map's pan handler must exclude it (and every interactive element): the map
+  captures the pointer on `pointerdown`, and a captured pointer retargets the following `click`
+  at the map, which would silently stop the card's links — including **Follow conversation** —
+  from doing anything. The address
   count, packets and bytes in each direction, the ports used with the side that owned them, and
   one row per address with its own counts, its ports, and a **Follow conversation** button that
   opens the earliest conversation involving that address on the Conversations page's timeline.

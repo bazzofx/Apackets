@@ -107,7 +107,15 @@ the map frame, vertically centred, fetched at that moment from
 | `sent` / `received` | Packets and bytes in each direction, **from this capture's own side** — a `hosts` row's `bytes_sent` is what this side sent, which is what the destination received. The panel says whose side it means, because getting this backwards would invert every number. |
 | Ports | From the country's conversations, with the side that owned each port: `remote` is the port on the destination's address (the service port), `local` is this side's, usually the ephemeral one. At most 25, busiest first. |
 | One row per address | The address (a button that opens it on the Hosts page), its volume, its own `↑`/`↓` split, and its own ports. |
-| **Follow conversation** | A link to `/conversations?stream=<transport>:<stream_id>&tab=timeline` for the **earliest** conversation involving that address — the same deep link the Findings page's Follow conversation button uses. An address whose conversation was never recorded gets a disabled button whose tooltip explains why, rather than a link that lands nowhere. |
+| **Follow conversation** | A link to `/conversations?stream=<transport>:<stream_id>&tab=timeline` for the **earliest** conversation involving that address — the same deep link the Findings page's Follow conversation button uses. An address whose conversation was never recorded gets a disabled button whose tooltip explains why, rather than a link that lands nowhere, and an address whose only conversation was never reassembled into a stream says *No stream* for the same reason. |
+
+The panel sits **inside the map's own element**, which is why the map's drag handling has to
+exclude it: the map starts a pan on `pointerdown` and captures the pointer, and a captured pointer
+retargets the following `click` at the map — so without the exclusion the panel's links and buttons
+did nothing at all, **Follow conversation** included. The rule that decides whether a press may
+start a pan therefore refuses dots, anything interactive, and anything inside the panel; the panel
+stops propagation of its own presses as well, and the rule is unit-tested because none of it is
+visible in markup.
 
 The card is **docked, not anchored to its dot**: at the right edge, centred vertically, never
 taller or wider than the frame, so it is in the same place every time and never covers the

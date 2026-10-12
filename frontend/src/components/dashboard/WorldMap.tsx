@@ -64,6 +64,31 @@ export function clampView(view: WorldView): WorldView {
   return { scale, tx, ty }
 }
 
+/**
+ * May a pointer that went down here start a pan?
+ *
+ * No, for three kinds of target, and the third one was a real bug:
+ *
+ * 1. **a dot** — pressing on it is a selection, not a drag;
+ * 2. **anything interactive** — a link, a button, an input: their own click has to happen;
+ * 3. **anything inside the destination panel** — the panel sits inside the map's own element, so
+ *    without this every press on it looked like the start of a pan. The map then captured the
+ *    pointer, which retargets the following `click` at the map itself, so the panel's links and
+ *    buttons — **Follow conversation** above all — silently did nothing.
+ *
+ * Exported because the rule is invisible in markup and worth a test of its own.
+ */
+export function startsMapDrag(
+  target: { closest?: (selector: string) => unknown } | null,
+): boolean {
+  if (target === null || typeof target.closest !== 'function') return false
+  return (
+    target.closest('[data-world-dot]') === null &&
+    target.closest('[data-destination-panel]') === null &&
+    target.closest('a, button, input, select, textarea, [role="dialog"]') === null
+  )
+}
+
 /** Zoom about a point in view-box units, so the pixel under the pointer stays put. */
 export function zoomAbout(view: WorldView, factor: number, pointX: number, pointY: number): WorldView {
   const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, view.scale * factor))
@@ -189,8 +214,9 @@ export function WorldMap({
   }, [focused, onFocus])
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    /* A drag that starts on a dot is a click on that dot, not a pan. */
-    if ((event.target as SVGElement).closest?.('[data-world-dot]') !== null) return
+    /* See `startsMapDrag`: the panel, its controls and every dot are excluded, so a press on any
+       of them keeps its own click instead of becoming a pan the map captures. */
+    if (!startsMapDrag(event.target as { closest?: (selector: string) => unknown })) return
     drag.current = { x: event.clientX, y: event.clientY, origin: view }
     setPanning(true)
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -465,7 +491,7 @@ export function WorldMap({
 
         {/* The zoom controls: keyboard-reachable buttons, and the current scale in their tooltips
             rather than in a live region that would chatter on every wheel tick. */}
-        <div className="world-controls">
+        <div className="world-controls" onPointerDown={(event) => event.stopPropagation()}>
           <button
             type="button"
             className="btn px-1.5 py-1"

@@ -96,7 +96,16 @@ export function DestinationPanel({
   const data: GeographyCountryDetail | undefined = query.data
 
   return (
-    <div className="world-panel" role="dialog" aria-label="Destination detail" data-destination-panel={code}>
+    <div
+      className="world-panel"
+      role="dialog"
+      aria-label="Destination detail"
+      data-destination-panel={code}
+      /* The panel lives inside the map's element, so a press here must never reach the map's pan
+         handler: stopping it here as well as at the rule is what keeps a link a link. */
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+    >
       <header className="sticky top-0 flex items-start justify-between gap-2 border-b border-border bg-surface/95 px-2.5 py-2">
         <div className="min-w-0">
           <div className="flex items-baseline gap-1.5">

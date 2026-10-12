@@ -506,6 +506,147 @@ def test_unavailable_indicators_state_why_on_an_empty_capture(
 # errors and parameter validation
 # --------------------------------------------------------------------------
 
+# --------------------------------------------------------------------------
+# where the lateral-movement bars take you
+# --------------------------------------------------------------------------
+
+
+def _lateral_fixture(
+    analysis_id: str,
+    *,
+    flow: tuple[str, str, int],
+    conversation: tuple[str, str, int, str, int, int | None] | None,
+) -> None:
+    """Seed one internal-to-internal flow on an administration port, and its conversation.
+
+    `conversation` is `(ip_a, ip_b, port_a, port_b, bytes, stream_id)`, and `flow` is the
+    `(source, destination, destination port)` the packet index records.
+    """
+    from app.db import database as db
+
+    source, destination, port = flow
+    _seed_analysis(analysis_id, status="completed")
+    now = time.time()
+    with db.get_conn() as conn:
+        conn.execute(
+            "UPDATE analyses SET packet_count = 2, tcp_count = 2, status = 'completed' WHERE id = ?",
+            (analysis_id,),
+        )
+        for number in (1, 2):
+            conn.execute(
+                """
+                INSERT INTO packets (analysis_id, number, time_epoch, frame_len, protocol,
+                                     transport, src_ip, dst_ip, dst_port)
+                VALUES (?, ?, ?, ?, 'TCP', 'tcp', ?, ?, ?)
+                """,
+                (analysis_id, number, now + number, 100, source, destination, port),
+            )
+        if conversation is not None:
+            ip_a, ip_b, port_a, port_b, moved, stream_id = conversation
+            conn.execute(
+                """
+                INSERT INTO conversations (analysis_id, conv_id, transport, stream_id,
+                                           endpoint_a, endpoint_b, ip_a, port_a, ip_b, port_b,
+                                           packets_total, bytes_total, start_time)
+                VALUES (?, ?, 'tcp', ?, ?, ?, ?, ?, ?, ?, 2, ?, ?)
+                """,
+                (
+                    analysis_id,
+                    f"tcp:{ip_a}:{port_a}-{ip_b}:{port_b}",
+                    stream_id,
+                    f"{ip_a}:{port_a}",
+                    f"{ip_b}:{port_b}",
+                    ip_a,
+                    port_a,
+                    ip_b,
+                    port_b,
+                    moved,
+                    now,
+                ),
+            )
+
+
+def _lateral_bar_targets(analysis_id: str) -> list[tuple[str, str]]:
+    """`(label, to)` for every bar, straight from the indicator function."""
+    from types import SimpleNamespace
+
+    from app.services import threat_hunt
+
+    index = SimpleNamespace(
+        analysis_id=analysis_id, has_traffic=True, tcp_packets=2, top=12
+    )
+    result = threat_hunt._lateral_movement(index)
+    bars = next(visual for visual in result.visuals if visual["kind"] == "bars")
+    return [(item["label"], item["to"]) for item in bars["items"]]
+
+
+def test_lateral_bar_opens_the_flow_and_the_port_node_the_diagram_draws() -> None:
+    """The bar for `host:445` must open that conversation, with the node on the right side.
+
+    `ip_a`/`port_a` is the flow diagram's `source`/`sourcePort` column and `ip_b`/`port_b` its
+    `destination`/`destinationPort` — the side is the conversation's own assignment, not who
+    spoke first, and a link naming the wrong column selects nothing.
+    """
+    analysis_id = "11111111111111111111111111111111"
+    _lateral_fixture(
+        analysis_id,
+        flow=("10.0.0.9", "10.0.0.5", 445),
+        conversation=("10.0.0.5", "10.0.0.9", 445, 51234, 900, 7),
+    )
+
+    [(label, target)] = _lateral_bar_targets(analysis_id)
+
+    assert label == "10.0.0.5:445 (SMB)"
+    assert target == (
+        "/conversations?ip=10.0.0.5&port=445&node=sourcePort%3A445&stream=tcp%3A7"
+    )
+
+
+def test_lateral_bar_names_the_other_column_when_the_service_is_the_second_side() -> None:
+    analysis_id = "22222222222222222222222222222222"
+    _lateral_fixture(
+        analysis_id,
+        flow=("10.0.0.9", "10.0.0.5", 445),
+        conversation=("10.0.0.9", "10.0.0.5", 51234, 445, 900, 11),
+    )
+
+    [(_, target)] = _lateral_bar_targets(analysis_id)
+
+    assert target == (
+        "/conversations?ip=10.0.0.5&port=445&node=destinationPort%3A445&stream=tcp%3A11"
+    )
+
+
+def test_lateral_bar_without_a_conversation_keeps_the_filter_link() -> None:
+    """No conversation, or none with a reassembled stream, means no conversation to open."""
+    analysis_id = "33333333333333333333333333333333"
+    _lateral_fixture(
+        analysis_id,
+        flow=("10.0.0.9", "10.0.0.5", 445),
+        conversation=("10.0.0.5", "10.0.0.9", 445, 51234, 900, None),
+    )
+
+    [(_, target)] = _lateral_bar_targets(analysis_id)
+
+    assert target == "/conversations?ip=10.0.0.5&port=445", (
+        "a flow whose conversation has no stream has nothing to select, so the link must stay "
+        "a filter rather than name a stream that does not exist"
+    )
+    _assert_target_allowed(target)
+
+
+def test_lateral_bar_links_use_only_the_parameters_of_section_5() -> None:
+    analysis_id = "44444444444444444444444444444444"
+    _lateral_fixture(
+        analysis_id,
+        flow=("10.0.0.9", "10.0.0.5", 445),
+        conversation=("10.0.0.5", "10.0.0.9", 445, 51234, 900, 7),
+    )
+
+    for _label, target in _lateral_bar_targets(analysis_id):
+        _assert_target_allowed(target)
+
+
 def test_threat_hunt_unknown_analysis_is_404(client) -> None:
     response = client.get(f"/api/analyses/{'0' * 32}/threat-hunt")
     assert response.status_code == 404

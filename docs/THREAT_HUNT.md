@@ -37,7 +37,7 @@ frontend switches on.
 | `network_scanning` | Network Scanning | `packets` (tcp, icmp, arp) | `heatmap`, `bars`, `table` |
 | `dns_anomalies` | DNS Anomalies | `dns_queries` | `bars`, `scatter` |
 | `data_exfiltration` | Potential Data Exfiltration | `conversations`, `hosts` | `bars`, `timeline` |
-| `lateral_movement` | Lateral Movement Indicators | `packets` | `bars`, `table` |
+| `lateral_movement` | Lateral Movement Indicators | `packets`, `conversations` (to resolve a flow to its conversation) | `bars`, `table` |
 | `suspicious_http` | Suspicious HTTP Activity | `http_transactions` | `timeline`, `histogram`, `table` |
 | `suspicious_tls` | Suspicious TLS Connections | `tls_sessions` | `bars`, `table` |
 | `unusual_ports` | Unusual Port Usage | `packets` | `bars` |
@@ -193,6 +193,11 @@ link that silently does nothing.
 | `/hosts` | `view` (`graph`/`inventory`), `ip`, `search`, `protocol`, `is_private` (`true`/`false`) |
 | `/findings`, `/findings/{id}` | path only; the id is `encodeURIComponent`d |
 | `/objects` | none |
+
+A `/conversations` link may name a conversation as well as filter for one: `stream=<transport>:<id>`
+selects it, and `node=<column>:<key>` selects the diagram node it hangs from (`source`,
+`sourcePort`, `state`, `destinationPort`, `destination`). The lateral-movement bars use both, so
+a click opens the flow rather than a list.
 
 **A packet is opened with `sel`, not `number`:** the packets page reads
 `?sel=<frame number>`. To open one frame inside its conversation use

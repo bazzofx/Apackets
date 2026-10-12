@@ -1455,6 +1455,57 @@ def _data_exfiltration(index: _Index) -> _Result:
 # --------------------------------------------------------------------------
 
 
+def _lateral_conversations(index: _Index) -> dict[tuple[str, int], tuple[str, int, str]]:
+    """``(host, port) -> (transport, stream_id, node column)`` for §5's lateral-movement links.
+
+    The flow buckets are built from ``packets``, which knows the port but not the conversation;
+    a link that opens the *conversation* therefore needs the ``conversations`` row behind the
+    flow. One query covers every administration port, and the largest conversation wins when a
+    host reached one service more than once — the link's ``ip`` and ``port`` parameters still
+    filter the page to all of them, so nothing is hidden by picking one.
+
+    The third value is the column the port belongs to **in the flow diagram**, which is decided
+    by the conversation's own A/B assignment and not by who spoke first: ``ip_a``/``port_a`` is
+    the diagram's left-hand ``source``/``sourcePort`` column, and ``ip_b``/``port_b`` the
+    right-hand ``destination``/``destinationPort``. A port node key is ``<column>:<port>``
+    (``flowNodeId`` in the frontend), so getting the side wrong would select nothing.
+    """
+    ports = sorted(LATERAL_PORTS)
+    placeholders = ", ".join("?" for _ in ports)
+    rows = db.query_all(
+        f"""
+        SELECT transport, stream_id, ip_a, port_a, ip_b, port_b, bytes_total
+          FROM conversations
+         WHERE analysis_id = ? AND transport = 'tcp'
+           AND (port_a IN ({placeholders}) OR port_b IN ({placeholders}))
+         ORDER BY bytes_total DESC, stream_id
+        """,
+        (index.analysis_id, *ports, *ports),
+    )
+
+    resolved: dict[tuple[str, int], tuple[str, int, str]] = {}
+    for row in rows:
+        stream_id = row["stream_id"]
+        if stream_id is None:
+            # No reassembled stream means no conversation to open: the simple filter link is
+            # all this flow can honestly offer.
+            continue
+        transport = str(row["transport"])
+        for ip_key, port_key, column in (
+            ("ip_a", "port_a", "sourcePort"),
+            ("ip_b", "port_b", "destinationPort"),
+        ):
+            host = row[ip_key]
+            port = row[port_key]
+            if host is None or port is None:
+                continue
+            key = (str(host), int(port))
+            if key in resolved:
+                continue  # the rows are largest first, so the first one wins
+            resolved[key] = (transport, int(stream_id), column)
+    return resolved
+
+
 def _lateral_movement(index: _Index) -> _Result:
     if not index.has_traffic:
         return _not_applicable(NO_PACKETS)
@@ -1501,11 +1552,36 @@ def _lateral_movement(index: _Index) -> _Result:
         per_host[key] = per_host.get(key, 0) + flow["packets"]
     ranked = sorted(per_host.items(), key=lambda item: (-item[1], item[0]))
 
+    # §5 allows `/conversations` to be opened on a specific conversation as well as filtered to
+    # an address and a port, and the reader clicking `192.168.8.101:445 (SMB)` wants the flow, not
+    # a list: `stream=` selects it and `node=` selects the port node it hangs from in the diagram.
+    conversations = _lateral_conversations(index)
+
+    def _flow_link(host: str, port: int) -> str:
+        """Open the flow itself: the conversation when one is known, the filter otherwise.
+
+        `stream=` selects the conversation and `node=` the port node it hangs from in the flow
+        diagram; `ip=` and `port=` stay on the link so the page is filtered to that host and
+        service whether or not the stream resolves. A flow with no reassembled stream keeps the
+        filter-only link, because there is no conversation to open.
+        """
+        found = conversations.get((host, port))
+        if found is None:
+            return _to("/conversations", ip=host, port=port)
+        transport, stream_id, column = found
+        return _to(
+            "/conversations",
+            ip=host,
+            port=port,
+            node=f"{column}:{port}",
+            stream=f"{transport}:{stream_id}",
+        )
+
     bar_items = [
         {
             "label": f"{host}:{port} ({LATERAL_PORTS.get(port, 'service')})",
             "value": packets,
-            "to": _to("/conversations", ip=host, port=port),
+            "to": _flow_link(host, port),
         }
         for (host, port), packets in ranked[: index.top]
     ]

@@ -51,6 +51,26 @@ it means the headline should never be read as a score.
 
 The headline is `0` only when `availability` is not `"ok"`.
 
+### Where a bar takes you
+
+Each bar is one `(destination, service)` pair, and clicking it opens **that flow on the
+Conversations page**, not a filtered list:
+
+```
+/conversations?ip=192.168.8.101&port=445&node=sourcePort%3A445&stream=tcp%3A30
+```
+
+| Parameter | Comes from | Why |
+|---|---|---|
+| `ip`, `port` | the bar's own bucket | The page stays filtered to that host and service whether or not the stream resolves, so a flow with no reassembled stream still lands on the right list. |
+| `stream` | `conversations.transport` and `stream_id` for that host and port | Selects the conversation itself. The **largest** one wins when a host reached the same service more than once — the filters still show the rest. |
+| `node` | `conversations.ip_a/port_a` versus `ip_b/port_b` | The port's node in the flow diagram. `ip_a`/`port_a` is the diagram's `source`/`sourcePort` column and `ip_b`/`port_b` its `destination`/`destinationPort`, so the side is read from the conversation's own assignment rather than from who spoke first — a wrong column would select nothing and the page would silently drop the selection. |
+
+The buckets come from `packets`, which knows the port but not the conversation, so the
+indicator runs one extra query over `conversations` for the administration ports to resolve
+them (`_lateral_conversations`). A bucket with no conversation, or whose conversation has no
+reassembled stream, keeps the filter-only link — there is nothing to open.
+
 ## 3. Detection logic
 
 Implemented by `_lateral_movement(index)` in `backend/app/services/threat_hunt.py`.
@@ -99,8 +119,8 @@ of distinct services. If you need one, add it in code; the page cannot express i
 
 | Column | Supplies |
 |---|---|
-| `packets.src_ip`, `packets.dst_ip` | The flow key, the address classification, and both `/hosts?ip=` links. |
-| `packets.dst_port` | Membership of `LATERAL_PORTS`, the service label, and the `/packets?dst_port=` link. |
+| `packets.src_ip`, `packets.dst_ip` | The flow key, the address classification, both `/hosts?ip=` links, and the `/conversations?ip=` filter on each bar. |
+| `packets.dst_port` | Membership of `LATERAL_PORTS`, the service label, the `/packets?dst_port=` link, and the `port=` filter and `node=` key on each bar. |
 | `packets.transport` | Restricts the query to `transport = 'tcp'`. |
 | `packets.frame_len` | Summed into the flow's byte total. |
 | `packets.number` | Read as `MIN(number)` (`first_frame`) but not rendered on the card. |
