@@ -28,6 +28,8 @@ import type {
   FindingRescanResult,
   FindingRulesResponse,
   FindingsListResponse,
+  GeographyResponse,
+  GeoipStatus,
   HealthResponse,
   HostDetail,
   HostGraph,
@@ -943,4 +945,21 @@ export const protocolsApi = {
     request<{ job_id: string; status: string }>(`/analyses/${analysisId}/protocols/rescan`, {
       method: 'POST',
     }),
+}
+
+/* ------------------------------------------------------------------ */
+/* Geography: where the capture's public addresses are (docs/GEOGRAPHY.md) */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The three calls the geographic view makes.
+ *
+ * `status` answers whether the location dataset is installed at all, `refresh` is the only
+ * thing in APackets that downloads anything (a public CC BY 4.0 dataset, on an explicit
+ * request, never at render time), and `geography` is the capture's own per-country totals.
+ */
+export const geoApi = {
+  status: () => request<GeoipStatus>('/geoip/status'),
+  refresh: () => request<{ job_id: string; kind: string; status: string }>('/geoip/refresh', { method: 'POST' }),
+  geography: (analysisId: string) => request<GeographyResponse>(`/analyses/${analysisId}/geography`),
 }

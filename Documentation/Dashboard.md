@@ -53,11 +53,52 @@ A missing figure renders as an em-dash (`—`) in faint text rather than as `0`:
 `formatNumber`, `formatBytes` and `formatDuration` in `frontend/src/utils/format.ts` all
 return `EMPTY = '—'` for `null`/`undefined`/non-finite input.
 
-### 2.2 The conversation map
+### 2.2 The map panel: geography, or conversations
 
-`frontend/src/components/dashboard/NetworkMap.tsx`, titled only by its subtitle: *who
-talked to whom in this capture, sized by bytes*. The panel's header action is a
-**Host inventory** button.
+The panel in the middle of the Dashboard answers "where does this capture talk to" by default,
+and "who talked to whom" on request. A two-way toggle in the panel header switches between
+them and the choice lives in the URL (`?map=graph`), so a link to either view is shareable and
+Back returns to the other. The panel's other header action is a **Host inventory** button.
+
+* **Geography** is the default: the world map, described in §2.2.1.
+* **Conversations** is the graph this panel has always drawn, described in §2.2.2. Neither
+  view replaces the other — topology and geography are different questions about the same
+  capture — so both stay.
+
+#### 2.2.1 Geography — where the capture's addresses are
+
+`frontend/src/components/dashboard/WorldMap.tsx` draws it and
+`frontend/src/components/dashboard/CountryList.tsx` lists it underneath. The contract for the
+whole feature — the dataset, its licence and provenance, the endpoint, the caps and the limits
+— is [`docs/GEOGRAPHY.md`](../docs/GEOGRAPHY.md); this is what a reader sees.
+
+| Element | Meaning |
+|---|---|
+| World outline | One path per ISO 3166-1 alpha-2 code, from the bundled Natural Earth 110m asset (`frontend/src/theme/worldMap.ts`, generated, public domain). No tile server and no fetch at render time. |
+| Origin | The capture's own side, drawn as a **dashed inset in the corner** with its address count and volume — never a point on the map. A private address carries no country, and the capture does not hold this installation's public address, so placing the hub anywhere would be an invention. |
+| Arc | One per country, from the origin to that country's label point, with a single travelling dash (`7s`, staggered per country) showing direction. |
+| Destination dot | **One per country**, never one per address, at that country's label point, radius `3 + 9 × sqrt(bytes / largest country's bytes)`. A capture with four hundred destinations draws at most `COUNTRY_CAP` (60) dots. |
+| Dot label | Drawn for the six largest countries and for whichever is focused, as `US · 16` — the code and the address count. |
+| Hover readout | Under the map: the country's name, addresses, volume, packets, and its first four addresses as buttons that open the host page. |
+| Corner chips | Top-left counts the destinations and located addresses; top-right counts the addresses **not placed** in any country. |
+| Country list | Under the map, one row per country in the API's order (bytes descending): code, name, address count, volume, packet count, and the addresses themselves as buttons. |
+| Own-network row | The first row: the capture's own addresses, with a note that a private address has no country. |
+| Unknown row | The addresses the dataset could not place, listed separately and never folded into a country's totals. |
+| Provenance line | Under the map, when the dataset is installed: the dataset's own month, its range count and the licence attribution (*IP geolocation by DB-IP*), which CC BY 4.0 requires. |
+
+Motion is a promise, not decoration: the arcs move slowly and the pinned dot pulses, and both
+are switched off entirely under `prefers-reduced-motion: reduce`.
+
+**When the dataset is not installed** the world is still drawn, no dot is invented, and the map
+carries the reason the backend gave plus a **Build the location dataset** button. That button is
+the only thing in APackets that downloads anything: one public CC BY 4.0 file, about 4.4 MB,
+with no account and no API key, fetched by the backend when the reader asks and never at render
+time. No capture data is involved in the request.
+
+#### 2.2.2 The conversation graph
+
+`frontend/src/components/dashboard/NetworkMap.tsx`; its subtitle is *who talked to whom in this
+capture, sized by bytes*.
 
 | Element | Meaning |
 |---|---|
@@ -190,6 +231,14 @@ truncated to `GRAPH_MAX_PORTS = 5`. Node totals come from the matching `hosts` r
 exists and from the summed conversation totals when it does not; the node's `scope` is
 always recomputed from the address text.
 
+
+**Geography** is the one panel whose numbers do not come from the capture's index. It reads
+`/api/analyses/{id}/geography`, which joins the analysis's own `hosts` rows to a country lookup
+performed against a local file: DB-IP Lite *country*, CC BY 4.0, downloaded on request into
+`data/geoip/` and never queried over the network. The lookup is the address block's registered
+country, which is why the page says so; the endpoint and its caps are in
+[`docs/GEOGRAPHY.md`](../docs/GEOGRAPHY.md).
+
 ## 4. Links into the rest of the app
 
 | Element | Opens |
@@ -288,4 +337,6 @@ address links are on [Hosts.md](Hosts.md), the streams behind the conversations 
 [Findings.md](Findings.md). Uploading another capture, and the retention rules that decide
 how long this one stays on disk, are documented in [PCAP-Files.md](PCAP-Files.md); the
 picker that chooses which capture this page summarises is shared with every page and is
-described in [Architecture.md](Architecture.md).
+described in [Architecture.md](Architecture.md). The geography view's dataset, its licence, its
+endpoint and the limits of turning an address into a country are fixed by
+[`docs/GEOGRAPHY.md`](../docs/GEOGRAPHY.md), which is normative for that panel.

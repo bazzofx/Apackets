@@ -89,6 +89,12 @@ class Settings(BaseSettings):
         return self.data_dir / "exports"
 
     @property
+    def geoip_dir(self) -> Path:
+        """The DB-IP Lite dataset, created on the first successful refresh
+        (``docs/GEOGRAPHY.md`` §4) - deliberately not part of ``ensure_dirs``."""
+        return self.data_dir / "geoip"
+
+    @property
     def db_path(self) -> Path:
         return self.data_dir / "apackets.db"
 

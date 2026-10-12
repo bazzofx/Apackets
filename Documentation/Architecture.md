@@ -361,6 +361,7 @@ security model and the known limitations.
 | The stage order, bands, optional-stage handling, warnings | `backend/app/services/pipeline.py` |
 | How a request is scheduled, cancelled and reported | `backend/app/services/jobs.py` |
 | Every subprocess launch (and nothing else spawns one) | `backend/app/services/tshark.py` |
+| Address-to-country lookup, and the one download in the app | `backend/app/services/geoip.py`, `backend/app/api/routes_geo.py` (see [GEOGRAPHY.md](../docs/GEOGRAPHY.md)) |
 | Upload validation and capture metadata | `backend/app/services/capture_parser.py` |
 | Packet extraction into SQLite | `backend/app/services/packet_indexer.py` |
 | Conversations, streams and reassembly | `backend/app/services/conversation_analyzer.py`, `stream_analyzer.py` |
@@ -377,6 +378,7 @@ security model and the known limitations.
 | How the front end talks to the API | `frontend/src/services/api.ts`, `frontend/vite.config.ts` |
 | The pages and their routes | `frontend/src/pages/`, `frontend/src/App.tsx`, `frontend/src/layouts/AppLayout.tsx` |
 | The five protocol-session pages, which are one component with a family | `frontend/src/pages/ProtocolSessionsPage.tsx`, `frontend/src/components/protocols/sessionCatalog.ts`, `SessionDetail.tsx` |
+| The world map, its country list and its generated outline asset | `frontend/src/components/dashboard/WorldMap.tsx`, `CountryList.tsx`, `frontend/src/theme/worldMap.ts` |
 
 ---
 

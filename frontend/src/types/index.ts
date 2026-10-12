@@ -1625,3 +1625,77 @@ export interface ProtocolListParams {
   page?: number
   page_size?: number
 }
+
+/* ------------------------------------------------------------------ */
+/* Geography: where the capture's public addresses are (docs/GEOGRAPHY.md) */
+/* ------------------------------------------------------------------ */
+
+/** One country the capture sent traffic to. */
+export interface GeographyCountry {
+  /** ISO 3166-1 alpha-2, or `ZZ` for "no country known". */
+  code: string
+  /** English name, or null when the standard has no name for the code. */
+  name: string | null
+  addresses: number
+  packets: number
+  bytes: number
+  /** The addresses themselves, capped by the API's `GEO_IP_CAP`. */
+  ips: string[]
+  ips_truncated: boolean
+}
+
+/** The capture's own side. A private address has no country, so this is never a map point. */
+export interface GeographyOrigin {
+  label: string
+  addresses: number
+  packets: number
+  bytes: number
+}
+
+/** Addresses the dataset could not place: counted, drawn nowhere. */
+export interface GeographyUnknown extends GeographyOrigin {
+  ips: string[]
+  ips_truncated: boolean
+}
+
+/** `GET /api/geoip/status`, and the `dataset` block of the geography response. */
+export interface GeoipStatus {
+  available: boolean
+  /** Provenance of the file on disk, or null when there is none. */
+  source: {
+    dataset: string
+    url: string
+    licence: string
+    attribution: string
+    file: string
+    bytes: number
+    sha256: string
+    ranges: number
+    countries: number
+    dataset_month: string
+    fetched_at: number
+  } | null
+  /** Why the dataset is unavailable, in a sentence a reader can act on. */
+  reason: string | null
+  note: string
+}
+
+/** `GET /api/analyses/{id}/geography`. */
+export interface GeographyResponse {
+  analysis_id: string
+  generated_at: number
+  dataset: { available: boolean; source: GeoipStatus['source']; reason: string | null }
+  origin: GeographyOrigin
+  countries: GeographyCountry[]
+  unknown: GeographyUnknown
+  counts: {
+    addresses: number
+    located: number
+    countries: number
+    unknown: number
+    local: number
+    /** True when `COUNTRY_CAP` cut the country list. */
+    countries_truncated?: boolean
+  }
+  note: string
+}

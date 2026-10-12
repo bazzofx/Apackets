@@ -197,6 +197,8 @@ All timestamps are Unix epoch **seconds as REAL** unless the column name says
 Three tables are defined by later contracts rather than here, because they belong to
 features added after this document was frozen: `protocol_sessions` (the five protocol
 session sections — Email, SSH, FTP, VoIP, SMB) in `docs/PROTOCOLS.md` §2, and the
+address-to-country dataset of `docs/GEOGRAPHY.md` §4, which is a file under `data/geoip/`
+rather than a table, and the
 entity-profile and threat-map read paths, which store no tables of their own. Where a
 later contract and this one touch, this one wins for everything defined above.
 

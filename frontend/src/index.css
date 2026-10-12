@@ -276,6 +276,145 @@
     background-size: auto, 32px 32px, 32px 32px;
   }
 
+  /* ------------------------------------------------------------------ */
+  /* geography: the world map on the Dashboard (docs/GEOGRAPHY.md §6)    */
+  /*                                                                    */
+  /* The land is one path per country, filled with the themed surface   */
+  /* gradient so the map reads as part of the page rather than an image  */
+  /* pasted onto it. The only movement is a travelling dash along each   */
+  /* arc and a slow pulse on the pinned dot: enough to show direction,   */
+  /* never enough to pull the eye off the numbers. Both are switched off */
+  /* entirely under `prefers-reduced-motion`.                            */
+  /* ------------------------------------------------------------------ */
+
+  .world-country {
+    fill: url(#world-land);
+    stroke: rgb(var(--c-border2) / 0.55);
+    stroke-width: 0.4;
+    transition: fill 160ms ease-out;
+  }
+
+  .world-country-active {
+    fill: rgb(var(--c-accent) / 0.3);
+    stroke: rgb(var(--c-accent) / 0.75);
+  }
+
+  .world-arc {
+    fill: none;
+    stroke: rgb(var(--c-accent) / 0.45);
+    stroke-width: 1;
+    stroke-dasharray: 5 9;
+    animation: world-flow 7s linear infinite;
+  }
+
+  .world-arc-active {
+    stroke: rgb(var(--c-accent) / 0.95);
+    stroke-width: 1.6;
+  }
+
+  @keyframes world-flow {
+    from {
+      stroke-dashoffset: 0;
+    }
+    to {
+      /* Exactly one dash period, so the travel repeats without a jump. */
+      stroke-dashoffset: -14;
+    }
+  }
+
+  .world-dot-group {
+    cursor: pointer;
+  }
+
+  .world-dot-group:focus {
+    outline: none;
+  }
+
+  .world-dot {
+    fill: rgb(var(--c-accent));
+    stroke: rgb(var(--c-bg));
+    stroke-width: 1;
+    transition: fill 160ms ease-out;
+  }
+
+  .world-dot-group:hover .world-dot,
+  .world-dot-group:focus-visible .world-dot {
+    fill: rgb(var(--c-accent2));
+    stroke: rgb(var(--c-text));
+  }
+
+  .world-dot-pulse {
+    fill: none;
+    stroke: rgb(var(--c-accent) / 0.8);
+    stroke-width: 1.2;
+    /* `fill-box` keeps the scale centred on the dot instead of the whole SVG. */
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: world-pulse 3.2s ease-out infinite;
+  }
+
+  @keyframes world-pulse {
+    0% {
+      transform: scale(0.7);
+      opacity: 0.8;
+    }
+    100% {
+      transform: scale(1.6);
+      opacity: 0;
+    }
+  }
+
+  .world-dot-label,
+  .world-hub-label,
+  .world-hub-count {
+    font-family: var(--font-body);
+    font-size: 9px;
+    letter-spacing: 0.02em;
+    pointer-events: none;
+  }
+
+  .world-dot-label {
+    fill: rgb(var(--c-text));
+  }
+
+  .world-hub-label {
+    fill: rgb(var(--c-muted));
+  }
+
+  .world-hub-count {
+    fill: rgb(var(--c-faint));
+  }
+
+  /* The origin is an inset, not a place: a dashed box says "schematic" where a
+     dot on the map would say "here". */
+  .world-hub-inset {
+    fill: rgb(var(--c-surface) / 0.9);
+    stroke: rgb(var(--c-border2));
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+  }
+
+  .world-hub {
+    fill: rgb(var(--c-accent2));
+  }
+
+  .world-hub-glow {
+    fill: url(#world-hub);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .world-arc,
+    .world-dot-pulse {
+      animation: none;
+    }
+
+    /* The pulse only exists to animate, so with motion off it is hidden rather
+       than frozen into a permanent ring around the dot. */
+    .world-dot-pulse {
+      display: none;
+    }
+  }
+
   .btn {
     @apply inline-flex items-center gap-1.5 rounded border border-border bg-surface2 px-2.5 py-1.5
            text-xs font-medium text-text transition-colors hover:border-border2
