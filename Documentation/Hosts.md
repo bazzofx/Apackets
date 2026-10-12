@@ -88,16 +88,18 @@ a capture carrying only non-IP traffic) rather than inventing a row.
 ### 2.4 Host detail panel
 
 Opened by clicking an IP in the table or a node in the map, and addressed by the `host`
-query parameter so it can be linked. It shows the full `hosts` record, then four capped
-tables.
+query parameter so it can be linked. It is three bands, top to bottom:
 
-From the `xl` breakpoint up the panel is **two columns**: the host itself on the left
-(everything below) and the registration rail on the right (§2.5). Narrower viewports stack
-the rail underneath rather than squeezing both. The header — address, scope chip, MAC, first
-and last seen, **Close** — spans both columns and stays where it was.
+| Band | Contents |
+|---|---|
+| Panel header | Address, copy button, scope chip, MAC, `ip_version`, first and last seen, and **Close** (which clears the `host` parameter). Spans the whole width |
+| Two cards side by side | **Host info** — the counters, pivots, chips and cap note below — next to **Registration lookup**, the rail of §2.5 |
+| Full-width records section | The four capped tables, each still its own panel with its own cap line, and the closing note |
 
-Header: address (with a copy button), private/public scope chip, MAC, `ip_version`,
-first and last seen. A **Close** button clears the `host` parameter.
+From the `xl` breakpoint up the two cards sit side by side, each filling its own column:
+host info flexes, the rail is 23 rem. Below `xl` they stack, so neither is squeezed.
+
+**Host info** carries the traffic the capture recorded for this address.
 
 Fields: packets sent, packets received, bytes sent, bytes received, **packets involving this
 IP** (counted live from the `packets` table, `src_ip` or `dst_ip`), and peers.
@@ -117,7 +119,8 @@ Pivot buttons, each of which leaves the page with the same IP as a filter:
 Capped chip blocks: Ports, Protocols, Names, Peers (each draws up to 12 chips with a
 `+N more` counter whose tooltip lists the rest).
 
-Four capped tables, each at most `DETAIL_LIST_LIMIT = 50` rows:
+Four capped tables follow in the full-width section below the cards, each at most
+`DETAIL_LIST_LIMIT = 50` rows:
 
 | Table | Columns |
 |---|---|
@@ -127,11 +130,12 @@ Four capped tables, each at most `DETAIL_LIST_LIMIT = 50` rows:
 | TLS sessions | Time, SNI, Version, Server, Handshake, Cipher suite |
 
 Each subtitle states *"N of at most 50"*, and when any list reaches the cap the panel adds
-a visible note that a full list may hold more and points at the pivots for the complete set.
+a visible note in the **Host info** card — next to the counters it is about — that a full
+list may hold more and points at the pivots for the complete set.
 
 ### 2.5 Registration rail (whois / RDAP)
 
-The right-hand column of the detail panel: who holds the address, rather than what it did.
+The right-hand card of that pair: who holds the address, rather than what it did.
 It is a rail rather than another data card because it answers a different question from a
 different source. It is specified by [../docs/IP_LOOKUP.md](../docs/IP_LOOKUP.md) and served
 by `GET` / `POST /api/analyses/{id}/hosts/{ip}/lookup`.

@@ -11,7 +11,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { ExternalLink, Info, RefreshCw, X } from 'lucide-react'
+import { ExternalLink, Info, Network, RefreshCw, X } from 'lucide-react'
 import CopyButton from '@/components/CopyButton'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
@@ -317,11 +317,24 @@ export function HostDetailPanel({ analysisId, ip, onClose }: HostDetailPanelProp
         </button>
       </header>
 
-      {/* Two columns from `xl` up: what the capture says about this endpoint on
-          the left, registration data for the address on the right. Below `xl`
-          the lookup rail drops underneath rather than squeezing both. */}
+      {/* Two cards side by side, each the full width of its column from `xl` up:
+          what the capture recorded for this endpoint, and registration data for
+          the address. Below `xl` they stack rather than squeeze. The record
+          tables are their own full-width section underneath, so a wide screen
+          is not spent on four half-width tables. */}
       <div className="grid grid-cols-1 gap-3 p-3 xl:grid-cols-[minmax(0,1fr)_23rem]">
-        <div className="flex min-w-0 flex-col gap-3">
+        <section className="host-card" data-host-info>
+          <header className="host-card-head">
+            <div className="host-card-title">
+              <Network size={13} aria-hidden />
+              Host info
+            </div>
+            <div className="host-card-sub">
+              {host.ip} — counters, chips and pivots from this capture
+            </div>
+          </header>
+
+          <div className="host-card-body">
         <div className="grid grid-cols-2 gap-x-3 gap-y-2">
           <Field label="Packets sent" title="Frames in which this IP is the source">
             <span className="mono">{formatNumber(host.packets_sent)}</span>
@@ -395,9 +408,15 @@ export function HostDetailPanel({ analysisId, ip, onClose }: HostDetailPanelProp
             </span>
           </div>
         ) : null}
+          </div>
+        </section>
+
+        <HostLookupPanel analysisId={analysisId} ip={host.ip} />
       </div>
 
-      <div className="flex flex-col gap-3 border-t border-border pt-3">
+      {/* The four capped record tables: one full-width section, each table still
+          its own panel with its own cap note. */}
+      <div className="flex flex-col gap-3 border-t border-border p-3" data-host-records>
         <SectionPanel
           title="Conversations"
           subtitle={`${conversations.length} of at most ${limit} reassembled streams involving this IP`}
@@ -625,9 +644,6 @@ export function HostDetailPanel({ analysisId, ip, onClose }: HostDetailPanelProp
             Capture-derived names and SNI values are rendered as plain text.
           </span>
         </div>
-          </div>
-
-        <HostLookupPanel analysisId={analysisId} ip={host.ip} />
       </div>
     </section>
   )

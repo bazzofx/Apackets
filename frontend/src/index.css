@@ -1089,12 +1089,20 @@
 /* ------------------------------------------------------------------ */
 
 @layer components {
+  /* Host info and Registration lookup are one pair of cards, so their shells are
+     one set of rules: same box, same header, same title size. Only the rail
+     carries the accent tint and the spine, because it is the one that can reach
+     outside the machine. */
+  .host-card,
   .lookup-panel {
-    @apply flex flex-col overflow-hidden;
+    @apply flex min-w-0 flex-col overflow-hidden;
     position: relative;
     border: 1px solid rgb(var(--c-border));
     border-radius: 0.5rem;
     background-color: rgb(var(--c-surface));
+  }
+
+  .lookup-panel {
     background-image: linear-gradient(
       180deg,
       rgb(var(--c-accent) / 0.08),
@@ -1116,12 +1124,14 @@
     );
   }
 
+  .host-card-head,
   .lookup-head {
     @apply border-b border-border px-3 py-2;
     padding-left: 0.875rem;
     background-color: rgb(var(--c-surface2) / 0.45);
   }
 
+  .host-card-title,
   .lookup-title {
     @apply flex items-center gap-1.5 text-text;
     font-size: 1.0625rem;
@@ -1130,10 +1140,12 @@
     text-transform: uppercase;
   }
 
+  .host-card-sub,
   .lookup-sub {
     @apply mt-0.5 truncate text-2xs text-faint;
   }
 
+  .host-card-body,
   .lookup-body {
     @apply flex flex-col gap-3 p-3;
     padding-left: 0.875rem;
