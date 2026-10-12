@@ -44,7 +44,7 @@ The headings below are the five headings the sidebar draws, in its order.
 | Section | Document | Route |
 |---|---|---|
 | Threat Map | [Threat-Hunt.md](Threat-Hunt.md) | `/threat-hunt` |
-| Investigate | [Investigate.md](Investigate.md) | `/investigate` |
+| Hunt | [Investigate.md](Investigate.md) | `/investigate` |
 | Files and Objects | [Files-and-Objects.md](Files-and-Objects.md) | `/objects` |
 
 ### Protocols
@@ -66,8 +66,8 @@ The headings below are the five headings the sidebar draws, in its order.
 is [Threat-Hunt.md](Threat-Hunt.md); the seventeen detections each have their own page
 under [ThreatHunter/](ThreatHunter/ThreatHunter.md), starting with the overview.
 
-**Investigate** ([Investigate.md](Investigate.md)) is the one section that reads one
-entity rather than the whole capture: it is documented against its own normative
+**Hunt** ([Investigate.md](Investigate.md)) is the one section that reads one entity
+rather than the whole capture: it is documented against its own normative
 contract, [`docs/ENTITY_PROFILE.md`](../docs/ENTITY_PROFILE.md).
 
 ---

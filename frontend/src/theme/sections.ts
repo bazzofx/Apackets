@@ -45,7 +45,7 @@ import {
  * * `console` - compact headline, maximum density above the fold.
  * * `ledger`  - full-bleed body for a dense table or diagram.
  * * `split`   - narrow headline, wide left gutter, for forms and card grids.
- * * `signal`  - centred headline with a spectrum rule, for the Investigate page:
+ * * `signal`  - centred headline with a spectrum rule, for the Hunt page:
  *               it is one search box and a field of coloured widgets, so it is
  *               laid out and coloured unlike every other page on purpose.
  */
@@ -153,7 +153,7 @@ export const SECTIONS = {
     id: 'investigate',
     route: '/investigate',
     group: 'Investigate',
-    label: 'Investigate',
+    label: 'Hunt',
     purpose:
       'Look up one address, domain or URL and see everything this capture recorded about it, one question per widget.',
     icon: ScanSearch,

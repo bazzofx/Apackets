@@ -1,4 +1,4 @@
-# Investigate
+# Hunt
 
 One entity, everything the capture recorded about it: search by IP address, domain
 name or URL, then read a grid of small coloured widgets — one per question — each
@@ -9,6 +9,12 @@ The page is `frontend/src/pages/InvestigatePage.tsx` and its route is
 after **Threat Map**, and it is the one page in the application laid out as a lookup
 rather than a listing: a centred headline with the search box inside it, then a field
 of tiles.
+
+The section is *named* **Hunt** and *grouped* under **Investigate**: the sidebar draws
+`Investigate` as a heading, with Threat Map, Hunt and Files and Objects beneath it. The
+route keeps the older word on purpose — `/investigate` is what the profile endpoints link
+to (the `to` values of [`docs/ENTITY_PROFILE.md`](../docs/ENTITY_PROFILE.md)) — so renaming
+it would break every deep link the API hands out.
 
 The normative interface for the section is
 [`docs/ENTITY_PROFILE.md`](../docs/ENTITY_PROFILE.md) — the two endpoints, the

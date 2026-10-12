@@ -575,7 +575,7 @@ these alerts, including [IDS Signature Matches](ThreatHunter/IdsSignatureMatches
 [Packets](Packets.md) for the frames behind every alert · [HTTP](HTTP.md), [DNS](DNS.md) and
 [TLS](TLS.md) for the application-layer rows the Application tab summarises ·
 [Files-and-Objects](Files-and-Objects.md) for the exports the Files tab points at ·
-[Hosts](Hosts.md) for the endpoints named in a finding · [Investigate](Investigate.md) to
+[Hosts](Hosts.md) for the endpoints named in a finding · [Hunt](Investigate.md) to
 read everything this capture recorded about one of them · [Settings](Settings.md) for detection
 thresholds and the Suricata rule store · [Reference/API.md](Reference/API.md) for the exact
 response shapes.

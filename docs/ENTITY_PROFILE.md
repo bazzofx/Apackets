@@ -1,6 +1,6 @@
-# Entity profile contract (Investigate)
+# Entity profile contract (Hunt)
 
-**Status:** normative for the `Investigate` section. `docs/CONTRACT.md` governs the
+**Status:** normative for the `Hunt` section. `docs/CONTRACT.md` governs the
 analysis contract; `docs/THREAT_HUNT.md` governs the seventeen detections. This file
 governs the per-entity answers — the "everything we know about this address, name or
 URL" surface.

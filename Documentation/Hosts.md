@@ -383,4 +383,4 @@ on [Findings](Findings.md).
 [Dashboard](Dashboard.md) for the same graph payload drawn with the precise `scope` labels ·
 [Findings](Findings.md) for alerts raised about these endpoints ·
 [Files-and-Objects](Files-and-Objects.md) for content recovered from them —
-[Investigate](Investigate.md) to read one of these addresses on its own.
+[Hunt](Investigate.md) to read one of these addresses on its own.

@@ -1453,7 +1453,7 @@ export interface ThreatHuntResponse {
 }
 
 /* ------------------------------------------------------------------ */
-/* Entity profile: the Investigate section (docs/ENTITY_PROFILE.md)     */
+/* Entity profile: the Hunt section (docs/ENTITY_PROFILE.md)            */
 /* ------------------------------------------------------------------ */
 
 /** What was looked up. */

@@ -5,7 +5,7 @@ its size, status, hashes, the stream and frames it came from, a download link an
 re-extraction control.
 
 It is reachable at `/objects`, under **Investigate** in the left-hand navigation, after
-[Threat Map](Threat-Hunt.md) and [Investigate](Investigate.md): what it holds is carved
+[Threat Map](Threat-Hunt.md) and [Hunt](Investigate.md): what it holds is carved
 content rather than one entity's answers, which is why it is its own page inside that group.
 
 ---

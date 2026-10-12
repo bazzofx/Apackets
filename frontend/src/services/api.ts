@@ -891,11 +891,11 @@ export const threatHuntApi = {
 }
 
 /* ------------------------------------------------------------------ */
-/* Investigate: entity profile (docs/ENTITY_PROFILE.md section 2)        */
+/* Hunt: entity profile (docs/ENTITY_PROFILE.md section 2)               */
 /* ------------------------------------------------------------------ */
 
 /**
- * The two read-only queries the Investigate page runs.
+ * The two read-only queries the Hunt page runs.
  *
  * `search` resolves what the reader typed to the entities that match it - an
  * address, a domain name, or a URL - and `get` returns everything the capture

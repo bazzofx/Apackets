@@ -18,7 +18,7 @@ import { formatNumber } from '@/utils/format'
 import type { EntityProfile, ProfileKind } from '@/types'
 
 /**
- * Investigate — look up one address, domain name or URL and read everything this
+ * Hunt — look up one address, domain name or URL and read everything this
  * capture recorded about it (docs/ENTITY_PROFILE.md).
  *
  * The page is a lookup, not a listing, so it is built unlike the rest of the app:
@@ -324,7 +324,7 @@ function InvestigateStart() {
   )
 }
 
-/** Investigate — a lookup, then one coloured widget per question. */
+/** Hunt — a lookup, then one coloured widget per question. */
 export function InvestigatePage() {
   const { analysisId } = useAnalysis()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -364,7 +364,7 @@ export function InvestigatePage() {
         ) : null
       }
     >
-      <AnalysisGuard emptyDescription="Upload a PCAP/PCAPNG capture or select an existing analysis in the top bar to look one address, name or URL up in it. Investigate reads only tables that already exist, so it needs a finished analysis.">
+      <AnalysisGuard emptyDescription="Upload a PCAP/PCAPNG capture or select an existing analysis in the top bar to look one address, name or URL up in it. Hunt reads only tables that already exist, so it needs a finished analysis.">
         {selected === null ? (
           <InvestigateStart />
         ) : (

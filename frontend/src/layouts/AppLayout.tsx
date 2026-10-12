@@ -206,7 +206,7 @@ export function AppLayout() {
     },
     {
       to: '/investigate',
-      label: 'Investigate',
+      label: 'Hunt',
       icon: ScanSearch,
       title: 'Look up one address, domain or URL and see everything this capture knows about it',
     },
