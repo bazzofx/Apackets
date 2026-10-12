@@ -91,11 +91,12 @@ is the span each stage owns in the `BANDS` dict at the top of `pipeline.py`.
 | 4 | `http` | 58–68% | `services/http_analyzer.py` | `analyze` | `http_transactions` |
 | 5 | `dns` | 68–76% | `services/dns_analyzer.py` | `analyze` | `dns_queries` |
 | 6 | `tls` | 76–83% | `services/tls_analyzer.py` | `analyze` | `tls_sessions` |
-| 7 | `hosts` | 83–90% | `services/host_analyzer.py` | `analyze` | `hosts` |
-| 8 | `objects` | 90–94% | `services/object_extractor.py` | `analyze` | `objects` + files under `data/analyses/<id>/objects/` |
-| 9 | `detection` | 94–97% | `services/detection_engine.py` | `analyze` | `findings` (built-in rules) |
-| 10 | `suricata` | 97–99% | `services/suricata_engine.py` | `analyze` | `findings` (`rule_id = suricata:<sid>`) |
-| 11 | `finalise` | 99–100% | `services/pipeline.py` | `_cache_protocol_hierarchy`, `_store_warnings`, `_refresh_counts` | `stats_cache`, `analyses` counters |
+| 7 | `protocols` | 83–90% | `services/protocol_analyzer.py` | `analyze` | `protocol_sessions` (Email, SSH, FTP, VoIP, SMB — see [PROTOCOLS.md](../docs/PROTOCOLS.md)) |
+| 8 | `hosts` | 90–93% | `services/host_analyzer.py` | `analyze` | `hosts` |
+| 9 | `objects` | 93–96% | `services/object_extractor.py` | `analyze` | `objects` + files under `data/analyses/<id>/objects/` |
+| 10 | `detection` | 96–98% | `services/detection_engine.py` | `analyze` | `findings` (built-in rules) |
+| 11 | `suricata` | 98–99% | `services/suricata_engine.py` | `analyze` | `findings` (`rule_id = suricata:<sid>`) |
+| 12 | `finalise` | 99–100% | `services/pipeline.py` | `_cache_protocol_hierarchy`, `_store_warnings`, `_refresh_counts` | `stats_cache`, `analyses` counters |
 
 Notes that matter when reading the code:
 
@@ -153,6 +154,7 @@ upload.
 | `http_transactions` | `id` (autoincrement) | Method, host, URI, status, user agent, referer, content type, sizes, header text, capped body previews and the analyser's `flags`. |
 | `dns_queries` | `id` (autoincrement) | Query name and type, client/server, rcode, answers, answer IPs, CNAMEs, TTL, RTT, and the derived name shape (`name_length`, `label_count`, `longest_label`, `entropy`) plus `flags`. |
 | `tls_sessions` | `id` (autoincrement) | Handshake metadata only: versions, SNI, ALPN, cipher, JA3/JA3S/JA4, certificate subject/issuer/validity/serial, handshake status, alerts, `flags`. No decrypted payload. |
+| `protocol_sessions` | `id` (autoincrement) | One row per session of the five protocol families that are not HTTP, DNS or TLS — Email (SMTP, POP3, IMAP), SSH, FTP, VoIP (SIP, RTP, RTCP) and SMB. Shared columns hold the endpoints, times, volume by direction and the flags; the per-protocol fields live in a JSON `detail` object, so adding a protocol never changes the table. Fixed by [`docs/PROTOCOLS.md`](../docs/PROTOCOLS.md). |
 | `hosts` | `(analysis_id, ip)` | One row per endpoint: MAC, first/last seen, bytes and packets per direction, ports, protocols, DNS names observed, TLS SNI seen, `is_private`, `ip_version`, and the peer list with its count. |
 | `findings` | `id` | The recorded detections — built-in rules and Suricata matches alike: rule id, severity, title, description, reason, evidence JSON, packet numbers, entities, recommendation. |
 | `objects` | `id` | Files recovered from the capture: display filename, stored path, protocol, content type, size, md5/sha1/sha256, endpoints, status (`complete`/`partial`/`failed`) and note. |
@@ -363,6 +365,7 @@ security model and the known limitations.
 | Packet extraction into SQLite | `backend/app/services/packet_indexer.py` |
 | Conversations, streams and reassembly | `backend/app/services/conversation_analyzer.py`, `stream_analyzer.py` |
 | HTTP, DNS and TLS metadata (and their lead flags) | `backend/app/services/http_analyzer.py`, `dns_analyzer.py`, `tls_analyzer.py` |
+| The five protocol-session families and their lead flags | `backend/app/services/protocol_analyzer.py` (see [PROTOCOLS.md](../docs/PROTOCOLS.md)) |
 | Host inventory, address classification, the graph | `backend/app/services/host_analyzer.py` |
 | File recovery from captures | `backend/app/services/object_extractor.py` |
 | Built-in detection rules and their thresholds | `backend/app/services/detection_engine.py` |
@@ -373,6 +376,7 @@ security model and the known limitations.
 | The theme tokens and palettes | `frontend/src/theme/themes.ts`, `ThemeProvider.tsx` |
 | How the front end talks to the API | `frontend/src/services/api.ts`, `frontend/vite.config.ts` |
 | The pages and their routes | `frontend/src/pages/`, `frontend/src/App.tsx`, `frontend/src/layouts/AppLayout.tsx` |
+| The five protocol-session pages, which are one component with a family | `frontend/src/pages/ProtocolSessionsPage.tsx`, `frontend/src/components/protocols/sessionCatalog.ts`, `SessionDetail.tsx` |
 
 ---
 

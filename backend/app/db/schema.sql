@@ -258,6 +258,42 @@ CREATE INDEX IF NOT EXISTS idx_tls_sni      ON tls_sessions(analysis_id, sni);
 CREATE INDEX IF NOT EXISTS idx_tls_version  ON tls_sessions(analysis_id, version);
 CREATE INDEX IF NOT EXISTS idx_tls_stream   ON tls_sessions(analysis_id, stream_id);
 
+-- Protocol sessions: one row per stream in which SMTP, POP3, IMAP, SSH, FTP, SIP,
+-- RTP, RTCP or SMB appeared (see docs/PROTOCOLS.md). Shared columns hold what every
+-- session has; per-protocol keys live in `detail`, so a new protocol never changes
+-- this table. `flags` and `detail` are JSON text: an array of "code[: detail]"
+-- strings, and an object of only the keys the dissector actually produced.
+CREATE TABLE IF NOT EXISTS protocol_sessions (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  analysis_id    TEXT    NOT NULL,
+  protocol       TEXT    NOT NULL,   -- smtp | pop3 | imap | ssh | ftp | sip | rtp | rtcp | smb
+  stream_id      INTEGER,            -- tcp.stream or udp.stream, when TShark gave one
+  transport      TEXT,               -- 'tcp' | 'udp'
+  client_ip      TEXT,
+  client_port    INTEGER,
+  server_ip      TEXT,
+  server_port    INTEGER,
+  first_frame    INTEGER,            -- frame.number of the session's first frame
+  last_frame     INTEGER,
+  start_time     REAL,               -- epoch seconds, first frame
+  end_time       REAL,               -- epoch seconds, last frame
+  duration       REAL,               -- end_time - start_time
+  packets        INTEGER NOT NULL DEFAULT 0,
+  bytes          INTEGER NOT NULL DEFAULT 0,
+  client_packets INTEGER NOT NULL DEFAULT 0,
+  client_bytes   INTEGER NOT NULL DEFAULT 0,
+  server_packets INTEGER NOT NULL DEFAULT 0,
+  server_bytes   INTEGER NOT NULL DEFAULT 0,
+  detail         TEXT NOT NULL DEFAULT '{}',   -- JSON object, §3
+  flags          TEXT NOT NULL DEFAULT '[]',   -- JSON array of strings, §4
+  note           TEXT,               -- how the roles were assigned, or a limit of this row
+  created_at     REAL
+);
+CREATE INDEX IF NOT EXISTS idx_proto_analysis ON protocol_sessions(analysis_id, protocol, start_time);
+CREATE INDEX IF NOT EXISTS idx_proto_stream   ON protocol_sessions(analysis_id, protocol, stream_id);
+CREATE INDEX IF NOT EXISTS idx_proto_server   ON protocol_sessions(analysis_id, server_ip, server_port);
+CREATE INDEX IF NOT EXISTS idx_proto_client   ON protocol_sessions(analysis_id, client_ip);
+
 CREATE TABLE IF NOT EXISTS hosts (
     analysis_id      TEXT    NOT NULL,
     ip               TEXT    NOT NULL,

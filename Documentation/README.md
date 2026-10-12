@@ -54,6 +54,11 @@ The headings below are the five headings the sidebar draws, in its order.
 | HTTP | [HTTP.md](HTTP.md) | `/http` |
 | DNS | [DNS.md](DNS.md) | `/dns` |
 | TLS | [TLS.md](TLS.md) | `/tls` |
+| Email | [Email.md](Email.md) | `/email` |
+| SSH | [SSH.md](SSH.md) | `/ssh` |
+| FTP | [FTP.md](FTP.md) | `/ftp` |
+| VoIP | [VoIP.md](VoIP.md) | `/voip` |
+| SMB | [SMB.md](SMB.md) | `/smb` |
 
 ### Settings
 

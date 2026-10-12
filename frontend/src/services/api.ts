@@ -48,6 +48,10 @@ import type {
   Paginated,
   ProfileKind,
   ProfileSearch,
+  ProtocolListParams,
+  ProtocolSessionDetail,
+  ProtocolSessionsResponse,
+  ProtocolSummaryResponse,
   Settings,
   SettingsUpdate,
   SettingsUpdateResponse,
@@ -910,4 +914,33 @@ export const profileApi = {
     ),
   get: (analysisId: string, kind: ProfileKind, entity: string) =>
     request<EntityProfile>(`/analyses/${analysisId}/profile/${kind}/${encodeURIComponent(entity)}`),
+}
+
+/* ------------------------------------------------------------------ */
+/* Protocol sessions: Email, SSH, FTP, VoIP, SMB (docs/PROTOCOLS.md)    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The four calls the five protocol-session pages make.
+ *
+ * `list` is one endpoint with a `family` filter, which is why five pages share one
+ * component: Email asks for `email` (`smtp`, `pop3`, `imap`), VoIP for `voip` (`sip`,
+ * `rtp`, `rtcp`), and the other three for a single protocol each. `rescan` exists because
+ * the extractor runs as a pipeline stage: a capture indexed before this section existed
+ * holds no rows until it is re-read, and the page offers that rather than reporting an
+ * empty capture as a clean one.
+ */
+export const protocolsApi = {
+  list: (analysisId: string, params: ProtocolListParams = {}) =>
+    request<ProtocolSessionsResponse>(
+      `/analyses/${analysisId}/protocols${buildQuery(params as Record<string, unknown>)}`,
+    ),
+  summary: (analysisId: string) =>
+    request<ProtocolSummaryResponse>(`/analyses/${analysisId}/protocols/summary`),
+  get: (analysisId: string, sessionId: number) =>
+    request<ProtocolSessionDetail>(`/analyses/${analysisId}/protocols/${String(sessionId)}`),
+  rescan: (analysisId: string) =>
+    request<{ job_id: string; status: string }>(`/analyses/${analysisId}/protocols/rescan`, {
+      method: 'POST',
+    }),
 }

@@ -1508,3 +1508,120 @@ export interface EntityProfile {
   questions: ThreatHuntIndicator[]
   truncated: Record<string, boolean>
 }
+
+/* ------------------------------------------------------------------ */
+/* Protocol sessions: Email, SSH, FTP, VoIP, SMB (docs/PROTOCOLS.md)    */
+/* ------------------------------------------------------------------ */
+
+/** The five pages of the protocol-session family. */
+export type ProtocolFamily = 'email' | 'ssh' | 'ftp' | 'voip' | 'smb'
+
+/** The protocols a session row can belong to. */
+export type ProtocolName = 'smtp' | 'pop3' | 'imap' | 'ssh' | 'ftp' | 'sip' | 'rtp' | 'rtcp' | 'smb'
+
+/** Sort keys the endpoint allows (contract §5.1). */
+export type ProtocolSort = 'start_time' | 'bytes' | 'packets' | 'duration'
+
+/**
+ * One session: a stream in which the protocol appeared.
+ *
+ * `detail` holds the protocol's own keys (contract §3) and `flags` the lead flags as the
+ * application's `code` / `"code: detail"` strings, exactly as HTTP, DNS and TLS return
+ * them, so one badge component renders all of them.
+ */
+export interface ProtocolSessionRow {
+  id: number
+  analysis_id: string
+  protocol: ProtocolName
+  stream_id: number | null
+  transport: string | null
+  client_ip: string | null
+  client_port: number | null
+  server_ip: string | null
+  server_port: number | null
+  first_frame: number | null
+  last_frame: number | null
+  start_time: number | null
+  end_time: number | null
+  duration: number | null
+  packets: number
+  bytes: number
+  client_packets: number
+  client_bytes: number
+  server_packets: number
+  server_bytes: number
+  detail: Record<string, unknown>
+  flags: string[]
+  note: string | null
+}
+
+/** Envelope totals for one page of sessions. */
+export interface ProtocolCounts {
+  by_protocol: Record<string, number>
+  sessions: number
+  flagged: number
+  bytes: number
+  packets: number
+  first_seen: number | null
+  last_seen: number | null
+}
+
+/** `GET /api/analyses/{id}/protocols`. */
+export interface ProtocolSessionsResponse {
+  analysis_id: string
+  generated_at: number
+  family: ProtocolFamily | null
+  protocols: ProtocolName[]
+  total: number
+  page: number
+  page_size: number
+  counts: ProtocolCounts
+  note: string
+  /** False when the analysis has never been through the extraction stage (contract §5.1). */
+  extracted: boolean
+  /** True when `SESSION_CAP` cut the rows this response could carry (contract §6). */
+  capped: boolean
+  /** The cap that applied, so a capped response can state its own limit. */
+  session_cap: number
+  /** Rows the analysis actually holds, whether or not this page could read them all. */
+  stored_rows: number
+  rows: ProtocolSessionRow[]
+}
+
+/** Per-family totals, for the header of each of the five pages. */
+export interface ProtocolFamilySummary {
+  protocols: ProtocolName[]
+  sessions: number
+  flagged: number
+  bytes: number
+  packets: number
+  first_seen: number | null
+  last_seen: number | null
+}
+
+/** `GET /api/analyses/{id}/protocols/summary`. */
+export interface ProtocolSummaryResponse {
+  analysis_id: string
+  generated_at: number
+  extracted: boolean
+  families: Record<string, ProtocolFamilySummary>
+  note: string
+}
+
+/** `GET /api/analyses/{id}/protocols/{session_id}`. */
+export interface ProtocolSessionDetail extends ProtocolSessionRow {
+  links: { to: string; label: string }[]
+}
+
+/** Query parameters of the list endpoint. */
+export interface ProtocolListParams {
+  protocol?: string
+  family?: string
+  q?: string
+  flagged?: boolean
+  sort?: string
+  /** `asc` or `desc`; omitted means the endpoint's descending default. */
+  order?: string
+  page?: number
+  page_size?: number
+}

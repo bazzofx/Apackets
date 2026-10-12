@@ -194,6 +194,12 @@ Defined in `backend/app/db/schema.sql`. Column names below are authoritative.
 All timestamps are Unix epoch **seconds as REAL** unless the column name says
 `_text`. All JSON columns are TEXT holding a compact JSON array/object.
 
+Three tables are defined by later contracts rather than here, because they belong to
+features added after this document was frozen: `protocol_sessions` (the five protocol
+session sections — Email, SSH, FTP, VoIP, SMB) in `docs/PROTOCOLS.md` §2, and the
+entity-profile and threat-map read paths, which store no tables of their own. Where a
+later contract and this one touch, this one wins for everything defined above.
+
 ### analyses
 `id TEXT PK`, `original_filename TEXT`, `stored_path TEXT`, `file_size INTEGER`,
 `file_sha256 TEXT`, `file_type TEXT`, `encapsulation TEXT`,
@@ -581,6 +587,15 @@ skipped; only extraction failure of packets fails the whole analysis.
   directory (`403 path_traversal`).
 * `POST /api/analyses/{id}/objects/extract` — re-runs extraction, returns
   `{"ok":true,"extracted":n}`.
+
+### Protocol sessions (`routes_protocols.py`)
+
+`GET /analyses/{id}/protocols` (filters, paging, sort), `/protocols/summary` (per-family
+totals and whether the analysis was ever extracted) and `/protocols/{session_id}` (one
+session with its per-protocol `detail`), plus `POST /analyses/{id}/protocols/rescan` (202
+and a job id). The five pages — Email, SSH, FTP, VoIP, SMB — read one table and one
+extractor; the shape, the per-protocol `detail` keys, the lead flags and the caps are
+fixed by `docs/PROTOCOLS.md`.
 
 ### Threat Hunt (`routes_threat_hunt.py`)
 * `GET /api/analyses/{id}/threat-hunt` — the Threat Hunt indicator engine: 17

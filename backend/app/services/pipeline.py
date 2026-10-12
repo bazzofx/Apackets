@@ -31,10 +31,11 @@ BANDS: dict[str, tuple[float, float]] = {
     "http": (58.0, 10.0),
     "dns": (68.0, 8.0),
     "tls": (76.0, 7.0),
-    "hosts": (83.0, 7.0),
-    "objects": (90.0, 4.0),
-    "detection": (94.0, 3.0),
-    "suricata": (97.0, 2.0),
+    "protocols": (83.0, 7.0),
+    "hosts": (90.0, 3.0),
+    "objects": (93.0, 3.0),
+    "detection": (96.0, 2.0),
+    "suricata": (98.0, 1.0),
     "finalise": (99.0, 1.0),
 }
 
@@ -158,6 +159,7 @@ def run_analysis(ctx: JobContext, analysis_id: str, capture_path: Path) -> None:
         ("http", "http_analyzer", "Analysing HTTP"),
         ("dns", "dns_analyzer", "Analysing DNS"),
         ("tls", "tls_analyzer", "Analysing TLS"),
+        ("protocols", "protocol_analyzer", "Analysing protocol sessions"),
         ("hosts", "host_analyzer", "Building host statistics"),
         ("objects", "object_extractor", "Extracting objects"),
         ("detection", "detection_engine", "Running detection rules"),

@@ -14,6 +14,7 @@ import HostsPage from '@/pages/HostsPage'
 import ObjectsPage from '@/pages/ObjectsPage'
 import FindingsPage from '@/pages/FindingsPage'
 import InvestigatePage from '@/pages/InvestigatePage'
+import ProtocolSessionsPage from '@/pages/ProtocolSessionsPage'
 import ThreatHuntPage from '@/pages/ThreatHuntPage'
 import SettingsPage from '@/pages/SettingsPage'
 
@@ -45,6 +46,13 @@ export function App() {
         <Route path="/http" element={<HttpPage />} />
         <Route path="/dns" element={<DnsPage />} />
         <Route path="/tls" element={<TlsPage />} />
+        {/* The five session pages are one component with a family: same table, same
+            filters, same flag legend, a different protocol set (docs/PROTOCOLS.md). */}
+        <Route path="/email" element={<ProtocolSessionsPage family="email" />} />
+        <Route path="/ssh" element={<ProtocolSessionsPage family="ssh" />} />
+        <Route path="/ftp" element={<ProtocolSessionsPage family="ftp" />} />
+        <Route path="/voip" element={<ProtocolSessionsPage family="voip" />} />
+        <Route path="/smb" element={<ProtocolSessionsPage family="smb" />} />
         <Route path="/hosts" element={<HostsPage />} />
         <Route path="/objects" element={<ObjectsPage />} />
         <Route path="/findings" element={<FindingsPage />} />

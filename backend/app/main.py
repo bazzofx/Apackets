@@ -37,6 +37,7 @@ ROUTER_SPECS: tuple[tuple[str, str], ...] = (
     ("app.api.routes_http", "router"),
     ("app.api.routes_dns", "router"),
     ("app.api.routes_tls", "router"),
+    ("app.api.routes_protocols", "router"),
     ("app.api.routes_findings", "router"),
     ("app.api.routes_objects", "router"),
     ("app.api.routes_suricata", "router"),

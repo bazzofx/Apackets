@@ -21,16 +21,21 @@
 import {
   ArrowLeftRight,
   FolderOpen,
+  FolderUp,
   Globe,
   Info,
   LayoutDashboard,
+  Mail,
   List,
   Lock,
   Package,
+  PhoneCall,
   Radar,
   Search,
   Server,
   ScanSearch,
+  Share2,
+  Terminal,
   Settings as SettingsIcon,
   ShieldAlert,
   type LucideIcon,
@@ -216,6 +221,66 @@ export const SECTIONS = {
     hueVar: '--c-chart-1',
     variant: 'ledger',
   },
+  /* The five session pages take the hues nothing else had left. The eight chart hues and
+     the three loudest severity tokens were already spoken for, and the network-map
+     classifications are the only legible ones remaining; a page accent never means "public
+     address" anywhere (`--s-accent` only tints the headline, the eyebrow, the active nav
+     entry and a card's hairline), so nothing reads as a claim about scope. */
+  email: {
+    id: 'email',
+    route: '/email',
+    group: 'Protocols',
+    label: 'Email',
+    purpose:
+      'SMTP, POP3 and IMAP sessions: who sent what to whom, which mailboxes were touched, and which credentials crossed the wire in the clear.',
+    icon: Mail,
+    hueVar: '--c-map-public',
+    variant: 'ledger',
+  },
+  ssh: {
+    id: 'ssh',
+    route: '/ssh',
+    group: 'Protocols',
+    label: 'SSH',
+    purpose:
+      'SSH sessions: the banners both sides announced, the algorithms they offered, and the handshake messages — the payload itself is encrypted.',
+    icon: Terminal,
+    hueVar: '--c-map-private',
+    variant: 'ledger',
+  },
+  ftp: {
+    id: 'ftp',
+    route: '/ftp',
+    group: 'Protocols',
+    label: 'FTP',
+    purpose:
+      'FTP control channels: the commands, the names of the files asked for, the response codes, and the data connections each session opened.',
+    icon: FolderUp,
+    hueVar: '--c-map-multicast',
+    variant: 'ledger',
+  },
+  voip: {
+    id: 'voip',
+    route: '/voip',
+    group: 'Protocols',
+    label: 'VoIP',
+    purpose:
+      'SIP signalling and the RTP/RTCP streams it produced: who called whom, which methods and status codes crossed, and which media streams exist.',
+    icon: PhoneCall,
+    hueVar: '--c-map-unclassified',
+    variant: 'ledger',
+  },
+  smb: {
+    id: 'smb',
+    route: '/smb',
+    group: 'Protocols',
+    label: 'SMB',
+    purpose:
+      'SMB sessions: the dialect negotiated, the shares connected, the file names requested, and the failures the server returned.',
+    icon: Share2,
+    hueVar: '--c-sev-low',
+    variant: 'ledger',
+  },
   files: {
     id: 'files',
     route: '/files',
@@ -258,6 +323,11 @@ export const SECTION_LIST: SectionIdentity[] = [
   SECTIONS.http,
   SECTIONS.dns,
   SECTIONS.tls,
+  SECTIONS.email,
+  SECTIONS.ssh,
+  SECTIONS.ftp,
+  SECTIONS.voip,
+  SECTIONS.smb,
   SECTIONS.files,
   SECTIONS.settings,
 ]
