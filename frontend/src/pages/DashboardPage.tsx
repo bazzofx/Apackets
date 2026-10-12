@@ -292,6 +292,7 @@ function DashboardOverview() {
           <div className="p-2">
             <WorldMap
               data={geography.data}
+              analysisId={analysisId as string}
               focused={focusedCountry}
               onFocus={setFocusedCountry}
               onSelectIp={openIp}

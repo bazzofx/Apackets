@@ -173,7 +173,9 @@ is rejected as truncated rather than installed.
 * `name` is the country's English name, resolved from the code by the frontend's map asset
   (§6) or a bundled code list. The API may send `null` when it does not know the name; the
   page then shows the code. It never invents a name from a code by pattern.
-* `note` always states the section's limits in one sentence (§7).
+* `note` states the section's limits (§7) in one sentence, then one more naming which
+  conversation is linked, and one more for each cap that bit. It is never shorter than §7
+  requires and never leaves a cut unreported.
 * Failure modes follow the rest of the application: unknown analysis `404
   analysis_not_found` (after the id-shape check), unfinished `409 analysis_not_ready`.
 
@@ -185,8 +187,16 @@ almost none of them are opened; this endpoint is fetched only when a dot is clic
 
 `{code}` is an ISO 3166-1 alpha-2 code (case-insensitive) **or `ZZ`**, which returns the
 *not placed* bucket — those addresses have ports and conversations like any others, so the
-panel is the same shape. A code this capture sent nothing to is `404 country_not_found`. An
-analysis that has never been extracted is still `200`: the buckets are empty, not missing.
+panel is the same shape.
+
+* An analysis that has **never been extracted at all** (no `hosts` rows) answers `200` with
+  empty buckets for any code: there is nothing to report as missing, which is the same reading
+  §5.1 gives `extracted`.
+* An extracted capture whose **bucket is empty** — all of its traffic was local — answers
+  `404 country_not_found` for that country, because the page that asks has a dot for it and a
+  dot with no traffic is a contradiction worth reporting rather than an empty panel.
+* `ZZ` is a bucket rather than a country, so it answers `200` whenever the capture has any
+  unplaced public address.
 
 ```json
 {
@@ -212,7 +222,8 @@ analysis that has never been extracted is still `200`: the buckets are empty, no
       "bytes": 500000,
       "sent": { "packets": 300, "bytes": 40000 },
       "received": { "packets": 900, "bytes": 460000 },
-      "ports": [{ "port": 443, "side": "remote", "packets": 1150, "bytes": 498000 }],
+      "ports": [{ "port": 443, "side": "remote", "packets": 1150, "bytes": 498000, "addresses": 1 }],
+      "ports_truncated": false,
       "protocols": ["tcp", "tls"],
       "first_conversation": {
         "conv_id": "tcp:36",
@@ -230,13 +241,42 @@ analysis that has never been extracted is still `200`: the buckets are empty, no
 ```
 
 * **Direction** (`sent` / `received`) is from the capture's own side, taken from the `hosts`
-  row of each address (`packets_sent`/`bytes_sent` are what *this* side sent, so they are the
-  packets the destination **received**; the mapping is stated here because getting it backwards
-  would invert the meaning of every panel).
+  row of each address — and the mapping is the reverse of that row's own columns, because the
+  row's perspective is the *address's*, not this side's. `host_analyzer._HOST_SQL` counts
+  `bytes_sent` for frames where the address is the **source** and `bytes_received` for frames
+  where it is the **destination**. For a destination in this feature:
+
+  | Panel field | `hosts` column | Meaning |
+  |---|---|---|
+  | `sent` | `bytes_received`, `packets_received` | what **this capture's side** sent, i.e. what the destination received |
+  | `received` | `bytes_sent`, `packets_sent` | what **this capture's side** received, i.e. what the destination sent |
+
+  Stated here because the two readings are opposite and nothing in the shape of the data
+  distinguishes them, so this is exactly the kind of thing that gets silently inverted. The
+  measured case, which is also the test fixture's shape: in
+  `SpaceX_Download_sysInternals_curlOutput.pcapng` the **ZA** bucket reads `received 210.27 MB`
+  against `sent 0.87 MB`, because Microsoft's `150.171.109.217` sent 209.9 MB in 140,996 frames
+  — that is the download — while the **US** bucket reads `sent 8.86 MB` against
+  `received 0.81 MB`, because `3.173.21.63` is S3 and this capture uploaded to it (the
+  conversations table names `192.168.8.229:59141 → 3.173.21.63:443` at 2.93 MB outbound). Both
+  are correct; a reader who assumes "download capture means received is larger" will get the
+  second one wrong. The page prints whose side it means next to the two figures.
 * **Ports** come from `conversations`, not from per-packet dissection, and carry the side that
   owned the port: `remote` is the port on the destination's address (the service port a reader
   is looking for), `local` is the port on the capture's own side (usually the ephemeral one).
-  At most `PORT_CAP` (25) ports are returned, largest first, with `ports_truncated` when cut.
+  An entry's `packets` and `bytes` are that port's **conversation totals for that side**, both
+  directions together — the direction split belongs to the address row, not the port, and two
+  numbers per port would say less than the address's own `sent`/`received` already does.
+  `addresses` is how many addresses of the bucket used that port on that side; on a `targets[]`
+  entry it is always `1`, because there the port belongs to that one address.
+  Both lists are cut by `PORT_CAP` (25) and both say so: `ports_truncated` for the panel's list,
+  `targets[].ports_truncated` for an address's own — one address can legitimately have hundreds
+  of ports, and a scan's worth of chips is not a panel. Each list keeps the busiest ports.
+* **`first_conversation.stream_id` can be `null`**: a conversation exists, but the dissector
+  never reassembled it into a stream (a mixed or absent stream id). The contract still returns
+  that conversation, because it is the earliest and the counts are real — and the page then
+  **cannot** build the conversation link, so it disables the button and says why rather than
+  linking to `tcp:null`.
 * **`first_conversation`** is the **earliest** conversation involving that address, by
   `start_time` and then `stream_id` — deterministic, and named "first" rather than "biggest"
   because the page links to it as *follow conversation with this address*. `null` means the
@@ -271,7 +311,12 @@ analysis that has never been extracted is still `200`: the buckets are empty, no
   clamped so the world never leaves the frame. Keyboard users get the same three controls, and
   the zoom level is announced in a control's tooltip rather than in a live region that would
   chatter on every wheel tick.
-* **Clicking a dot zooms to that country and opens its destination panel** (§5.4): the address
+* **Clicking a dot zooms to that country, and half a second later opens its destination panel**
+  (§5.4) — the wait (`PANEL_DELAY_MS = 500`) exists because the zoom takes 220 ms, and a card that
+  appears mid-movement reads as if it belonged to where the dot *was*. It is skipped under
+  `prefers-reduced-motion`, where nothing moves. The card is **docked against the right edge of
+  the frame and centred vertically**, so it is in the same place for every country, is always
+  inside the frame, and never covers the country it describes: the address
   count, packets and bytes in each direction, the ports used with the side that owned them, and
   one row per address with its own counts, its ports, and a **Follow conversation** button that
   opens the earliest conversation involving that address on the Conversations page's timeline.

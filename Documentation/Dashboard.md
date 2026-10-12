@@ -89,6 +89,36 @@ whole feature — the dataset, its licence and provenance, the endpoint, the cap
 Motion is a promise, not decoration: the arcs move slowly and the pinned dot pulses, and both
 are switched off entirely under `prefers-reduced-motion: reduce`.
 
+**Zooming.** The wheel or a pinch zooms about the pointer, dragging pans, and the controls in
+the bottom-right corner zoom in, zoom out and fit the world again; the current scale is in
+their tooltips. The scale is clamped to `1×–8×` and the pan is clamped, so the world never
+leaves the frame. The zoom is one CSS transform on a group, interpolated over 220 ms — and
+`transform-box: view-box` with `transform-origin: 0 0` is what makes the numbers the component
+computes mean what they say; with CSS's default origin of `50% 50%` every pan would drift.
+
+**The destination panel.** Selecting a country — clicking its dot, or its row in the list under
+the map — zooms to it, and **half a second later** opens a card docked against the right edge of
+the map frame, vertically centred, fetched at that moment from
+`/api/analyses/{id}/geography/{code}`:
+
+| In the panel | Meaning |
+|---|---|
+| Addresses, packets, bytes | The country's totals, summed over the `hosts` rows it contains. |
+| `sent` / `received` | Packets and bytes in each direction, **from this capture's own side** — a `hosts` row's `bytes_sent` is what this side sent, which is what the destination received. The panel says whose side it means, because getting this backwards would invert every number. |
+| Ports | From the country's conversations, with the side that owned each port: `remote` is the port on the destination's address (the service port), `local` is this side's, usually the ephemeral one. At most 25, busiest first. |
+| One row per address | The address (a button that opens it on the Hosts page), its volume, its own `↑`/`↓` split, and its own ports. |
+| **Follow conversation** | A link to `/conversations?stream=<transport>:<stream_id>&tab=timeline` for the **earliest** conversation involving that address — the same deep link the Findings page's Follow conversation button uses. An address whose conversation was never recorded gets a disabled button whose tooltip explains why, rather than a link that lands nowhere. |
+
+The card is **docked, not anchored to its dot**: at the right edge, centred vertically, never
+taller or wider than the frame, so it is in the same place every time and never covers the
+country it describes. The half-second wait is deliberate — the zoom transition takes 220 ms, and
+a card that appears mid-movement reads as if it belonged to wherever the dot *was* — and it is
+skipped entirely under `prefers-reduced-motion: reduce`, where there is no movement to wait for.
+Closing is immediate: only the appearance is delayed.
+
+`Esc` closes the panel, as does its close control, and a country whose dataset entry is missing
+is listed but has no dot to open.
+
 **When the dataset is not installed** the world is still drawn, no dot is invented, and the map
 carries the reason the backend gave plus a **Build the location dataset** button. That button is
 the only thing in APackets that downloads anything: one public CC BY 4.0 file, about 4.4 MB,

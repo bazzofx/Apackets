@@ -28,6 +28,7 @@ import type {
   FindingRescanResult,
   FindingRulesResponse,
   FindingsListResponse,
+  GeographyCountryDetail,
   GeographyResponse,
   GeoipStatus,
   HealthResponse,
@@ -962,4 +963,9 @@ export const geoApi = {
   status: () => request<GeoipStatus>('/geoip/status'),
   refresh: () => request<{ job_id: string; kind: string; status: string }>('/geoip/refresh', { method: 'POST' }),
   geography: (analysisId: string) => request<GeographyResponse>(`/analyses/${analysisId}/geography`),
+  /** The destination panel: one country's directions, ports, addresses and conversations. */
+  country: (analysisId: string, code: string) =>
+    request<GeographyCountryDetail>(
+      `/analyses/${analysisId}/geography/${encodeURIComponent(code)}`,
+    ),
 }

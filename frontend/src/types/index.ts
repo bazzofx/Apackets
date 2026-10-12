@@ -1680,6 +1680,69 @@ export interface GeoipStatus {
   note: string
 }
 
+/** One direction's totals, always from the capture's own side (contract §5.4). */
+export interface GeographyDirection {
+  packets: number
+  bytes: number
+}
+
+/** A port from a conversation, and the side that owned it. */
+export interface GeographyPort {
+  port: number
+  /** `remote` = the destination's address (the service port); `local` = this side's. */
+  side: 'remote' | 'local'
+  packets: number
+  bytes: number
+  addresses: number
+}
+
+/** The earliest conversation involving one address: what `Follow conversation` opens. */
+export interface GeographyConversationRef {
+  conv_id: string
+  transport: string
+  /**
+   * `null` when the conversation was never reassembled into a stream. The panel then cannot
+   * build the application's conversation link, and says so instead of linking to `tcp:null`.
+   */
+  stream_id: number | null
+  packets: number
+  bytes: number
+  start_time: number | null
+}
+
+/** One address inside a country, with its own counts, ports and first conversation. */
+export interface GeographyTarget {
+  ip: string
+  packets: number
+  bytes: number
+  sent: GeographyDirection
+  received: GeographyDirection
+  ports: GeographyPort[]
+  /** True when the address uses more than `PORT_CAP` ports and the list was cut. */
+  ports_truncated: boolean
+  protocols: string[]
+  first_conversation: GeographyConversationRef | null
+}
+
+/** `GET /api/analyses/{id}/geography/{code}` — the destination panel. */
+export interface GeographyCountryDetail {
+  analysis_id: string
+  code: string
+  generated_at: number
+  counts: {
+    addresses: number
+    packets: number
+    bytes: number
+    sent: GeographyDirection
+    received: GeographyDirection
+  }
+  ports: GeographyPort[]
+  ports_truncated: boolean
+  targets: GeographyTarget[]
+  targets_truncated: boolean
+  note: string
+}
+
 /** `GET /api/analyses/{id}/geography`. */
 export interface GeographyResponse {
   analysis_id: string

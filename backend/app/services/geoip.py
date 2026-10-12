@@ -82,6 +82,8 @@ log = get_logger("apackets.geoip")
 
 COUNTRY_CAP = 60            # countries in one geography response, by bytes
 GEO_IP_CAP = 50             # addresses listed per country / for the unknown bucket
+PORT_CAP = 25               # ports in one destination panel, largest first (§5.4)
+GEO_TARGET_DETAIL_CAP = GEO_IP_CAP  # addresses in one destination panel (§5.4, §8)
 MIN_RANGES = 100_000        # smallest parsed dataset accepted as complete
 REFRESH_MONTHS_BACK = 6     # earlier monthly files tried before a refresh gives up
 

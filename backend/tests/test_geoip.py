@@ -1063,3 +1063,647 @@ def test_module_import_reads_nothing_and_needs_no_dataset(geoip_home, monkeypatc
     assert not geoip_home.exists(), "importing the module must not create data/geoip"
     assert module.lookup("3.173.21.63") is None
     assert module.status()["available"] is False
+
+
+# --------------------------------------------------------------------------
+# 9. the destination panel (§5.4)
+# --------------------------------------------------------------------------
+
+#: The capture's own side in every conversation fixture: a private address, which is
+#: exactly what makes it the origin rather than a destination.
+LOCAL_IP = "192.168.8.229"
+
+
+def _conv(
+    stream: int,
+    ip: str,
+    port: int,
+    *,
+    local_port: int = 51234,
+    start: float = 100.0,
+    to_destination: tuple[int, int] = (100, 1000),
+    from_destination: tuple[int, int] = (900, 460000),
+    transport: str = "tcp",
+) -> dict:
+    """One ``conversations`` row between the capture's own side and one destination.
+
+    ``endpoint_a`` is the initiator, as the conversation analyzer writes it, and the two
+    directions are given separately so a test can say which way a byte went.
+    """
+    return {
+        "conv_id": f"{transport}:{LOCAL_IP}:{local_port}-{ip}:{port}",
+        "transport": transport,
+        "stream_id": stream,
+        "ip_a": LOCAL_IP,
+        "port_a": local_port,
+        "ip_b": ip,
+        "port_b": port,
+        "packets_a_to_b": to_destination[0],
+        "bytes_a_to_b": to_destination[1],
+        "packets_b_to_a": from_destination[0],
+        "bytes_b_to_a": from_destination[1],
+        "start_time": start,
+    }
+
+
+@pytest.fixture()
+def make_bucket(fresh_db):  # noqa: ARG001 - fresh_db empties the tables first
+    """A completed analysis with ``hosts`` rows and ``conversations`` rows of this test's own.
+
+    The ``hosts`` rows carry their four columns explicitly rather than a symmetric split,
+    because §5.4's whole subject is which side a number belongs to: a fixture that sends
+    and receives the same volume cannot tell the mapping right from backwards.
+    """
+
+    def _make(
+        hosts: list[dict],
+        conversations: list[dict] = (),
+        *,
+        analysis_id: str = ANALYSIS_ID,
+        status: str = "completed",
+    ) -> str:
+        now = time.time()
+        with db.get_conn() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO analyses (
+                    id, original_filename, stored_path, file_size, file_type, status,
+                    progress, stage, packet_count, created_at, updated_at
+                ) VALUES (?, 'fixture.pcap', 'fixture.pcap', 0, 'pcap', ?, 100, ?, 0, ?, ?)
+                """,
+                (analysis_id, status, status, now, now),
+            )
+            for host in hosts:
+                ip = host["ip"]
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO hosts (
+                        analysis_id, ip, packets_sent, packets_received,
+                        bytes_sent, bytes_received, protocols, is_private, ip_version,
+                        peer_count
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 0)
+                    """,
+                    (
+                        analysis_id,
+                        ip,
+                        host.get("packets_sent", 0),
+                        host.get("packets_received", 0),
+                        host.get("bytes_sent", 0),
+                        host.get("bytes_received", 0),
+                        json.dumps(host.get("protocols") or {}, separators=(",", ":")),
+                        6 if ":" in ip else 4,
+                    ),
+                )
+            for conversation in conversations:
+                to_b = (conversation.get("packets_a_to_b", 0), conversation.get("bytes_a_to_b", 0))
+                to_a = (conversation.get("packets_b_to_a", 0), conversation.get("bytes_b_to_a", 0))
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO conversations (
+                        analysis_id, conv_id, transport, stream_id, endpoint_a, endpoint_b,
+                        ip_a, port_a, ip_b, port_b, packets_a_to_b, bytes_a_to_b,
+                        packets_b_to_a, bytes_b_to_a, packets_total, bytes_total,
+                        start_time, end_time, protocols
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
+                    """,
+                    (
+                        analysis_id,
+                        conversation["conv_id"],
+                        conversation.get("transport", "tcp"),
+                        conversation.get("stream_id"),
+                        f"{conversation['ip_a']}:{conversation['port_a']}",
+                        f"{conversation['ip_b']}:{conversation['port_b']}",
+                        conversation["ip_a"],
+                        conversation["port_a"],
+                        conversation["ip_b"],
+                        conversation["port_b"],
+                        to_b[0],
+                        to_b[1],
+                        to_a[0],
+                        to_a[1],
+                        to_b[0] + to_a[0],
+                        to_b[1] + to_a[1],
+                        conversation.get("start_time"),
+                    ),
+                )
+        return analysis_id
+
+    return _make
+
+
+def test_panel_direction_is_the_capture_own_side_not_the_address_side(client, dataset, make_bucket):
+    """§5.4's mapping, on rows whose two directions differ by an order of magnitude.
+
+    The source of truth is ``host_analyzer._HOST_SQL``: it writes each ``hosts`` row from
+    the **address's own** perspective (``bytes_sent`` counts frames where that address is
+    the ``src_ip``). For a destination, those columns are therefore the reverse of this
+    panel's: what the address sent is what this capture *received*.
+
+    So an address whose row says ``bytes_sent = 900`` / ``bytes_received = 100`` sent 900
+    bytes to this capture and received 100 from it, and the panel must read
+    ``sent: {bytes: 100}`` / ``received: {bytes: 900}`` - for the target *and* for the
+    bucket. A symmetric fixture would satisfy either reading, which is why these rows are
+    not symmetric and both directions are asserted below.
+    """
+    make_bucket(
+        [
+            # Sent 900 bytes, received 100: the mirror image of the panel's own fields.
+            {
+                "ip": "3.0.0.1",
+                "packets_sent": 9, "packets_received": 1,
+                "bytes_sent": 900, "bytes_received": 100,
+                "protocols": {"tcp": 1200, "tls": 20},
+            },
+            # A second address, so the bucket's counts can also be checked as a sum.
+            {
+                "ip": "3.0.0.2",
+                "packets_sent": 40, "packets_received": 7,
+                "bytes_sent": 4000, "bytes_received": 700,
+            },
+        ]
+    )
+
+    # The code is case-insensitive and is answered as it is stored.
+    response = client.get(f"/api/analyses/{ANALYSIS_ID}/geography/us")
+    assert response.status_code == 200, response.text
+    body = response.json()
+
+    assert set(body) == {
+        "analysis_id", "code", "generated_at", "counts", "ports", "ports_truncated",
+        "targets", "targets_truncated", "note",
+    }
+    assert body["analysis_id"] == ANALYSIS_ID
+    assert body["code"] == "US"
+    assert isinstance(body["generated_at"], float)
+
+    # The two rows: this capture sent 1 + 7 packets and 100 + 700 bytes, and received
+    # 9 + 40 packets and 900 + 4000 bytes. The reverse reading would swap these two.
+    assert body["counts"] == {
+        "addresses": 2,
+        "packets": 57,
+        "bytes": 5700,
+        "sent": {"packets": 8, "bytes": 800},
+        "received": {"packets": 49, "bytes": 4900},
+    }
+    # ... stated as the inverse it would be, so this test cannot pass by accident.
+    assert body["counts"]["sent"] != {"packets": 49, "bytes": 4900}
+    assert body["counts"]["received"] != {"packets": 8, "bytes": 800}
+
+    big, small = body["targets"]                      # largest by bytes first
+    assert big["ip"] == "3.0.0.2"
+    assert big["sent"] == {"packets": 7, "bytes": 700}
+    assert big["received"] == {"packets": 40, "bytes": 4000}
+
+    assert small["ip"] == "3.0.0.1"
+    assert small["sent"] == {"packets": 1, "bytes": 100}
+    assert small["received"] == {"packets": 9, "bytes": 900}
+    assert small["sent"]["bytes"] != 900, "the row's bytes_sent is what the capture received"
+    assert small["packets"] == 10
+    assert small["bytes"] == 1000
+    assert small["protocols"] == ["tcp", "tls"]       # hosts.protocols, in volume order
+    assert small["ports"] == []
+    assert small["first_conversation"] is None        # no conversation row in this fixture
+    assert big["protocols"] == []
+
+    # The bucket's counts are its targets summed, direction by direction (§5.4).
+    assert body["counts"]["packets"] == sum(target["packets"] for target in body["targets"])
+    assert body["counts"]["bytes"] == sum(target["bytes"] for target in body["targets"])
+    for direction in ("sent", "received"):
+        for field in ("packets", "bytes"):
+            assert body["counts"][direction][field] == sum(
+                target[direction][field] for target in body["targets"]
+            ), f"{direction}.{field} is not the sum of the targets"
+
+    assert body["ports"] == []
+    assert body["ports_truncated"] is False
+    assert body["targets_truncated"] is False
+    # §7's limits, and the reason the linked conversation is the one it is (§5.4).
+    assert "registered" in body["note"]
+    assert "earliest" in body["note"]
+    assert "largest" in body["note"]
+
+
+def test_panel_ports_carry_the_side_that_owned_them_and_what_they_moved(client, dataset, make_bucket):
+    make_bucket(
+        [{"ip": "3.0.0.1"}, {"ip": "3.0.0.2"}],
+        [
+            # 3.0.0.1:443 <- the capture's own 51234, and a second conversation on 8443.
+            _conv(7, "3.0.0.1", 443, local_port=51234, start=100.0,
+                  to_destination=(100, 1000), from_destination=(900, 460000)),
+            _conv(8, "3.0.0.2", 443, local_port=51000, start=200.0,
+                  to_destination=(50, 500), from_destination=(10, 100)),
+            _conv(9, "3.0.0.1", 8443, local_port=51235, start=300.0,
+                  to_destination=(2, 20), from_destination=(3, 30)),
+        ],
+    )
+
+    body = client.get(f"/api/analyses/{ANALYSIS_ID}/geography/US").json()
+
+    # §5.4: remote is the port on the destination's address, local the port on the
+    # capture's own side - and `addresses` counts the addresses of the bucket that used
+    # the port on that side, not the conversations. Sorted largest first.
+    assert body["ports"] == [
+        {"port": 443, "side": "remote", "packets": 1060, "bytes": 461600, "addresses": 2},
+        {"port": 51234, "side": "local", "packets": 1000, "bytes": 461000, "addresses": 1},
+        {"port": 51000, "side": "local", "packets": 60, "bytes": 600, "addresses": 1},
+        {"port": 8443, "side": "remote", "packets": 5, "bytes": 50, "addresses": 1},
+        {"port": 51235, "side": "local", "packets": 5, "bytes": 50, "addresses": 1},
+    ]
+    assert body["ports_truncated"] is False
+
+    first, second = body["targets"]
+    assert first["ip"] == "3.0.0.1"
+    # A target's entries carry the same `addresses` count as the bucket's - on one target a
+    # port belongs to that one address - and its own truncation flag, so the two shapes match.
+    assert first["ports"] == [
+        {"port": 443, "side": "remote", "packets": 1000, "bytes": 461000, "addresses": 1},
+        {"port": 51234, "side": "local", "packets": 1000, "bytes": 461000, "addresses": 1},
+        {"port": 8443, "side": "remote", "packets": 5, "bytes": 50, "addresses": 1},
+        {"port": 51235, "side": "local", "packets": 5, "bytes": 50, "addresses": 1},
+    ]
+    assert first["ports_truncated"] is False
+    assert second["ip"] == "3.0.0.2"
+    assert second["ports"] == [
+        {"port": 443, "side": "remote", "packets": 60, "bytes": 600, "addresses": 1},
+        {"port": 51000, "side": "local", "packets": 60, "bytes": 600, "addresses": 1},
+    ]
+    assert second["ports_truncated"] is False
+
+
+def test_panel_port_side_is_where_the_port_lives_not_who_started(client, dataset, make_bucket):
+    # A public address that opened a conversation with this capture's own service: its
+    # port is still the one on the destination's address, so the side follows the
+    # address that owns the port and not the initiator (§5.4).
+    inbound = {
+        "conv_id": f"tcp:3.0.0.1:40000-{LOCAL_IP}:80",
+        "transport": "tcp",
+        "stream_id": 4,
+        "ip_a": "3.0.0.1",
+        "port_a": 40000,
+        "ip_b": LOCAL_IP,
+        "port_b": 80,
+        "packets_a_to_b": 7,
+        "bytes_a_to_b": 70,
+        "packets_b_to_a": 9,
+        "bytes_b_to_a": 90,
+        "start_time": 400.0,
+    }
+    make_bucket([{"ip": "3.0.0.1"}], [inbound])
+
+    body = client.get(f"/api/analyses/{ANALYSIS_ID}/geography/US").json()
+
+    assert body["ports"] == [
+        {"port": 80, "side": "local", "packets": 16, "bytes": 160, "addresses": 1},
+        {"port": 40000, "side": "remote", "packets": 16, "bytes": 160, "addresses": 1},
+    ]
+    assert body["targets"][0]["first_conversation"] == {
+        "conv_id": f"tcp:3.0.0.1:40000-{LOCAL_IP}:80",
+        "transport": "tcp",
+        "stream_id": 4,
+        "packets": 16,
+        "bytes": 160,
+        "start_time": 400.0,
+    }
+
+
+def test_panel_port_cap_keeps_the_busiest_ports_and_says_so(client, dataset, make_bucket):
+    conversations = [
+        _conv(
+            4000 + index,
+            "3.0.0.1",
+            4000 + index,
+            local_port=50000 + index,
+            start=float(index),
+            to_destination=(1, 1000 + index),
+            from_destination=(1, 1000 + index),
+        )
+        for index in range(routes_geo.PORT_CAP + 5)
+    ]
+    make_bucket(
+        [{"ip": "3.0.0.1", "packets_sent": 1, "packets_received": 1,
+          "bytes_sent": 1, "bytes_received": 1}],
+        conversations,
+    )
+
+    body = client.get(f"/api/analyses/{ANALYSIS_ID}/geography/US").json()
+
+    assert len(body["ports"]) == routes_geo.PORT_CAP == 25
+    assert body["ports_truncated"] is True
+    # The busiest port first: the last fixture conversation moved the most bytes.
+    assert body["ports"][0] == {
+        "port": 4000 + routes_geo.PORT_CAP + 4,
+        "side": "remote",
+        "packets": 2,
+        "bytes": 2 * (1000 + routes_geo.PORT_CAP + 4),
+        "addresses": 1,
+    }
+    listed = {(entry["port"], entry["side"]) for entry in body["ports"]}
+    assert (4000, "remote") not in listed, "the quietest port is the one the cap drops"
+    # The cap cuts the list, never the totals: those are the hosts row (§5.4).
+    assert body["counts"] == {
+        "addresses": 1,
+        "packets": 2,
+        "bytes": 2,
+        "sent": {"packets": 1, "bytes": 1},
+        "received": {"packets": 1, "bytes": 1},
+    }
+    assert str(routes_geo.PORT_CAP) in body["note"]
+    # A target's own list is cut by the same cap, and says so: one address can have hundreds
+    # of ports - a scan has nothing else - and a wall of chips is not a panel.
+    assert len(body["targets"][0]["ports"]) == routes_geo.PORT_CAP
+    assert body["targets"][0]["ports_truncated"] is True
+    assert body["targets"][0]["ports"][0]["port"] == 4000 + routes_geo.PORT_CAP + 4
+
+
+def test_panel_targets_are_capped_by_bytes_and_every_address_is_counted(client, dataset, make_bucket):
+    addresses = [f"3.0.0.{index}" for index in range(1, routes_geo.GEO_TARGET_DETAIL_CAP + 6)]
+    make_bucket(
+        [
+            {"ip": ip, "packets_sent": 1, "packets_received": 1,
+             "bytes_sent": index, "bytes_received": index}
+            for index, ip in enumerate(addresses, start=1)
+        ]
+    )
+
+    body = client.get(f"/api/analyses/{ANALYSIS_ID}/geography/US").json()
+
+    assert routes_geo.GEO_TARGET_DETAIL_CAP == routes_geo.GEO_IP_CAP == 50
+    assert len(body["targets"]) == routes_geo.GEO_TARGET_DETAIL_CAP
+    assert body["targets_truncated"] is True
+    # Every address of the bucket is counted whether or not it is listed (§5.4).
+    assert body["counts"]["addresses"] == len(addresses)
+    assert body["counts"]["bytes"] == 2 * sum(range(1, len(addresses) + 1))
+    assert [target["ip"] for target in body["targets"][:3]] == list(reversed(addresses))[:3]
+    assert addresses[0] not in [target["ip"] for target in body["targets"]]
+    assert str(routes_geo.GEO_TARGET_DETAIL_CAP) in body["note"]
+
+
+def test_panel_first_conversation_is_the_earliest_not_the_largest(client, dataset, make_bucket):
+    make_bucket(
+        [{"ip": "3.0.0.1"}],
+        [
+            # The biggest by a wide margin, but the last to start.
+            _conv(11, "3.0.0.1", 443, start=300.0,
+                  to_destination=(9000, 900000), from_destination=(900, 90000)),
+            # The earliest, and by far the smallest.
+            _conv(12, "3.0.0.1", 80, start=50.0,
+                  to_destination=(3, 300), from_destination=(4, 400)),
+            _conv(13, "3.0.0.1", 8080, start=200.0,
+                  to_destination=(100, 10000), from_destination=(10, 1000)),
+        ],
+    )
+
+    target = client.get(f"/api/analyses/{ANALYSIS_ID}/geography/US").json()["targets"][0]
+
+    assert target["first_conversation"] == {
+        "conv_id": f"tcp:{LOCAL_IP}:51234-3.0.0.1:80",
+        "transport": "tcp",
+        "stream_id": 12,
+        "packets": 7,
+        "bytes": 700,
+        "start_time": 50.0,
+    }
+    # Exactly the fields the panel links with, so the deep link can be built from two
+    # of them (§5.4).
+    assert set(target["first_conversation"]) == {
+        "conv_id", "transport", "stream_id", "packets", "bytes", "start_time",
+    }
+    assert target["first_conversation"]["stream_id"] != 11, "the largest is not the link"
+
+
+def test_panel_first_conversation_breaks_a_tie_by_stream_id(client, dataset, make_bucket):
+    make_bucket(
+        [{"ip": "3.0.0.1"}],
+        [
+            _conv(9, "3.0.0.1", 443, start=100.0, to_destination=(9, 900)),
+            _conv(3, "3.0.0.1", 80, start=100.0, to_destination=(1, 100)),
+        ],
+    )
+
+    target = client.get(f"/api/analyses/{ANALYSIS_ID}/geography/US").json()["targets"][0]
+
+    assert target["first_conversation"]["stream_id"] == 3
+    assert target["first_conversation"]["start_time"] == 100.0
+
+
+def test_panel_first_conversation_is_null_for_an_address_with_no_conversation(client, dataset, make_bucket):
+    make_bucket(
+        [{"ip": "3.0.0.1"}, {"ip": "3.0.0.2"}],
+        [_conv(7, "3.0.0.1", 443, start=100.0)],
+    )
+
+    body = client.get(f"/api/analyses/{ANALYSIS_ID}/geography/US").json()
+
+    quiet = next(target for target in body["targets"] if target["ip"] == "3.0.0.2")
+    assert quiet["first_conversation"] is None
+    assert quiet["ports"] == []
+    # The bucket's own ports come from the conversation the other address had.
+    assert [entry["port"] for entry in body["ports"]] == [443, 51234]
+
+
+def test_panel_zz_is_the_not_placed_bucket(client, dataset, make_bucket):
+    make_bucket(
+        [
+            {"ip": "8.8.8.8", "packets_sent": 4, "packets_received": 6,
+             "bytes_sent": 400, "bytes_received": 600, "protocols": {"udp": 10, "dns": 10}},
+            {"ip": "9.9.9.9", "packets_sent": 1, "packets_received": 1,
+             "bytes_sent": 10, "bytes_received": 10},
+            {"ip": "3.0.0.1", "packets_sent": 1, "packets_received": 1,
+             "bytes_sent": 5000, "bytes_received": 5000},          # placed: US
+            {"ip": "192.168.0.1", "packets_sent": 1, "packets_received": 1,
+             "bytes_sent": 9000, "bytes_received": 9000},          # the capture's own side
+        ],
+        [_conv(5, "8.8.8.8", 53, transport="udp", start=10.0,
+               to_destination=(2, 200), from_destination=(3, 300))],
+    )
+
+    response = client.get(f"/api/analyses/{ANALYSIS_ID}/geography/zz")
+    assert response.status_code == 200, response.text
+    body = response.json()
+
+    assert body["code"] == "ZZ"
+    assert body["counts"] == {
+        "addresses": 2,
+        "packets": 12,
+        "bytes": 1020,
+        "sent": {"packets": 7, "bytes": 610},
+        "received": {"packets": 5, "bytes": 410},
+    }
+    assert [target["ip"] for target in body["targets"]] == ["8.8.8.8", "9.9.9.9"]
+    # The not placed bucket has ports and conversations like any other (§5.4).
+    assert body["ports"] == [
+        {"port": 53, "side": "remote", "packets": 5, "bytes": 500, "addresses": 1},
+        {"port": 51234, "side": "local", "packets": 5, "bytes": 500, "addresses": 1},
+    ]
+    unknown = body["targets"][0]
+    assert unknown["protocols"] == ["udp", "dns"]
+    assert unknown["first_conversation"]["transport"] == "udp"
+    assert unknown["first_conversation"]["stream_id"] == 5
+
+
+def test_panel_404_for_a_code_this_capture_sent_nothing_to(client, dataset, make_bucket):
+    make_bucket([{"ip": "3.0.0.1", "packets_sent": 1, "packets_received": 1,
+                  "bytes_sent": 10, "bytes_received": 10}])
+
+    assert client.get(f"/api/analyses/{ANALYSIS_ID}/geography/US").status_code == 200
+
+    for code in ("GB", "AU", "ZA", "DE", "zz"):
+        response = client.get(f"/api/analyses/{ANALYSIS_ID}/geography/{code}")
+        assert response.status_code == 404, code
+        assert response.json()["error"]["code"] == "country_not_found"
+        assert response.json()["error"]["details"]["code"] == code.upper()
+
+
+def test_panel_404_for_a_code_that_is_not_a_country_at_all(client, dataset, make_bucket):
+    make_bucket([{"ip": "3.0.0.1"}])
+
+    for code in ("Q9", "USA", "ZZZ", "123", "e"):
+        response = client.get(f"/api/analyses/{ANALYSIS_ID}/geography/{code}")
+        assert response.status_code == 404, code
+        assert response.json()["error"]["code"] == "country_not_found"
+
+
+def test_panel_gates_match_the_rest_of_the_application(client, dataset, make_bucket):
+    missing = client.get(f"/api/analyses/{READY_ID}/geography/US")
+    assert missing.status_code == 404
+    assert missing.json()["error"]["code"] == "analysis_not_found"
+
+    malformed = client.get("/api/analyses/not-an-id/geography/US")
+    assert malformed.status_code == 400
+    assert malformed.json()["error"]["code"] == "invalid_analysis_id"
+
+    make_bucket([], analysis_id=BUSY_ID, status="processing")
+    unfinished = client.get(f"/api/analyses/{BUSY_ID}/geography/US")
+    assert unfinished.status_code == 409
+    assert unfinished.json()["error"]["code"] == "analysis_not_ready"
+
+    # The gates come first: an unknown analysis is an unknown analysis whatever the code.
+    both = client.get(f"/api/analyses/{READY_ID}/geography/Q9")
+    assert both.status_code == 404
+    assert both.json()["error"]["code"] == "analysis_not_found"
+
+
+def test_panel_of_an_analysis_with_no_rows_answers_200_with_empty_buckets(client, dataset, make_bucket):
+    make_bucket([])
+
+    for code in ("US", "ZZ"):
+        response = client.get(f"/api/analyses/{ANALYSIS_ID}/geography/{code}")
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["code"] == code
+        assert body["counts"] == {
+            "addresses": 0,
+            "packets": 0,
+            "bytes": 0,
+            "sent": {"packets": 0, "bytes": 0},
+            "received": {"packets": 0, "bytes": 0},
+        }
+        assert body["ports"] == []
+        assert body["targets"] == []
+        assert body["ports_truncated"] is False
+        assert body["targets_truncated"] is False
+        assert body["note"]
+
+
+def test_panel_without_a_dataset_places_nothing_and_says_so(client, geoip_home, make_bucket):
+    make_bucket([{"ip": "3.0.0.1", "packets_sent": 1, "packets_received": 1,
+                  "bytes_sent": 10, "bytes_received": 10}])
+
+    # No dataset installed: no address is located, so a country has nothing in it...
+    assert client.get(f"/api/analyses/{ANALYSIS_ID}/geography/US").status_code == 404
+    # ... and every public address is honestly in the not placed bucket (§3).
+    body = client.get(f"/api/analyses/{ANALYSIS_ID}/geography/ZZ").json()
+    assert body["counts"]["addresses"] == 1
+    assert [target["ip"] for target in body["targets"]] == ["3.0.0.1"]
+
+
+def test_panel_ports_come_from_conversations_and_never_from_packets(client, dataset, make_bucket):
+    make_bucket([{"ip": "3.0.0.1", "packets_sent": 1, "packets_received": 1,
+                  "bytes_sent": 10, "bytes_received": 10}])
+    with db.get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO packets (
+                analysis_id, number, frame_len, src_ip, dst_ip,
+                src_port, dst_port, protocol, transport
+            ) VALUES (?, 1, 100, ?, '3.0.0.1', 51234, 443, 'TCP', 'tcp')
+            """,
+            (ANALYSIS_ID, LOCAL_IP),
+        )
+
+    body = client.get(f"/api/analyses/{ANALYSIS_ID}/geography/US").json()
+
+    # A port with no conversation behind it is not a port this panel knows (§5.4).
+    assert body["ports"] == []
+    assert body["targets"][0]["ports"] == []
+    assert body["targets"][0]["first_conversation"] is None
+
+
+def test_panel_reads_any_bucket_in_two_queries(client, dataset, make_bucket, monkeypatch):
+    addresses = [f"3.0.0.{index}" for index in range(1, 61)]
+    make_bucket(
+        [
+            {"ip": ip, "packets_sent": 1, "packets_received": 1,
+             "bytes_sent": 5, "bytes_received": 5}
+            for ip in addresses
+        ],
+        [_conv(100 + index, ip, 443, local_port=50000 + index, start=float(index))
+         for index, ip in enumerate(addresses)],
+    )
+
+    calls: list[str] = []
+    real_query_all = db.query_all
+
+    def _record(sql: str, params=()) -> list:
+        calls.append(" ".join(sql.split()))
+        return real_query_all(sql, params)
+
+    monkeypatch.setattr(db, "query_all", _record)
+
+    body = client.get(f"/api/analyses/{ANALYSIS_ID}/geography/US").json()
+
+    # One read of the bucket's hosts rows and one of the conversations that touch them,
+    # whatever the bucket's size: never a query per address.
+    assert len(calls) == 2
+    assert "FROM hosts" in calls[0]
+    assert "FROM conversations" in calls[1]
+    assert body["counts"]["addresses"] == len(addresses)
+    assert len(body["targets"]) == routes_geo.GEO_TARGET_DETAIL_CAP
+
+
+def test_panel_lists_every_address_of_a_bucket_and_none_of_another(client, dataset, make_bucket):
+    # Two countries side by side: the panel of one never leaks the other's addresses,
+    # and its counts are its own.
+    make_bucket(
+        [
+            {"ip": "3.0.0.1", "packets_sent": 1, "packets_received": 1,
+             "bytes_sent": 100, "bytes_received": 100},
+            {"ip": "3.0.0.2", "packets_sent": 1, "packets_received": 1,
+             "bytes_sent": 200, "bytes_received": 200},
+            {"ip": "5.0.0.1", "packets_sent": 1, "packets_received": 1,
+             "bytes_sent": 900, "bytes_received": 900},          # GB in the fixture table
+            {"ip": "1.0.1.5", "packets_sent": 1, "packets_received": 1,
+             "bytes_sent": 800, "bytes_received": 800},          # CN
+        ],
+        [_conv(7, "3.0.0.1", 443, start=100.0), _conv(8, "5.0.0.1", 80, start=200.0)],
+    )
+
+    us = client.get(f"/api/analyses/{ANALYSIS_ID}/geography/US").json()
+    gb = client.get(f"/api/analyses/{ANALYSIS_ID}/geography/GB").json()
+
+    assert [target["ip"] for target in us["targets"]] == ["3.0.0.2", "3.0.0.1"]
+    assert us["counts"]["addresses"] == 2
+    assert us["counts"]["bytes"] == 600
+    assert [entry["port"] for entry in us["ports"]] == [443, 51234]
+    assert us["targets"][1]["ip"] == "3.0.0.1"
+
+    assert [target["ip"] for target in gb["targets"]] == ["5.0.0.1"]
+    assert gb["counts"]["addresses"] == 1
+    assert gb["counts"]["bytes"] == 1800
+    assert [entry["port"] for entry in gb["ports"]] == [80, 51234]
+    assert gb["targets"][0]["first_conversation"]["stream_id"] == 8
+
+
+def test_capabilities_still_lists_the_geography_router(client):
+    # §5.4 adds a route to the same router: the capability flag is unchanged.
+    assert client.get("/api/capabilities").json()["features"]["geo"] is True
