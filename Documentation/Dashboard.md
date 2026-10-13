@@ -302,8 +302,8 @@ country's destination panel — opens the application's address menu: **Pivot <i
 **Show Conversations with <ip>**, and **Pivot to Wireshark**. Where the element is one
 conversation (a destination panel row, which already knows the first conversation with that
 address) the menu carries it, so the Conversations link opens that exchange and the Wireshark
-pivot filters to it; where it is only an address, the pivot opens every frame it appears in.
-See [Architecture.md](Architecture.md) §6.1.
+pivot filters to it and jumps to its first frame; where it is only an address, the pivot opens
+every frame it appears in. See [Architecture.md](Architecture.md) §6.1 and §6.2.
 
 ## 5. Limits and honest caveats
 

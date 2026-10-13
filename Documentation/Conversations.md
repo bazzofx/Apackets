@@ -523,8 +523,9 @@ conversation row knows its own transport and stream, the two actions that can us
 this address (adding `&stream=<transport>:<id>` so the page opens this very exchange), and
 **Pivot to Wireshark** opens the capture filtered to `ip.addr == <ip> && tcp.stream == <id>` —
 this conversation, not everything the address did. The menu and the process it can start are
-described in [Architecture.md](Architecture.md) §6.1; the same menu appears on the addresses
-drawn on [Hosts](Hosts.md), [Packets](Packets.md) and the [Dashboard](Dashboard.md).
+described in [Architecture.md](Architecture.md) §6.1 and §6.2. The menu is application-wide: it
+appears on any address, including one printed in text no component annotated, and with nothing
+selected it still opens with every action greyed out.
 
 ## 5. Limits and honest caveats
 

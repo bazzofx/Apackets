@@ -330,8 +330,9 @@ listed on [Files and Objects](Files-and-Objects.md). The normative parameter lis
 
 **Right-clicking a source or destination address** opens the application's address menu:
 **Pivot <ip> to Hunt**, **Show Conversations with <ip>**, and **Pivot to Wireshark** — here
-the last one filters the capture to every frame the address appears in, since a packet row
-is one frame rather than a conversation. See [Architecture.md](Architecture.md) §6.1.
+the last one opens the capture filtered to every frame the address appears in, jumped to the
+first of them, since a packet row is one frame rather than a conversation. See
+[Architecture.md](Architecture.md) §6.1 and §6.2.
 
 ## 5. Limits and honest caveats
 

@@ -295,6 +295,15 @@ narrowly as one can be:
   field (Wireshark's `udp.stream` is not the stored number), so a UDP conversation
   is filtered by address and port instead, and the menu says which of the two it
   used.
+* **The window opens *on* the packets, not merely with them.** Two options do it:
+  `-Y <filter>` starts with the display filter applied, so the packet list shows
+  the conversation and nothing else, and `-J <filter>` jumps the selection to the
+  first packet matching it — the conversation's first frame. Wireshark's manual:
+  *"After reading in a capture file using the -r flag, jump to the packet matching
+  the filter."* `-j` would select the packet *before* a missing match instead, and
+  `-g <packet number>` would need the index rather than the filter, so neither is
+  used. Verified against Wireshark 4.6.8: an unknown option exits `1` at once,
+  while this argument vector leaves the GUI running.
 * **Absence is reported, not guessed.** `resolve_binary()` looks in the
   configured path (`APACKETS_WIRESHARK_PATH`), on `PATH`, next to the TShark this
   application already uses, and in the known install directories, then reports the
@@ -302,6 +311,41 @@ narrowly as one can be:
   /api/analyses/{id}/wireshark` says so and the menu shows the reason instead of a
   button that would fail. No process is started to answer that question — the
   version reported is TShark's, memoised once per process.
+
+### 6.2 The IP context menu: one menu, every address
+
+Every address in the application — a host row, a conversation endpoint, a packet's
+source or destination, a map node, a card on the Dashboard — answers a right click
+with the same three actions: **Pivot `<ip>` to Hunt**, **Show Conversations with
+`<ip>`**, and **Pivot to Wireshark**. Three properties make that work without each
+component knowing the menu exists:
+
+* **It delegates from the document.** One `contextmenu` listener is installed on
+  `document`; it walks up from whatever was clicked to the nearest `[data-ip]` and
+  opens there. Adding the menu to a surface is one attribute (`data-ip`), and an
+  element may add `data-ip-transport` / `data-ip-stream` / `data-ip-port` to say
+  *which conversation* it is — which is what makes the Conversations link open
+  that exchange and the filter name that stream.
+* **It also reads the text under the pointer.** The attributes only cover the
+  surfaces somebody annotated, so an address printed anywhere else is found by
+  reading the caret's own text node (`caretRangeFromPoint` /
+  `caretPositionFromPoint`) and validating what is there — so in a cell holding
+  `192.168.8.229:51000 <-> 150.171.109.217:443` the address actually under the
+  cursor wins rather than the first in the row. A candidate must survive a real
+  check: `tcp:30`, `12:34:56`, a MAC address, `999.1.1.1` and `2.0.1` are not
+  addresses, and a container holding a paragraph is ignored rather than mined.
+* **It opens everywhere, and greys out when there is nothing to act on.** With no
+  address under the click the menu still appears — all three actions present and
+  disabled, each titled with the reason, and a note saying where addresses are —
+  rather than silently falling back to the browser's menu or not appearing at all.
+  The single exemption is a text field, where the browser's own menu (paste,
+  spell-check) belongs to the field and no address is editable there.
+
+The menu is a portal on `document.body`, positioned at the pointer and clamped
+inside the viewport, so it is never clipped by the scroll container or the
+`overflow: hidden` panel the address sits in. It is keyboard-reachable too:
+`Shift+F10` (or the context-menu key) opens it at the focused element, arrows walk
+the items, and Escape closes it and returns focus to where it came from.
 
 ---
 

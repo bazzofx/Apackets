@@ -199,15 +199,35 @@ def test_a_canonical_address_is_what_reaches_the_filter():
 
 
 def test_the_window_opens_filtered_not_pre_processed(installed, spawn, capture):
-    """-Y shows everything at once, filtered; -R would mean waiting for a pass."""
+    """-Y shows the conversation at once; -R would mean waiting for a full pass."""
     result = wireshark.open_capture(capture, PUBLIC_IP)
     argv, kwargs = spawn.calls[0]
-    assert argv == [installed, "-r", str(capture), "-Y", f"ip.addr == {PUBLIC_IP}"]
+    assert argv[:3] == [installed, "-r", str(capture)]
+    assert argv[3:5] == ["-Y", f"ip.addr == {PUBLIC_IP}"]
     assert "-R" not in argv and "-2" not in argv
     assert kwargs["shell"] is False
     assert result["filter"] == f"ip.addr == {PUBLIC_IP}"
     assert result["launched"] is True
     assert result["pid"] == 4242
+
+
+def test_the_selection_jumps_to_the_first_matching_packet(installed, spawn, capture):
+    """-J is what opens "those specific packets" rather than the whole file."""
+    wireshark.open_capture(capture, PUBLIC_IP)
+    argv = spawn.calls[0][0]
+    assert argv[5:7] == ["-J", f"ip.addr == {PUBLIC_IP}"], argv
+    # The display filter and the jump filter are the same expression: one defines
+    # the view, the other selects the first frame in it.
+    assert argv[4] == argv[6]
+
+
+def test_the_jump_filter_follows_the_conversation_too(installed, spawn, capture):
+    wireshark.open_capture(capture, PUBLIC_IP, transport="tcp", stream_id=30)
+    argv = spawn.calls[0][0]
+    conversation = f"ip.addr == {PUBLIC_IP} && tcp.stream == 30"
+    assert argv[3:5] == ["-Y", conversation]
+    assert argv[5:7] == ["-J", conversation]
+    assert "-g" not in argv, "a packet number would be wrong here: the filter is the precise thing"
 
 
 def test_no_shell_is_ever_used(installed, spawn, capture):
@@ -232,7 +252,7 @@ def test_the_capture_named_is_the_one_given(installed, spawn, capture):
     wireshark.open_capture(capture, PUBLIC_IP, transport="tcp", stream_id=36)
     argv = spawn.calls[0][0]
     assert argv[2] == str(capture)
-    assert argv[-1] == f"ip.addr == {PUBLIC_IP} && tcp.stream == 36"
+    assert argv[4] == f"ip.addr == {PUBLIC_IP} && tcp.stream == 36"
 
 
 def test_a_read_filter_is_available_when_a_caller_wants_to_wait(installed, spawn, capture):

@@ -124,11 +124,150 @@ export function isTypingTarget(element: Element | null): boolean {
 }
 
 /* ------------------------------------------------------------------ */
+/* finding an address in text                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Every address is right-clickable, including the ones drawn by components that
+ * know nothing about this menu.
+ *
+ * The explicit `data-ip` attributes are the precise route — they can also carry
+ * a conversation — but they only cover the surfaces somebody remembered to
+ * annotate. So the menu also reads the text under the pointer: an address is an
+ * address wherever it is printed, and an analyst should not have to learn which
+ * tables are "menu-able". Both routes end in the same three actions.
+ */
+
+const IPV4_CANDIDATE = /(?:\d{1,3}\.){3}\d{1,3}/g
+const IPV6_CANDIDATE = /(?:[0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}/g
+
+/** Four dotted decimal groups, each 0–255. */
+export function isIpv4(value: string): boolean {
+  const parts = value.split('.')
+  if (parts.length !== 4) return false
+  return parts.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255)
+}
+
+/**
+ * A hex-colon address. Deliberately stricter than "contains a colon": a
+ * `transport:stream` label like `tcp:30` is not an address, and neither is
+ * `12:34:56`, so a candidate has to survive the group count and the `::` rule.
+ */
+export function isIpv6(value: string): boolean {
+  if (!value.includes(':') || !/^[0-9a-fA-F:.]+$/.test(value)) return false
+  const doubleColons = value.split('::').length - 1
+  if (doubleColons > 1) return false
+  const groups = value.split(':').filter((group) => group !== '')
+  if (groups.length === 0 || groups.length > 8) return false
+  if (groups.some((group) => group.length > 4)) return false
+  if (doubleColons === 0 && groups.length !== 8) return false
+  const tail = groups[groups.length - 1]
+  return /^[0-9a-fA-F]{1,4}$/.test(tail) || isIpv4(tail)
+}
+
+export interface IpToken {
+  ip: string
+  /** Trailing `:port`, when the text carried one (an `ip:port` endpoint). */
+  port: number | null
+  start: number
+  end: number
+}
+
+/** Every address in a string, with where it sits in it. */
+export function ipTokens(text: string): IpToken[] {
+  const found: IpToken[] = []
+
+  const collect = (pattern: RegExp, valid: (value: string) => boolean, ipv4: boolean) => {
+    pattern.lastIndex = 0
+    for (const match of text.matchAll(pattern)) {
+      const value = match[0]
+      if (!valid(value)) continue
+      const start = match.index ?? 0
+      const end = start + value.length
+      if (found.some((token) => start < token.end && end > token.start)) continue
+      let port: number | null = null
+      if (ipv4) {
+        /* `192.168.8.229:443` is one endpoint: the port is read as part of it but
+           kept separate, because the filter wants the address and the menu wants
+           the port only when no stream applies. */
+        const tail = text.slice(end).match(/^:(\d{1,5})\b/)
+        if (tail) {
+          const parsed = Number(tail[1])
+          if (parsed <= 65535) port = parsed
+        }
+      }
+      found.push({ ip: value, port, start, end })
+    }
+  }
+
+  collect(IPV4_CANDIDATE, isIpv4, true)
+  collect(IPV6_CANDIDATE, isIpv6, false)
+  return found.sort((left, right) => left.start - right.start)
+}
+
+/** The address the caret is inside, if any. */
+export function ipAtOffset(text: string, offset: number): IpToken | null {
+  for (const token of ipTokens(text)) {
+    if (offset >= token.start && offset <= token.end) return token
+  }
+  return null
+}
+
+/** The text node under a point, when the browser can say which one it is. */
+function textNodeAt(x: number, y: number): { node: Text; offset: number } | null {
+  const doc = document as Document & {
+    caretRangeFromPoint?: (x: number, y: number) => Range | null
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null
+  }
+  const range = doc.caretRangeFromPoint?.(x, y) ?? null
+  if (range?.startContainer?.nodeType === Node.TEXT_NODE) {
+    return { node: range.startContainer as Text, offset: range.startOffset }
+  }
+  const position = doc.caretPositionFromPoint?.(x, y) ?? null
+  if (position?.offsetNode?.nodeType === Node.TEXT_NODE) {
+    return { node: position.offsetNode as Text, offset: position.offset }
+  }
+  return null
+}
+
+/**
+ * The address under the pointer, when the element under it declares none.
+ *
+ * First the caret's own text node — so in a cell holding
+ * `192.168.8.229:51000 <-> 150.171.109.217:443` the address actually under the
+ * cursor wins rather than the first one in the row. Then, for elements whose
+ * text is one short value (a chip, a label, a mono cell), that text. A container
+ * holding a paragraph is ignored rather than mined for addresses nobody aimed
+ * at.
+ */
+export function factsFromPoint(x: number, y: number): IpTargetFacts | null {
+  const caret = textNodeAt(x, y)
+  if (caret) {
+    const token = ipAtOffset(caret.node.data, caret.offset)
+    if (token) return { ip: token.ip, transport: null, streamId: null, port: token.port }
+  }
+
+  let element = document.elementFromPoint?.(x, y) ?? null
+  for (let depth = 0; element && depth < 4; depth += 1) {
+    const text = (element.textContent ?? '').trim()
+    if (text !== '' && text.length <= 64) {
+      const tokens = ipTokens(text)
+      if (tokens.length === 1) {
+        return { ip: tokens[0].ip, transport: null, streamId: null, port: tokens[0].port }
+      }
+    }
+    element = element.parentElement
+  }
+  return null
+}
+
+/* ------------------------------------------------------------------ */
 /* the body, separated so it can be rendered and read without a DOM     */
 /* ------------------------------------------------------------------ */
 
 export interface IpMenuBodyProps {
-  facts: IpTargetFacts
+  /** `null` when the right click landed on something that names no address. */
+  facts: IpTargetFacts | null
   /** Whether the backend reports a Wireshark GUI to open. */
   available: boolean
   /** True while that answer is still being fetched. */
@@ -166,10 +305,16 @@ export function IpMenuBody({
   firstItemRef,
   style,
 }: IpMenuBodyProps) {
+  const ip = facts?.ip ?? null
   const scope =
-    facts.streamId !== null && facts.transport
+    facts && facts.streamId !== null && facts.transport
       ? `${facts.transport.toUpperCase()} stream ${facts.streamId}`
       : null
+  /* With no address every action is shown and none of them can do anything:
+     greyed out, with the reason in one line, rather than a menu that vanishes or
+     one that lies about being able to act. */
+  const inert = ip === null
+  const inertTitle = 'Right-click an address to use this'
 
   return (
     <div
@@ -177,34 +322,57 @@ export function IpMenuBody({
       className="ip-menu"
       style={style}
       role="menu"
-      aria-label={`Actions for ${facts.ip}`}
+      aria-label={ip === null ? 'Address actions' : `Actions for ${ip}`}
       onKeyDown={onKeyDown}
       onContextMenu={(event) => event.preventDefault()}
     >
       <div className="ip-menu-head">
-        <span className="mono">{facts.ip}</span>
-        {scope ? <span className="ip-menu-scope">{scope}</span> : null}
+        {ip === null ? (
+          <span className="text-faint">No address selected</span>
+        ) : (
+          <>
+            <span className="mono">{ip}</span>
+            {scope ? <span className="ip-menu-scope">{scope}</span> : null}
+          </>
+        )}
       </div>
 
-      <button ref={firstItemRef} type="button" role="menuitem" className="ip-menu-item" onClick={onHunt}>
+      <button
+        ref={firstItemRef}
+        type="button"
+        role="menuitem"
+        className="ip-menu-item"
+        disabled={inert}
+        title={inert ? inertTitle : `Open the profile of ${ip}`}
+        onClick={onHunt}
+      >
         <Crosshair size={13} aria-hidden />
-        <span>Pivot {facts.ip} to Hunt</span>
-      </button>
-
-      <button type="button" role="menuitem" className="ip-menu-item" onClick={onConversations}>
-        <ArrowLeftRight size={13} aria-hidden />
-        <span>Show Conversations with {facts.ip}</span>
+        <span>{ip === null ? 'Pivot to Hunt' : `Pivot ${ip} to Hunt`}</span>
       </button>
 
       <button
         type="button"
         role="menuitem"
         className="ip-menu-item"
-        disabled={!available || pending}
+        disabled={inert}
+        title={inert ? inertTitle : `Every conversation involving ${ip}`}
+        onClick={onConversations}
+      >
+        <ArrowLeftRight size={13} aria-hidden />
+        <span>{ip === null ? 'Show Conversations' : `Show Conversations with ${ip}`}</span>
+      </button>
+
+      <button
+        type="button"
+        role="menuitem"
+        className="ip-menu-item"
+        disabled={inert || !available || pending}
         title={
-          available
-            ? `Open this capture in Wireshark, filtered to ${scope ?? facts.ip}`
-            : (unavailableReason ?? 'Checking whether Wireshark is installed…')
+          inert
+            ? inertTitle
+            : available
+              ? `Open this capture in Wireshark, filtered to ${scope ?? ip}`
+              : (unavailableReason ?? 'Checking whether Wireshark is installed…')
         }
         onClick={onWireshark}
       >
@@ -217,7 +385,14 @@ export function IpMenuBody({
         {version ? <span className="ip-menu-hint">v{version}</span> : null}
       </button>
 
-      {!available && !checking ? (
+      {inert ? (
+        <p className="ip-menu-note">
+          This menu works on any address in the application — a host row, a conversation endpoint, a
+          packet's source or destination. Right-click one of those.
+        </p>
+      ) : null}
+
+      {!inert && !available && !checking ? (
         <p className="ip-menu-note">
           {unavailableReason ?? 'No Wireshark GUI was found on this machine.'} Install Wireshark, or
           set <span className="mono">APACKETS_WIRESHARK_PATH</span> to the executable.
@@ -241,9 +416,11 @@ export function IpMenuBody({
       ) : null}
 
       <div className={result ? 'ip-menu-foot ip-menu-foot-ok' : 'ip-menu-foot'}>
-        {scope
-          ? `The filter follows this conversation, not every frame with ${facts.ip}.`
-          : `Opens every frame ${facts.ip} appears in.`}
+        {inert
+          ? 'Nothing here names an address, so there is nothing to pivot to.'
+          : scope
+            ? `The filter follows this conversation, not every frame with ${ip}.`
+            : `Opens every frame ${ip} appears in, with the first selected.`}
       </div>
     </div>
   )
@@ -253,7 +430,9 @@ export function IpMenuBody({
 /* the live menu: listening, positioning, and the three actions        */
 /* ------------------------------------------------------------------ */
 
-interface OpenTarget extends IpTargetFacts {
+interface OpenTarget {
+  /** `null` when the right click landed on something that names no address. */
+  facts: IpTargetFacts | null
   x: number
   y: number
   /** Where focus goes back to when the menu closes. */
@@ -281,11 +460,24 @@ export function IpContextMenu() {
 
   useEffect(() => {
     const onContextMenu = (event: MouseEvent) => {
-      const facts = ipFactsFrom(event.target as Element | null)
-      if (!facts) return // not an address: leave the browser's own menu alone
+      /* A right click inside the menu itself keeps it where it is. */
+      if (menuRef.current?.contains(event.target as Node)) {
+        event.preventDefault()
+        return
+      }
+      /* Text fields keep the browser's own menu: paste, spell-check and the rest
+         of it belong to the field, and an address is never editable there. */
+      if (isTypingTarget(event.target as Element | null)) return
+
+      /* Everywhere else the menu opens — the application's own menu instead of
+         the browser's — with the actions greyed out when the click named no
+         address. */
       event.preventDefault()
+      const facts =
+        ipFactsFrom(event.target as Element | null) ??
+        factsFromPoint(event.clientX, event.clientY)
       setTarget({
-        ...facts,
+        facts,
         x: event.clientX,
         y: event.clientY,
         opener: (event.target as HTMLElement) ?? null,
@@ -293,17 +485,27 @@ export function IpContextMenu() {
     }
 
     /* Shift+F10 and the dedicated context-menu key are what a keyboard user has
-       instead of a right click, and they only ever mean this menu. */
+       instead of a right click, and they only ever mean this menu. As with the
+       pointer, the menu opens even when the focused element names no address. */
     const onKeyDown = (event: KeyboardEvent) => {
       const isMenuKey = event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')
       if (!isMenuKey) return
       const active = document.activeElement
       if (isTypingTarget(active)) return
-      const facts = ipFactsFrom(active)
-      if (!facts) return
       event.preventDefault()
-      const rect = (active as HTMLElement).getBoundingClientRect()
-      setTarget({ ...facts, x: rect.left + 12, y: rect.top + rect.height, opener: active as HTMLElement })
+      const facts =
+        ipFactsFrom(active) ??
+        (() => {
+          const rect = (active as HTMLElement | null)?.getBoundingClientRect()
+          return rect ? factsFromPoint(rect.left + 4, rect.top + rect.height / 2) : null
+        })()
+      const rect = (active as HTMLElement | null)?.getBoundingClientRect()
+      setTarget({
+        facts,
+        x: rect ? rect.left + 12 : 24,
+        y: rect ? rect.top + rect.height : 24,
+        opener: (active as HTMLElement) ?? null,
+      })
     }
 
     document.addEventListener('contextmenu', onContextMenu)
@@ -384,7 +586,7 @@ export function IpContextMenu() {
   })
 
   const launch = useMutation({
-    mutationFn: (facts: OpenTarget) =>
+    mutationFn: (facts: IpTargetFacts) =>
       wiresharkApi.launch(analysisId as string, {
         ip: facts.ip,
         transport: facts.transport,
@@ -395,9 +597,11 @@ export function IpContextMenu() {
 
   if (!target) return null
 
+  const facts = target.facts
+
   return createPortal(
     <IpMenuBody
-      facts={target}
+      facts={facts}
       available={status.data?.available === true}
       checking={status.isLoading || status.isFetching}
       version={status.data?.version ?? null}
@@ -419,14 +623,19 @@ export function IpContextMenu() {
       style={position}
       onKeyDown={onMenuKeyDown}
       onHunt={() => {
+        if (!facts) return
         close()
-        navigate(huntUrl(target.ip))
+        navigate(huntUrl(facts.ip))
       }}
       onConversations={() => {
+        if (!facts) return
         close()
-        navigate(conversationsUrl(target.ip, target.transport, target.streamId))
+        navigate(conversationsUrl(facts.ip, facts.transport, facts.streamId))
       }}
-      onWireshark={() => launch.mutate(target)}
+      onWireshark={() => {
+        if (!facts) return
+        launch.mutate(facts)
+      }}
     />,
     document.body,
   )

@@ -221,18 +221,27 @@ def build_filter(
 def _argv(binary: str, capture: Path, display_filter: str, *, read_filter: bool) -> list[str]:
     """The argument vector, built here and nowhere else.
 
-    ``-Y`` applies a *display* filter when the file is opened; ``-R`` applies a
-    read filter and is much faster on a large capture, but it is only honoured
-    when ``-2`` (two-pass) is also given, and two passes mean Wireshark is busy
-    before it shows anything. The default is therefore ``-Y``: the window opens
-    immediately showing everything, filtered, which is what "pivot and look"
-    means. ``read_filter`` is kept for callers that would rather wait.
+    Two options make the window land *on* the packets rather than merely load the
+    file:
+
+    * ``-Y <filter>`` starts with the display filter applied, so the packet list
+      shows this conversation and nothing else;
+    * ``-J <filter>`` jumps the selection to the first packet matching it, which
+      for this filter is the conversation's first frame. Wireshark's manual:
+      "jump to the packet matching the filter … If no exact match is found the
+      first packet after that is selected." ``-j`` would select the packet
+      *before* a missing match instead, which is not what an analyst wants.
+
+    ``-R`` applies a *read* filter and is faster on a large capture, but it is
+    only honoured with ``-2`` (two-pass), and two passes mean Wireshark is busy
+    before it shows anything. ``read_filter=True`` is kept for callers that would
+    rather wait.
     """
     argv = [binary, "-r", str(capture)]
     if read_filter:
         argv += ["-2", "-R", display_filter]
     else:
-        argv += ["-Y", display_filter]
+        argv += ["-Y", display_filter, "-J", display_filter]
     return argv
 
 
@@ -286,6 +295,12 @@ def open_capture(
 
     # The child is not waited on, so it must not be reported as a zombie to the
     # runtime: a thread that reaps it in the background is the standard remedy.
+    #
+    # Note for anyone reading the returned ``pid``: on Windows the executable
+    # re-execs itself, so the process started here is a launcher that exits while
+    # the window it spawned keeps running. "That pid is gone" therefore says
+    # nothing about whether a window opened — the launcher exits *because* the GUI
+    # came up. The pid is reported for the log's sake, not as a handle on the GUI.
     def _reap() -> None:
         try:
             process.wait(timeout=3600)
