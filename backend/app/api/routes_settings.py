@@ -13,7 +13,7 @@ from fastapi import APIRouter
 from app import __version__
 from app.core import runtime_settings
 from app.core.config import settings
-from app.core.errors import bad_request, not_found
+from app.core.errors import bad_request, not_found, unprocessable
 from app.core.logging import get_logger
 from app.db import database as db
 from app.schemas import IndicatorCreate, SettingsUpdate
@@ -68,14 +68,56 @@ def update_settings(body: SettingsUpdate) -> dict:
         overrides["retain_uploads"] = bool(body.retain_uploads)
         changed.append("retain_uploads")
 
+    # --- credential scanner (docs/CREDENTIALS.md §7) ------------------------
+    #
+    # These two live under their own ``credential_config`` key, so they are
+    # validated here and written separately. The protocol list is validated the
+    # way the detection configuration validates its own: an unknown name is a
+    # ``422 validation_error`` naming what is allowed, because a name the scanner
+    # cannot read would otherwise sit in the settings view as though it applied.
+    credential_config: dict = {}
+    if body.credential_scan_enabled is not None:
+        credential_config["credential_scan_enabled"] = bool(body.credential_scan_enabled)
+        changed.append("credential_scan_enabled")
+
+    if body.credential_protocols is not None:
+        requested = [str(name).strip().lower() for name in body.credential_protocols]
+        unknown = [name for name in requested if name not in runtime_settings.CREDENTIAL_PROTOCOLS]
+        if unknown:
+            raise unprocessable(
+                "validation_error",
+                f"Unknown credential protocol '{unknown[0]}'.",
+                {"allowed": list(runtime_settings.CREDENTIAL_PROTOCOLS)},
+            )
+        credential_config["credential_protocols"] = requested
+        changed.append("credential_protocols")
+
     if not changed:
         raise bad_request(
             "no_changes",
             "No mutable settings were supplied.",
-            {"mutable": sorted([*runtime_settings.INT_BOUNDS, "retain_uploads"])},
+            {
+                "mutable": sorted(
+                    [
+                        *runtime_settings.INT_BOUNDS,
+                        "retain_uploads",
+                        "credential_scan_enabled",
+                        "credential_protocols",
+                    ]
+                )
+            },
         )
 
-    runtime_settings.save_overrides(overrides)
+    # Only write the keys that were actually supplied: a request that changes the
+    # credential scan must not rewrite the unrelated app_settings row.
+    app_config_changed = any(
+        key in runtime_settings.INT_BOUNDS or key == "retain_uploads" for key in changed
+    )
+    if credential_config:
+        runtime_settings.save_credential_config(credential_config)
+    if app_config_changed:
+        runtime_settings.save_overrides(overrides)
+
     log.info("settings updated: %s", ", ".join(changed))
     return {"ok": True, "changed": changed, "settings": effective_settings()}
 

@@ -9,6 +9,7 @@ import {
   FolderUp,
   Globe,
   Info,
+  KeyRound,
   LayoutDashboard,
   List,
   Lock,
@@ -216,6 +217,13 @@ export function AppLayout() {
       title: 'Look up one address, domain or URL and see everything this capture knows about it',
     },
     { to: '/objects', label: 'Files and Objects', icon: Package },
+    {
+      to: '/credentials',
+      label: 'Users & Passwords',
+      icon: KeyRound,
+      title:
+        'Cleartext users, passwords, keys and tokens the dissectors could read, with the locations the scanner reads and the ones it cannot',
+    },
     /* The protocol browsers are their own group: they answer "what did this protocol
        say", where everything above answers "what is in this capture". */
     { to: '/http', label: 'HTTP', icon: Globe, section: 'Protocols' },

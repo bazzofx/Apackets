@@ -24,6 +24,7 @@ import {
   FolderUp,
   Globe,
   Info,
+  KeyRound,
   LayoutDashboard,
   Mail,
   List,
@@ -177,6 +178,21 @@ export const SECTIONS = {
     hueVar: '--c-chart-6',
     variant: 'ledger',
   },
+  credentials: {
+    id: 'credentials',
+    route: '/credentials',
+    group: 'Investigate',
+    label: 'Users & Passwords',
+    purpose:
+      'The users and passwords this capture carried in clear text — with the keys and tokens alongside them, the locations the scanner does read and the ones it cannot.',
+    icon: KeyRound,
+    /* Amber: the last legible hue no other section had left, and the honest
+       temperature for a page whose whole subject is exposure. As everywhere else
+       it tints only the headline, the eyebrow, the active nav entry and a card's
+       hairline, so it is never a claim about a single row. */
+    hueVar: '--c-warn',
+    variant: 'ledger',
+  },
   packets: {
     id: 'packets',
     route: '/packets',
@@ -320,6 +336,7 @@ export const SECTION_LIST: SectionIdentity[] = [
   SECTIONS.threatHunt,
   SECTIONS.investigate,
   SECTIONS.objects,
+  SECTIONS.credentials,
   SECTIONS.http,
   SECTIONS.dns,
   SECTIONS.tls,

@@ -2,9 +2,9 @@
 
 Runs the stages of a full analysis inside a worker job, reporting progress and
 honouring cancellation. Optional stages (HTTP, DNS, TLS, hosts, objects,
-detection) degrade gracefully: if one fails, the analysis still completes and the
-failure is recorded, because losing a whole capture's metadata over one optional
-dissector would be worse than a partial result.
+credentials, detection) degrade gracefully: if one fails, the analysis still
+completes and the failure is recorded, because losing a whole capture's metadata
+over one optional dissector would be worse than a partial result.
 """
 
 from __future__ import annotations
@@ -34,7 +34,12 @@ BANDS: dict[str, tuple[float, float]] = {
     "protocols": (83.0, 7.0),
     "hosts": (90.0, 3.0),
     "objects": (93.0, 3.0),
-    "detection": (96.0, 2.0),
+    # The credential scanner reads the rows the HTTP and protocol stages just wrote
+    # (docs/CREDENTIALS.md §2), so its band sits between them and detection. The
+    # percent it needed was taken from the stages around it, so the bands still sum
+    # to 100: detection narrowed from two percent to one.
+    "credentials": (96.0, 1.0),
+    "detection": (97.0, 1.0),
     "suricata": (98.0, 1.0),
     "finalise": (99.0, 1.0),
 }
@@ -162,6 +167,10 @@ def run_analysis(ctx: JobContext, analysis_id: str, capture_path: Path) -> None:
         ("protocols", "protocol_analyzer", "Analysing protocol sessions"),
         ("hosts", "host_analyzer", "Building host statistics"),
         ("objects", "object_extractor", "Extracting objects"),
+        # After the stages it reads, before the rules that consume findings: a
+        # credential is a dissected fact, not a verdict, so detection's rules run
+        # on a capture whose credentials are already recorded.
+        ("credentials", "credential_analyzer", "Scanning for credentials"),
         ("detection", "detection_engine", "Running detection rules"),
         ("suricata", "suricata_engine", "Matching Suricata rules"),
     ]
@@ -192,6 +201,14 @@ def run_analysis(ctx: JobContext, analysis_id: str, capture_path: Path) -> None:
                 time.monotonic() - stage_started,
                 outcome,
             )
+            # A stage that declined to run says so in its outcome. The credential
+            # scanner is the first: with ``credential_scan_enabled`` false it
+            # writes nothing and the warning names the setting, so an empty
+            # credentials page is never read as a clean capture (docs/CREDENTIALS.md
+            # §7, §10).
+            declined = outcome.get("warning") if isinstance(outcome, dict) else None
+            if declined:
+                warnings.append(str(declined))
         except Exception as exc:  # noqa: BLE001 - one stage must not sink the job
             log.exception("stage %s failed", stage)
             warnings.append(f"The {stage} stage failed: {type(exc).__name__}: {exc}")

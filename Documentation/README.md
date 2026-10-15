@@ -46,6 +46,7 @@ The headings below are the five headings the sidebar draws, in its order.
 | Threat Map | [Threat-Hunt.md](Threat-Hunt.md) | `/threat-hunt` |
 | Hunt | [Investigate.md](Investigate.md) | `/investigate` |
 | Files and Objects | [Files-and-Objects.md](Files-and-Objects.md) | `/objects` |
+| Users & Passwords | [Credentials.md](Credentials.md) | `/credentials` |
 
 ### Protocols
 
@@ -99,12 +100,13 @@ The rules, which every document here follows:
    [`docs/THREAT_HUNT.md`](../docs/THREAT_HUNT.md) is the normative Threat Map
    contract. These documents explain the application; those two define it. Where a
    section depends on a rule, it links to the contract rather than restating it.
-   Four features carry their own normative contract alongside them:
+   Five features carry their own normative contract alongside them:
    [`docs/PROTOCOLS.md`](../docs/PROTOCOLS.md) for the five protocol-session sections,
    [`docs/GEOGRAPHY.md`](../docs/GEOGRAPHY.md) for the Dashboard map,
    [`docs/IP_LOOKUP.md`](../docs/IP_LOOKUP.md) for the registration rail in the host
-   detail, and [`docs/ENTITY_PROFILE.md`](../docs/ENTITY_PROFILE.md) for Hunt.
-
+   detail, [`docs/ENTITY_PROFILE.md`](../docs/ENTITY_PROFILE.md) for Hunt, and
+   [`docs/CREDENTIALS.md`](../docs/CREDENTIALS.md) for credential discovery — the
+   **Users & Passwords** page.
 ## What these documents are not
 
 * **Not a restatement of the contract.** Interface shapes live in

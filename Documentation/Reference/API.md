@@ -122,6 +122,7 @@ capture.
 | `routes_settings.py` | `/api` | `settings` | `GET|PUT /settings`, `GET|POST /indicators`, `DELETE /indicators/{id}`. |
 | `routes_suricata.py` | `/api` | `suricata` | Rule CRUD and listing under `/suricata/rules…`, `/suricata/rules/stats`, `/suricata/config` (`GET|PUT`), import and seed, plus the per-analysis `/analyses/{analysis_id}/suricata/alerts` and `/analyses/{analysis_id}/suricata/run`. |
 | `routes_wireshark.py` | `/api/analyses/{analysis_id}` | `wireshark` | `GET /wireshark` (whether a Wireshark GUI exists here, and where — starts nothing) and `POST /wireshark` (opens this analysis's capture in it, filtered to `{ip, transport?, stream_id?, port?}` and jumped to the first matching frame). The only route that starts a program for the operator; it accepts no filter string. See [Architecture.md §6.1](../Architecture.md). |
+| `routes_credentials.py` | `/api/analyses/{analysis_id}` | `credentials` | `GET /credentials` (the visible credentials this capture carried — redacted unless `?reveal=1`, with filters, sorting and pagination), `GET /credentials/summary` (counts only, never a value), `POST /credentials/scan` (re-run the scan, `202`). See [CREDENTIALS.md](../../docs/CREDENTIALS.md). |
 
 Two meta endpoints come from `main.py` rather than a feature router:
 `GET /api/capabilities` and the OpenAPI document itself.

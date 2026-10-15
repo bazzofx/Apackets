@@ -589,6 +589,23 @@
     @apply font-mono;
   }
 
+  /* A credential value cell (Credentials page, docs/CREDENTIALS.md §5).
+   *
+   * The redacted preview and the revealed wire value are the same field, so
+   * they must not read as two different kinds of evidence. The preview is the
+   * muted shade because it is not the value — it is the value with its middle
+   * removed — and the revealed value is foreground text. Both wrap on any
+   * character, because a Base64 or JSON credential has no spaces to break on
+   * and truncating it with an ellipsis would hide where it ends.
+   */
+  .cred-value {
+    @apply block max-w-[34rem] break-all font-mono text-xs text-text;
+  }
+
+  .cred-value-preview {
+    @apply text-muted;
+  }
+
   /* ------------------------------------------------------------------ */
   /* page shell and section identity                                     */
   /*                                                                     */

@@ -7,6 +7,9 @@
 
 import clsx from 'clsx'
 import { ArrowDown, ArrowUp } from 'lucide-react'
+/* The flag/local-machine icon before an address, shared with the Users & Passwords
+   page's endpoint cells, so it is not maintained twice. */
+import AddressFlag from '@/components/AddressFlag'
 import MonoCell from '@/components/MonoCell'
 import {
   NameChips,
@@ -19,54 +22,7 @@ import {
   parseStringList,
 } from '@/components/hosts/chips'
 import type { Host, SortOrder } from '@/types'
-import { countryName } from '@/theme/worldMap'
-import { flagUrl, LOCAL_ICON_URL } from '@/theme/countryFlags'
-import { isLocalAddress } from '@/utils/privateIp'
 import { formatBytes, formatNumber, formatTimestamp } from '@/utils/format'
-
-/**
- * The icon before an address: the local-machine icon when the address is one of
- * ours, otherwise the country's flag, otherwise nothing.
- *
- * The rule is a CIDR check (`utils/privateIp.ts`) — if the address falls in an
- * internal block, it is local and gets `pc.png`; no flag is drawn for it either
- * way, because a private address has no country. Everything is decorative
- * (`alt=""`) with a tooltip that carries the fact in words.
- */
-function HostFlag({ ip, country }: { ip: string; country?: string | null }) {
-  const local = isLocalAddress(ip)
-  const url = local ? LOCAL_ICON_URL : flagUrl(country)
-  if (url === null) return null
-
-  if (local) {
-    return (
-      <img
-        src={url}
-        alt=""
-        width={16}
-        height={11}
-        loading="lazy"
-        className="host-flag host-flag-local"
-        title={`${ip} is a local address — private, loopback, link-local or reserved, so no country applies`}
-        data-country="local"
-      />
-    )
-  }
-
-  const code = String(country ?? '').trim().toUpperCase()
-  return (
-    <img
-      src={url}
-      alt=""
-      width={16}
-      height={11}
-      loading="lazy"
-      className="host-flag"
-      title={`${countryName(code)} (${code}) — where this address block is registered, not necessarily where the host is`}
-      data-country={code}
-    />
-  )
-}
 
 /** Sort allow-list — mirrors `routes_hosts.SORTABLE` exactly. */
 export const HOST_SORT_KEYS = [
@@ -228,7 +184,7 @@ export function HostsTable({ hosts, selectedIp, onSelect, sort, order, onSort }:
                         drawn when there is no country: a private address, an IPv6
                         address or an uninstalled dataset gets nothing, rather than
                         a placeholder that would read as a country. */}
-                    <HostFlag ip={host.ip} country={host.country} />
+                    <AddressFlag ip={host.ip} country={host.country} />
                     <button
                       type="button"
                       className={clsx(

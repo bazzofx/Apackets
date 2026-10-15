@@ -1,8 +1,9 @@
 # Settings
 
 The configuration and rule-management page (`/settings`): what the backend is actually
-running with, the handful of values an analyst may change, the indicators the detection
-engine matches against, the Suricata rules panel, and the four colour themes.
+running with, the handful of values an analyst may change, the **Users & Passwords**
+discovery switch and its protocol selection, the indicators the detection engine matches
+against, the Suricata rules panel, and the four colour themes.
 
 The component is `frontend/src/pages/SettingsPage.tsx`, with
 `frontend/src/components/ThemePanel.tsx` and
@@ -22,7 +23,7 @@ analyst-supplied indicators are entered.
 
 ## 2. What is on the screen
 
-Six panels, in this order.
+Seven panels, in this order.
 
 ### 2.1 Theme
 
@@ -177,7 +178,50 @@ means setting `APACKETS_MAX_OBJECT_BYTES`, `APACKETS_BODY_PREVIEW_BYTES` or
 mechanism documented in [Getting-Started.md](Getting-Started.md). See §5 for the rest of the
 start-up-only settings.
 
-### 2.4 Indicators
+### 2.4 Users & Passwords discovery
+
+Panel title *Users & Passwords discovery* — the visible name matches the sidebar entry, which is
+the [Users & Passwords](Credentials.md) page. Subtitle: *the cleartext credential stage's own
+switch and protocol selection (docs/CREDENTIALS.md §7)*. A **Save Users & Passwords settings**
+button sits in the panel header and is enabled only while the block differs from what the settings
+payload currently holds.
+
+| Control | Setting | Default | Meaning |
+|---|---|---|---|
+| *search new analyses for cleartext credentials* (checkbox) | `credential_scan_enabled` | checked | With it off, the pipeline **skips the stage** and writes no rows at all |
+| Protocol checkboxes: HTTP, FTP, SMTP, POP3 and IMAP | `credential_protocols` | all five | Which protocols' locations the scanner reads. An empty selection means **none**, not "all" |
+
+Both live in the `settings` table under `credential_config` and are saved through the same
+`PUT /api/settings` the Editable settings panel uses, but in **their own request**: the save
+sends only the two credential keys, so editing one block can never submit the other's fields.
+What the controls show is read from `GET /api/settings` on every render, and an unsaved edit
+is held beside it — so the block draws the real configuration on the first frame, and a change
+that is toggled back by hand leaves the form clean again (the save button is enabled only while
+the edit differs from the payload). An unsaved change is labelled *Unsaved change — the pipeline
+keeps using the settings below until Save Users & Passwords settings is pressed*, and a successful
+save writes the response's settings view into the page's settings query and reads *Saved at
+`YYYY-MM-DD HH:MM:SS.mmm` — applied to analyses started after the save; what was already found is
+untouched*.
+
+If the settings API returns neither `credential_scan_enabled` nor `credential_protocols`, the
+panel says so instead of drawing the controls: showing the contract's defaults would describe
+the contract rather than this installation. When exactly one of the two keys is missing, the
+other is shown and the missing one falls back to its documented default. The list of protocol
+checkboxes is `credential_protocols_available` from the same payload — the protocols this backend
+will accept — falling back to the contract's five when the payload does not carry it, so the
+block cannot offer a protocol the server would reject.
+
+Directly under the panel, the block's explanation is a **collapsed help card**
+(`ScopeNote`, the same component the protocol pages and the Users & Passwords page use), titled
+*What switching Users & Passwords discovery off does, and does not do*. It states that the switch
+governs future analyses, that the protocol selection narrows where the scanner looks, and
+three things it is not: **nothing is deleted** (the rows an earlier run found stay in the
+analysis and stay readable on the [Users & Passwords](Credentials.md) page, which reports the
+setting's state beside them so the two cannot be confused), it cannot read anything encrypted
+— not with the scan on — and it is not a new capture pass, because the scanner reads the rows
+the other analysers already stored.
+
+### 2.5 Indicators
 
 Subtitle: *analyst-supplied indicators matched by the indicator_match rule (global scope)*,
 with the total indicator count as a chip in the header.
@@ -230,7 +274,7 @@ with their analysis id, even though `indicator_match` will never apply them to a
 capture. There is no control on this page to choose the scope, so anything added here is
 always global.
 
-### 2.5 Suricata rules
+### 2.6 Suricata rules
 
 Subtitle: *signature-based detections evaluated against this capture's indexed fields*.
 
@@ -310,7 +354,7 @@ already in `findings` are not.
 (`1`–`1000`) and `include_unsupported`, but **this panel has no controls**, so those values
 can only be changed by calling the API directly.
 
-### 2.6 Local-only operation
+### 2.7 Local-only operation
 
 Four static statements, not data read from the backend: that capture files, decoded packets,
 extracted objects, hashes and findings never leave the machine and that the frontend talks
@@ -326,6 +370,7 @@ a command line.
 | Panel | Call | Route module |
 |---|---|---|
 | Effective settings, Editable settings | `GET /api/settings`, `PUT /api/settings` | `backend/app/api/routes_settings.py` |
+| Users & Passwords discovery | `GET /api/settings`, `PUT /api/settings` (only `credential_scan_enabled` and `credential_protocols`) | `routes_settings.py`; the stage itself is `backend/app/services/credential_analyzer.py` |
 | Indicators | `GET /api/indicators`, `POST /api/indicators`, `DELETE /api/indicators/{id}` | `routes_settings.py` |
 | Suricata rules table, stats strip | `GET /api/suricata/rules`, `GET /api/suricata/rules/stats` | `backend/app/api/routes_suricata.py` |
 | Matcher scope | `GET /api/suricata/config` | `routes_suricata.py` |
@@ -343,7 +388,7 @@ Tables behind the page:
 
 | Table | Supplies |
 |---|---|
-| `settings` | The runtime overrides, under the keys `app_settings` (the five editable values) and `suricata_config` (HOME_NET, `max_findings_per_rule`, `include_unsupported`, per-variable overrides). Both are read through `runtime_settings.load_overrides()`. |
+| `settings` | The runtime overrides, under the keys `app_settings` (the five editable values), `credential_config` (`credential_scan_enabled`, `credential_protocols`) and `suricata_config` (HOME_NET, `max_findings_per_rule`, `include_unsupported`, per-variable overrides). All are read through `runtime_settings.load_overrides()`. |
 | `indicators` | The whole indicator table: `type`, `value`, `note`, `created_at`, and `analysis_id` which is NULL for global rows. |
 | `suricata_rules` | Everything in the rules table and every figure in the stats strip: `sid`, `rev`, `action`, `protocol`, `msg`, `category`, `severity`, `options`, `unsupported`, `supported`, `approximate`, `enabled`, `source`, `raw`, `created_at`, `updated_at`. |
 | `findings` | The Hits column only, via a correlated subquery counting `rule_id = 'suricata:' \|\| sid` for the selected analysis. |
@@ -366,8 +411,9 @@ the indicator table has no drill-down.
 | **Open findings** (in a Suricata run summary) | `/findings` |
 | **Run on capture** | Nothing — it evaluates rules against the selected capture and returns counts |
 | Import / upload / edit / delete / toggle a rule | Nothing — the table refreshes in place |
+| **Save Users & Passwords settings** | Nothing — it writes the two credential keys and the panel reports the save in place |
 
-Two inbound links matter, because they are how this page is reached in practice:
+Three inbound links matter, because they are how this page is reached in practice:
 
 * `/settings?sid=<n>` seeds the rule search box with that value, so the table opens filtered to
   that rule. The Findings workbench uses it: the *Suricata rule behind this alert* panel has
@@ -375,6 +421,8 @@ Two inbound links matter, because they are how this page is reached in practice:
   substring match over message, sid and rule text, so a sid whose digits also occur in another
   rule's text pulls that rule into the list as well — the filter narrows the table, it does
   not prove uniqueness.
+* The [Users & Passwords](Credentials.md) page links here from its disabled-scan panel and from
+  both of its empty states, because the switch this panel edits is the reason those states exist.
 * The sidebar's Settings item, which is present on every page.
 
 The capture selector in the top bar decides which analysis **Run on capture** and the Hits
@@ -475,13 +523,35 @@ column apply to. With no capture selected the button is disabled and Hits reads 
 * **The page works without a capture, but its Suricata half is partly inert.** With no
   analysis selected, **Run on capture** is disabled and Hits reads `-`; the rules, stats and
   matcher scope still load, because they are global.
+* **The Users & Passwords switch is a setting, not a purge.** Turning `credential_scan_enabled`
+  off stops the stage in analyses started afterwards; it deletes no row that an earlier run wrote,
+  and the [Users & Passwords](Credentials.md) page keeps listing those rows while reporting that
+  the setting is off. An empty credentials table for such an analysis is a statement about the
+  setting, not about the capture.
+* **An empty protocol selection means none, not all.** `credential_protocols` is a positive
+  list: unticking all five leaves the scanner with nothing to read, and the Users & Passwords page
+  states that as its own case rather than presenting an empty table. The two keys are
+  independent — the master switch does not clear the protocol list, and the protocol list does
+  not re-enable the switch.
+* **Nothing on this panel decrypts anything.** The scanner reads the locations
+  [`docs/CREDENTIALS.md`](../docs/CREDENTIALS.md) §2 defines — cleartext HTTP fields and
+  FTP/SMTP/POP3/IMAP authentication commands — and never examines TLS, SSH or SMB-signed
+  traffic. Switching discovery on cannot change that, and the panel says so.
+* **This panel reports what the settings API exposes.** If the payload carries neither
+  `credential_scan_enabled` nor `credential_protocols`, the block states that it can neither
+  show nor change them rather than drawing the contract's defaults as this installation's
+  configuration. The saved values come from the response's own settings view, so a server that
+  stores something other than what was sent is shown as it stored it.
 
 ## 6. Related
 
 The upload limit and the retention flag this page edits are consumed by
 [PCAP-Files.md](PCAP-Files.md); the indicators feed the `indicator_match` rule documented in
 [Findings.md](Findings.md); and the Suricata rule set is the signature half of
-[Threat-Hunt.md](Threat-Hunt.md), whose detections are the behavioural half. The environment
+[Threat-Hunt.md](Threat-Hunt.md), whose detections are the behavioural half. The credential
+switch and protocol list this page edits are the subject of
+[Users & Passwords](Credentials.md) and specified in
+[`docs/CREDENTIALS.md`](../docs/CREDENTIALS.md). The environment
 variables that are the real controls for start-up-only settings are listed in
 [Getting-Started.md](Getting-Started.md), and the endpoints this page calls are specified in
 [Reference/API.md](Reference/API.md).

@@ -1030,6 +1030,15 @@ export interface Settings {
   max_export_rows?: number
   local_only?: boolean
   telemetry?: boolean
+  /**
+   * Credential discovery (docs/CREDENTIALS.md §7). Both are absent from a
+   * backend that does not expose them, which the Settings block reports rather
+   * than guessing a default for.
+   */
+  credential_scan_enabled?: boolean
+  credential_protocols?: string[]
+  /** The protocols the backend will accept, so the block offers its list, not its own. */
+  credential_protocols_available?: string[]
 }
 
 /** Mutable keys accepted by `PUT /api/settings`. */
@@ -1039,6 +1048,9 @@ export interface SettingsUpdate {
   max_object_bytes?: number
   body_preview_bytes?: number
   tshark_timeout_s?: number
+  /** docs/CREDENTIALS.md §7 — the credential stage's own switch and protocol list. */
+  credential_scan_enabled?: boolean
+  credential_protocols?: string[]
 }
 
 /**
@@ -1070,6 +1082,183 @@ export interface IndicatorCreate {
 }
 
 export type IndicatorsResponse = ItemsEnvelope<Indicator>
+
+/* ------------------------------------------------------------------ */
+/* Credential discovery (docs/CREDENTIALS.md §5–§9)                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Every kind the scanner can record (docs/CREDENTIALS.md §6). The five
+ * `other_secret` kinds are not one vocabulary: the five named kinds are what a
+ * location said the value was, and the seven shape kinds are what §3.3's
+ * patterns recognised inside such a value.
+ */
+export type CredentialKind =
+  | 'username'
+  | 'password'
+  | 'api_key'
+  | 'bearer_token'
+  | 'other_secret'
+  | 'aws_access_key'
+  | 'jwt'
+  | 'pem_private_key'
+  | 'github_token'
+  | 'slack_token'
+  | 'google_api_key'
+  | 'stripe_key'
+
+/** §4 — stored, shown, never silently upgraded. */
+export type CredentialConfidence = 'high' | 'medium' | 'low'
+
+/** The protocols whose locations the scanner reads (§2). */
+export type CredentialProtocol = 'http' | 'ftp' | 'smtp' | 'pop3' | 'imap'
+
+/** Which side of the conversation carried the value, when that is known. */
+export type CredentialDirection = 'client_to_server' | 'server_to_client'
+
+/**
+ * §7 — the runtime settings' current state, reported by both read endpoints so
+ * the page can never present an empty list as if the capture were clean.
+ *
+ * The two halves are deliberately separate: `enabled`/`protocols` are the settings that
+ * would apply if the stage ran again, and `stage_ran`, `scanned_at` and the counts
+ * describe the run that produced the rows. Turning the scan off does not delete what it
+ * found, so the block has to be able to report both at once.
+ */
+export interface CredentialScanState {
+  enabled: boolean
+  protocols: string[]
+  /** Epoch seconds the last run wrote its rows at. */
+  scanned_at: number | null
+  /** False when the stage has never run for this analysis — not the same as finding nothing. */
+  stage_ran?: boolean
+  /** The protocols the last run actually read. */
+  protocols_scanned?: string[]
+  /** Rows the last run wrote, and how long it took. */
+  findings?: number
+  seconds?: number | null
+  /** Rows the table holds for this analysis now, and when the newest was written. */
+  rows?: number
+  rows_written_at?: number | null
+}
+
+/** One stream the findings were recorded in, as the summary groups them (§8.2). */
+export interface CredentialStreamGroup {
+  stream_id: number | null
+  protocol: string
+  findings: number
+}
+
+/**
+ * One finding (§6's row as §8.1 serves it).
+ *
+ * `value` is present **only** when the request asked for `reveal=1` (§5): every
+ * other response carries `value_preview` and no full value anywhere.
+ */
+export interface CredentialFinding {
+  id: number
+  kind: string
+  /** The value with its middle removed (`ab…yz`); what every list response shows. */
+  value_preview: string
+  /** The full value, served only under `?reveal=1`. */
+  value?: string | null
+  value_length: number
+  value_truncated: boolean
+  protocol: string
+  transport: string | null
+  stream_id: number | null
+  direction: string | null
+  /** Where it was read, e.g. `authorization_basic`, `form_body`, `ftp_user_command`. */
+  location: string
+  /** The field name that selected it, when one did. */
+  source_field: string | null
+  /** How it was derived, e.g. `basic_decode`, `form_field`, `command_arg`. */
+  method: string
+  confidence: string
+  client_ip: string | null
+  client_port: number | null
+  server_ip: string | null
+  server_port: number | null
+  packet_first: number | null
+  packet_last: number | null
+  /** One redacted line of context (§5). */
+  evidence: string | null
+  /** Why it was scored as it was, in one sentence. */
+  note: string | null
+  /** When the row was written — the time of the scan, not the time of the traffic. */
+  created_at?: number | null
+}
+
+/** The list envelope's own counts. */
+export interface CredentialCounts {
+  total?: number
+  by_kind?: Record<string, number>
+  by_confidence?: Record<string, number>
+}
+
+/** `GET /api/analyses/{id}/credentials` (§8.1). */
+export interface CredentialsListResponse {
+  items: CredentialFinding[]
+  total: number
+  page: number
+  page_size: number
+  /** True when this response carried full values, i.e. it was asked for `reveal=1`. */
+  reveal: boolean
+  scan: CredentialScanState
+  counts: CredentialCounts
+  note?: string | null
+}
+
+/**
+ * `GET /api/analyses/{id}/credentials/summary` (§8.2): counts by kind, by
+ * protocol and by confidence, the streams involved, and the same `scan` block —
+ * and no values at all, not even previews.
+ *
+ * `streams` is served as one entry per distinct `(protocol, stream_id)` pair the findings
+ * were recorded in, with `stream_count` alongside it. The page reads the scalar when it is
+ * there and falls back to the array's length, so a backend that serves only one of the two
+ * spellings still gets a real figure rather than an em dash.
+ */
+export interface CredentialsSummaryResponse {
+  analysis_id?: string
+  generated_at?: number
+  total?: number
+  by_kind?: Record<string, number>
+  by_protocol?: Record<string, number>
+  by_confidence?: Record<string, number>
+  /** Distinct protocol/stream pairs the findings were recorded in. */
+  streams?: CredentialStreamGroup[] | number
+  stream_count?: number
+  /** Findings at `high` confidence, offered separately by the endpoint. */
+  high_confidence?: number
+  counts?: CredentialCounts & { by_protocol?: Record<string, number> }
+  scan?: CredentialScanState
+  note?: string | null
+  /** The scanner's own reading of the contract's ambiguities, one note per item. */
+  limits?: string[]
+}
+
+/** `POST /api/analyses/{id}/credentials/scan` — 202 with the job it started (§8.3). */
+export interface CredentialScanResult {
+  job_id: string
+  kind: string
+  status: string
+}
+
+/** Query parameters of the list endpoint (§8.1). */
+export interface CredentialListParams {
+  kind?: string
+  protocol?: string
+  confidence?: string
+  stream_id?: number
+  /** `1` to include `value` on every item, which is what a reveal asks for. */
+  reveal?: number
+  /** `confidence` (the endpoint's default), `kind`, `protocol` or `created_at`. */
+  sort?: string
+  order?: string
+  page?: number
+  page_size?: number
+}
 
 /* ------------------------------------------------------------------ */
 /* query helper types                                                  */

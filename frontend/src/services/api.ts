@@ -17,6 +17,10 @@ import type {
   AnalysisSummary,
   ConversationAlertsResponse,
   ConversationsListResponse,
+  CredentialListParams,
+  CredentialScanResult,
+  CredentialsListResponse,
+  CredentialsSummaryResponse,
   DeleteAnalysisResult,
   DnsDomainsResponse,
   DnsListResponse,
@@ -721,6 +725,33 @@ export const settingsApi = {
 
     remove: (id: number) => request<ActionOk>(`/indicators/${id}`, { method: 'DELETE' }),
   },
+}
+
+/* ------------------------------------------------------------------ */
+/* Credential discovery (docs/CREDENTIALS.md §8)                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The three calls the Credentials page makes.
+ *
+ * Nothing here is revealed by default: the list redacts every value to its
+ * preview (§5) and only a request that asks for `reveal=1` — which the page
+ * issues for one row at a time, on an explicit action — carries the full value.
+ * `scan` re-runs the stage in the background and answers `202` with the job it
+ * started; it is refused with `409 credential_scan_disabled` while the setting
+ * at `/settings` is off.
+ */
+export const credentialsApi = {
+  list: (analysisId: string, params?: CredentialListParams) =>
+    request<CredentialsListResponse>(
+      `/analyses/${analysisId}/credentials${buildQuery(params as Record<string, unknown>)}`,
+    ),
+
+  summary: (analysisId: string) =>
+    request<CredentialsSummaryResponse>(`/analyses/${analysisId}/credentials/summary`),
+
+  scan: (analysisId: string) =>
+    request<CredentialScanResult>(`/analyses/${analysisId}/credentials/scan`, { method: 'POST' }),
 }
 
 /* ------------------------------------------------------------------ */

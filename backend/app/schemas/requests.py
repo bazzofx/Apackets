@@ -22,6 +22,12 @@ class SettingsUpdate(BaseModel):
     tshark_timeout_s: int | None = None
     retain_uploads: bool | None = None
 
+    # Credential scanner (docs/CREDENTIALS.md §7). Stored under ``credential_config``;
+    # an empty ``credential_protocols`` list is meaningful (scan nothing) and is
+    # therefore distinguished from "not supplied" by ``None``, not by falsiness.
+    credential_scan_enabled: bool | None = None
+    credential_protocols: list[str] | None = None
+
 
 class IndicatorCreate(BaseModel):
     """Body of ``POST /api/indicators`` — analyst-supplied detection input."""

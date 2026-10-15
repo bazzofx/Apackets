@@ -13,6 +13,7 @@ import DnsPage from '@/pages/DnsPage'
 import TlsPage from '@/pages/TlsPage'
 import HostsPage from '@/pages/HostsPage'
 import ObjectsPage from '@/pages/ObjectsPage'
+import CredentialsPage from '@/pages/CredentialsPage'
 import FindingsPage from '@/pages/FindingsPage'
 import InvestigatePage from '@/pages/InvestigatePage'
 import ProtocolSessionsPage from '@/pages/ProtocolSessionsPage'
@@ -61,6 +62,7 @@ export function App() {
           <Route path="/smb" element={<ProtocolSessionsPage family="smb" />} />
           <Route path="/hosts" element={<HostsPage />} />
           <Route path="/objects" element={<ObjectsPage />} />
+          <Route path="/credentials" element={<CredentialsPage />} />
           <Route path="/findings" element={<FindingsPage />} />
           <Route path="/findings/:findingId" element={<FindingsPage />} />
           <Route path="/threat-hunt" element={<ThreatHuntPage />} />

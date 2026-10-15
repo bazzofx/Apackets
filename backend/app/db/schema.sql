@@ -433,3 +433,39 @@ CREATE TABLE IF NOT EXISTS ip_lookups (
     fetched_at REAL    NOT NULL,
     payload    TEXT    NOT NULL DEFAULT '{}'   -- the normalised record, §5.1
 );
+
+-- Visible (cleartext) credentials recovered from the rows the other analysers already
+-- wrote (docs/CREDENTIALS.md §6). `value_preview` is what every list response shows and
+-- is redacted at write time; `evidence` is one redacted line of context, redacted before
+-- it is stored so a row read straight from SQLite leaks no more than the API does.
+CREATE TABLE IF NOT EXISTS credentials (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  analysis_id   TEXT NOT NULL,
+  kind          TEXT NOT NULL,      -- username | password | api_key | bearer_token
+                                    -- | other_secret | aws_access_key | jwt
+                                    -- | pem_private_key | github_token | slack_token
+                                    -- | google_api_key | stripe_key
+  value         TEXT NOT NULL,      -- the wire value as recovered
+  value_preview TEXT NOT NULL,      -- §5, what every list response shows
+  value_length  INTEGER NOT NULL,
+  value_truncated INTEGER NOT NULL DEFAULT 0,
+  protocol      TEXT NOT NULL,      -- http | ftp | smtp | pop3 | imap
+  transport     TEXT,               -- tcp | udp
+  stream_id     INTEGER,
+  direction     TEXT,               -- 'client_to_server' | 'server_to_client' | NULL
+  location      TEXT NOT NULL,      -- e.g. authorization_basic, form_body, url_query,
+                                    -- json_body, cookie_header, ftp_user_command,
+                                    -- smtp_auth_plain, pop3_pass_command, imap_login_command
+  source_field  TEXT,               -- the field name that selected it, when one did
+  method        TEXT NOT NULL,      -- how it was derived: basic_decode, bearer_header,
+                                    -- form_field, json_field, command_arg, pattern, …
+  confidence    TEXT NOT NULL,      -- high | medium | low
+  client_ip     TEXT, client_port INTEGER,
+  server_ip     TEXT, server_port INTEGER,
+  packet_first  INTEGER, packet_last INTEGER,
+  evidence      TEXT NOT NULL,      -- one redacted line of context (§5)
+  note          TEXT,               -- why it was scored as it was, in one sentence
+  created_at    REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_credentials_analysis ON credentials (analysis_id, kind);
+CREATE INDEX IF NOT EXISTS idx_credentials_stream   ON credentials (analysis_id, stream_id);

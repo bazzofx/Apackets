@@ -200,7 +200,9 @@ session sections — Email, SSH, FTP, VoIP, SMB) in `docs/PROTOCOLS.md` §2, and
 address-to-country dataset of `docs/GEOGRAPHY.md` §4, which is a file under `data/geoip/`
 rather than a table, and the
 entity-profile and threat-map read paths, which store no tables of their own. Where a
-later contract and this one touch, this one wins for everything defined above.
+later contract and this one touch, this one wins for everything defined above. Two more
+tables come from later contracts: `ip_lookups` (`docs/IP_LOOKUP.md` §4) and `credentials`
+(`docs/CREDENTIALS.md` §6).
 
 ### analyses
 `id TEXT PK`, `original_filename TEXT`, `stored_path TEXT`, `file_size INTEGER`,

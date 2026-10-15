@@ -287,7 +287,7 @@ def delete_analysis(
         for table in (
             "packets", "conversations", "streams", "http_transactions", "dns_queries",
             "tls_sessions", "hosts", "findings", "objects", "stats_cache", "jobs",
-            "indicators",
+            "indicators", "credentials",
         ):
             conn.execute(f"DELETE FROM {table} WHERE analysis_id = ?", (analysis_id,))
         conn.execute("DELETE FROM analyses WHERE id = ?", (analysis_id,))
