@@ -97,10 +97,106 @@ def _item(row: Any, *, reveal: bool) -> dict:
     """One stored row as §8.1's item, with the value withheld unless asked for."""
     data = {column: row[column] for column in ITEM_COLUMNS}
     data["value_truncated"] = bool(data.get("value_truncated"))
+    # The unique view adds what the grouping knew: how many times the value was
+    # seen and where, so one row can stand for several occurrences without
+    # pretending there was only one.
+    keys = row.keys() if hasattr(row, "keys") else ()
+    for extra in ("occurrences", "stream_ids", "protocols", "locations"):
+        if extra in keys:
+            data[extra] = row[extra]
     if reveal:
         # Placed after the preview so the two can be compared in one glance.
         data["value"] = row["value"]
     return data
+
+
+def _text_list(raw: Any) -> list[str]:
+    """``GROUP_CONCAT(DISTINCT x)`` back to a list, in a stable order."""
+    if not isinstance(raw, str) or not raw:
+        return []
+    return sorted({part for part in raw.split(",") if part})
+
+
+def _int_list(raw: Any) -> list[int]:
+    out: list[int] = []
+    for part in _text_list(raw):
+        try:
+            out.append(int(part))
+        except ValueError:  # pragma: no cover - the column is an integer
+            continue
+    return out
+
+
+def _unique_total(where: str, params: list[Any]) -> int:
+    """How many distinct (kind, value) pairs the filter selects."""
+    row = db.query_one(
+        f"SELECT COUNT(*) AS n FROM (SELECT 1 FROM credentials WHERE {where} GROUP BY kind, value)",
+        params,
+    )
+    return int(row["n"]) if row else 0
+
+
+def _unique_page(
+    where: str,
+    params: list[Any],
+    *,
+    sort_sql: str,
+    direction: str,
+    limit: int,
+    offset: int,
+) -> list[dict]:
+    """One page of **distinct values**, each carrying the evidence that supports it.
+
+    A credential is the value; the streams it crossed are where it was seen. This
+    project's own lab capture authenticates seven times with one username and one
+    password, and seven identical rows is not seven credentials — it is one
+    credential seen seven times, which is what the row now says with
+    ``occurrences`` and ``stream_ids``.
+
+    The stored rows are untouched: every occurrence stays in ``credentials`` as the
+    evidence a finding is answerable to, and this view is a projection of them. The
+    representative row is the earliest occurrence, so the value, preview, method and
+    source field shown are a real row's own rather than a mixture.
+    """
+    groups = db.query_all(
+        f"""
+        SELECT kind, value, MIN(id) AS id, COUNT(*) AS occurrences,
+               MIN(stream_id) AS stream_id,
+               MIN(packet_first) AS packet_first, MAX(packet_last) AS packet_last,
+               GROUP_CONCAT(DISTINCT stream_id) AS stream_ids,
+               GROUP_CONCAT(DISTINCT protocol) AS protocols,
+               GROUP_CONCAT(DISTINCT location) AS locations
+          FROM credentials
+         WHERE {where}
+         GROUP BY kind, value
+         ORDER BY MAX({sort_sql}) {direction}, kind ASC, value ASC
+         LIMIT ? OFFSET ?
+        """,
+        [*params, limit, offset],
+    )
+    if not groups:
+        return []
+
+    ids = [int(group["id"]) for group in groups]
+    placeholders = ", ".join("?" for _ in ids)
+    representatives = {
+        int(row["id"]): row
+        for row in db.query_all(f"SELECT * FROM credentials WHERE id IN ({placeholders})", ids)
+    }
+
+    items: list[dict] = []
+    for group in groups:
+        row = representatives.get(int(group["id"]))
+        if row is None:  # pragma: no cover - the row would have to vanish mid-request
+            continue
+        merged = dict(row)
+        merged["value"] = group["value"]
+        merged["occurrences"] = int(group["occurrences"])
+        merged["stream_ids"] = _int_list(group["stream_ids"])
+        merged["protocols"] = _text_list(group["protocols"])
+        merged["locations"] = _text_list(group["locations"])
+        items.append(merged)
+    return items
 
 
 def _filters(
@@ -160,9 +256,16 @@ def _complete_counts(rows: list[Any], keys: tuple[str, ...]) -> dict[str, int]:
     return counts
 
 
-def _grouped(where: str, params: list[Any], column: str) -> list[Any]:
+def _grouped(where: str, params: list[Any], column: str, *, distinct: bool = False) -> list[Any]:
+    """Counts per ``column``.
+
+    ``distinct`` counts distinct **values** rather than stored rows, so the map
+    beside a unique listing agrees with the listing: seven occurrences of one
+    username are one username, not seven.
+    """
+    counted = "COUNT(DISTINCT value)" if distinct else "COUNT(*)"
     return db.query_all(
-        f"SELECT {column} AS name, COUNT(*) AS n FROM credentials"
+        f"SELECT {column} AS name, {counted} AS n FROM credentials"
         f" WHERE {where} GROUP BY {column} ORDER BY n DESC, name ASC",
         params,
     )
@@ -179,6 +282,13 @@ def list_credentials(
     protocol: str | None = Query(None, description="http, ftp, smtp, pop3 or imap"),
     confidence: str | None = Query(None, description="high, medium or low"),
     stream_id: int | None = Query(None, ge=0, description="Only this stream"),
+    unique: bool = Query(
+        True,
+        description=(
+            "One row per distinct (kind, value) — the default — or every occurrence "
+            "with unique=0"
+        ),
+    ),
     reveal: bool = Query(
         False, description="Include the full value; without it only a redacted preview is served"
     ),
@@ -199,14 +309,27 @@ def list_credentials(
     sort_sql = resolve_sort(sort, SORTABLE, SORTABLE[DEFAULT_SORT])
     direction = resolve_order(order, "desc")
 
-    total_row = db.query_one(f"SELECT COUNT(*) AS n FROM credentials WHERE {where}", params)
-    total = int(total_row["n"]) if total_row else 0
-
-    rows = db.query_all(
-        f"SELECT * FROM credentials WHERE {where}"
-        f" ORDER BY {sort_sql} {direction}, id {direction} LIMIT ? OFFSET ?",
-        [*params, page.limit, page.offset],
-    )
+    if unique:
+        total = _unique_total(where, params)
+        rows = _unique_page(
+            where,
+            params,
+            sort_sql=sort_sql,
+            direction=direction,
+            limit=page.limit,
+            offset=page.offset,
+        )
+    else:
+        total_row = db.query_one(f"SELECT COUNT(*) AS n FROM credentials WHERE {where}", params)
+        total = int(total_row["n"]) if total_row else 0
+        rows = [
+            dict(row)
+            for row in db.query_all(
+                f"SELECT * FROM credentials WHERE {where}"
+                f" ORDER BY {sort_sql} {direction}, id {direction} LIMIT ? OFFSET ?",
+                [*params, page.limit, page.offset],
+            )
+        ]
 
     body = page.envelope([_item(row, reveal=reveal) for row in rows], total)
     scan = ca.scan_state(analysis_id)
@@ -215,14 +338,28 @@ def list_credentials(
             "analysis_id": analysis_id,
             "generated_at": time.time(),
             "reveal": reveal,
+            "unique": unique,
             # §8.1: whether MAX_FINDINGS stopped the stage storing everything it
             # matched, so a short list is never read as the whole truth.
             "capped": scan["capped"],
             "counts": {
                 "total": total,
-                "by_kind": _complete_counts(_grouped(where, params, "kind"), ca.KINDS),
+                "by_kind": _complete_counts(
+                    _grouped(where, params, "kind", distinct=unique), ca.KINDS
+                ),
                 "by_confidence": _complete_counts(
-                    _grouped(where, params, "confidence"), ca.CONFIDENCE_LEVELS
+                    _grouped(where, params, "confidence", distinct=unique),
+                    ca.CONFIDENCE_LEVELS,
+                ),
+                # The number of stored occurrences behind those distinct values, so
+                # "one credential seen seven times" can be told from "one credential".
+                "occurrences": int(
+                    (
+                        db.query_one(
+                            f"SELECT COUNT(*) AS n FROM credentials WHERE {where}", params
+                        )
+                        or {"n": 0}
+                    )["n"]
                 ),
             },
             "scan": scan,
@@ -249,8 +386,13 @@ def credentials_summary(analysis_id: str) -> dict:
     where = "analysis_id = ?"
     params: list[Any] = [analysis_id]
 
-    total_row = db.query_one(f"SELECT COUNT(*) AS n FROM credentials WHERE {where}", params)
-    total = int(total_row["n"]) if total_row else 0
+    # The headline figures count **distinct values**, matching the default listing:
+    # one username used seven times is one credential seen seven times, and
+    # ``occurrences`` carries the seven so the difference stays visible rather than
+    # being averaged away.
+    total = _unique_total(where, params)
+    occurrence_row = db.query_one(f"SELECT COUNT(*) AS n FROM credentials WHERE {where}", params)
+    occurrences = int(occurrence_row["n"]) if occurrence_row else 0
 
     streams = [
         {
@@ -270,14 +412,17 @@ def credentials_summary(analysis_id: str) -> dict:
         )
     ]
 
-    by_kind = _complete_counts(_grouped(where, params, "kind"), ca.KINDS)
-    by_protocol = _complete_counts(_grouped(where, params, "protocol"), ca.PROTOCOLS)
-    by_confidence = _complete_counts(_grouped(where, params, "confidence"), ca.CONFIDENCE_LEVELS)
+    by_kind = _complete_counts(_grouped(where, params, "kind", distinct=True), ca.KINDS)
+    by_protocol = _complete_counts(_grouped(where, params, "protocol", distinct=True), ca.PROTOCOLS)
+    by_confidence = _complete_counts(
+        _grouped(where, params, "confidence", distinct=True), ca.CONFIDENCE_LEVELS
+    )
 
     return {
         "analysis_id": analysis_id,
         "generated_at": time.time(),
         "total": total,
+        "occurrences": occurrences,
         "by_kind": by_kind,
         "by_protocol": by_protocol,
         "by_confidence": by_confidence,

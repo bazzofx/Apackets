@@ -1225,6 +1225,22 @@ def _maybe_base64(value: str | None) -> tuple[str | None, bool]:
     return decoded, True
 
 
+def maybe_base64(value: str | None) -> tuple[str | None, bool]:
+    """The shared strict Base64 decoder: ``(decoded, looked_like_base64)``.
+
+    This is the one Base64 decoder in this application, exposed under a public name
+    so another feature can decode the same wire fields this analyser decodes -
+    ``AUTH LOGIN``'s arguments, an ``AUTH PLAIN`` token, an HTTP Basic header -
+    without reaching into a private name or writing a second, subtly different
+    decoder. Its rules are the reason it is shared rather than reimplemented: a
+    value must be at least eight characters, a multiple of four long, entirely
+    standard alphabet, and must decode to printable UTF-8 (NUL excepted, for
+    ``AUTH PLAIN``). Anything else comes back unchanged with ``False``, because a
+    string that merely *looks* like Base64 is not Base64 until it decodes.
+    """
+    return _maybe_base64(value)
+
+
 def _detail_for(session: Session, group: list[Frame]) -> tuple[dict, Facts]:
     protocol = session.protocol
     if protocol == "smtp":
@@ -1973,8 +1989,11 @@ def _counters(analysis_id: str) -> dict:
 
 __all__ = [
     "AGGREGATOR",
+    "ANONYMOUS_IDENTITIES",
+    "CLEARTEXT_PROTOCOLS",
     "COLUMNS",
     "COMMAND_CAP",
+    "COMMAND_PROTOCOLS",
     "COUNT_CAP",
     "FAMILIES",
     "FAMILY_SPECS",
@@ -2002,6 +2021,7 @@ __all__ = [
     "build_sessions",
     "collect_frames",
     "compute_flags",
+    "maybe_base64",
     "sip_role_index",
     "stage_marker",
     "stage_ran",

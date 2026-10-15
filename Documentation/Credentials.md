@@ -42,13 +42,13 @@ Seven `StatCard` tiles in a `grid-cols-2 md:grid-cols-4 xl:grid-cols-7` grid, al
 
 | Tile | Figure | Meaning |
 |---|---|---|
-| Findings | `total`, or the sum of `by_kind` when the response states no total | Every credential row this analysis holds, unfiltered by the table's filters |
+| Findings | `total`, or the sum of `by_kind` when the response states no total | Every **distinct credential** this analysis holds — one per value, unfiltered by the table's filters. `occurrences` beside it is the number of stored rows behind them, so one username used seven times reads as one credential seen seven times |
 | Streams involved | `stream_count`, or the length of the `streams` array | One per distinct `(protocol, stream)` pair the findings were recorded in |
-| Usernames | `by_kind.username` | Values a location identified as a username |
-| Passwords | `by_kind.password` | Values a location identified as a password |
-| API keys | `by_kind.api_key` | Values a location identified as an API key |
-| Bearer tokens | `by_kind.bearer_token` | Values a location identified as a bearer token |
-| Other secrets | `by_kind.other_secret` | Secrets an `Authorization` scheme or a malformed Basic header yielded without naming the role |
+| Usernames | `by_kind.username` | Distinct values a location identified as a username |
+| Passwords | `by_kind.password` | Distinct values a location identified as a password |
+| API keys | `by_kind.api_key` | Distinct values a location identified as an API key |
+| Bearer tokens | `by_kind.bearer_token` | Distinct values a location identified as a bearer token |
+| Other secrets | `by_kind.other_secret` | Distinct secrets an `Authorization` scheme or a malformed Basic header yielded without naming the role |
 
 A figure the response does not carry is an em dash (`—`), never a zero: "the endpoint did not say"
 and "the scan found none" are different statements. The Findings tile is the one figure the page
@@ -124,21 +124,27 @@ first, so a capture with more than that is stored partially as well as read part
 
 ### 2.4 The findings table
 
-Panel title *Credential findings*. The subtitle states the number of matching rows, whether filters
-are active, and whether the response carried full values or redacted ones — `reveal` is in the
-envelope for exactly this reason. The header also carries **Scan now** (§5). Nothing in this table
-is a private copy of a shared component: the cells are `MonoCell` and `AddressFlag`, the pagination
-is `Pagination`, the filter strip is `FilterStrip` and its controls, and the notices are
-`SectionNote`.
+Panel title *Credential findings*. **One row per distinct value**: the listing asks for
+`?unique=1` (the contract's default), so a username the capture authenticated with seven times is
+one row saying `×7`, not seven rows saying the same thing. The row shown is the value's earliest
+occurrence, and `stream_ids` / `locations` name the rest; the header's *Scan now* control resets
+nothing about that, and the stored rows keep every occurrence for anyone who wants the per-stream
+evidence (`?unique=0`).
+
+The subtitle states the number of matching rows, whether filters are active, and whether the
+response carried full values or redacted ones — `reveal` is in the envelope for exactly this
+reason. Nothing in this table is a private copy of a shared component: the cells are `MonoCell` and
+`AddressFlag`, the pagination is `Pagination`, the filter strip is `FilterStrip` and its controls,
+and the notices are `SectionNote`.
 
 | Column | Contents |
 |---|---|
 | kind | The kind the scanner recorded, labelled (`password`, `bearer token`, `AWS access key`, …). The tooltip adds how it was derived (`basic_decode`, `form_field`, `command_arg`, `pattern`, …), when the row was written — the time of the scan, not of the traffic — and the backend's one-sentence `note` when there is one |
-| value | The redacted **preview** (`value_preview`), the stored value's length in characters, a `truncated` chip when `value_truncated` is set (with the `MAX_VALUE_CHARS` cap in its tooltip), and this row's **Reveal** control — see §4 |
+| value | The redacted **preview** (`value_preview`), the stored value's length in characters, a `truncated` chip when `value_truncated` is set (with the `MAX_VALUE_CHARS` cap in its tooltip), a **`×N` chip** when the value appeared more than once (its tooltip naming the streams, from `occurrences` and `stream_ids`), and this row's **Reveal** control — see §4 |
 | protocol | A chip linking to that protocol's own page: `HTTP` → `/http`, `FTP` → `/ftp`, and `SMTP`/`POP3`/`IMAP` → `/email` |
 | confidence | `high`, `medium` or `low`, with §4's rule for the level in the tooltip. The level is the one the scanner stored; the page never re-scores a row |
 | location / field | `location` in monospace (for example `authorization_basic`, `json_body`, `ftp_pass_command`) with the `source_field` that selected it underneath, or `—` when no field name vouched for the value. The tooltip carries the location, the field, the derivation method and the backend's note |
-| stream | `tcp #36`, linking to `/conversations?stream=<transport>:<stream_id>&tab=timeline`, the application's conversation deep link. The key is built by `conversationUrlKey` from `components/findings/FollowConversationButton.tsx` — the module that owns the `transport:stream_id` form — so this page's link cannot drift from the Findings page's *Follow conversation* button or the Dashboard's destination panel. The tooltip says which direction the value was recorded in. `—` when the row records no transport or stream, because there is nothing to open |
+| stream | `tcp #36`, linking to `/conversations?stream=<transport>:<stream_id>&tab=timeline`, the application's conversation deep link. The key is built by `conversationUrlKey` from `components/findings/FollowConversationButton.tsx` — the module that owns the `transport:stream_id` form — so this page's link cannot drift from the Findings page's *Follow conversation* button or the Dashboard's destination panel. The tooltip says which direction the value was recorded in, and names the other streams the value was seen in when there are any. `—` when the row records no transport or stream, because there is nothing to open |
 | client → server | `client_ip:client_port → server_ip:server_port`, each endpoint carrying the `data-ip`, `data-ip-port`, `data-ip-transport` and `data-ip-stream` attributes, so the application-wide right-click menu applies to either address and to this row's conversation. Beside each address is the shared `AddressFlag` (`components/AddressFlag.tsx`): the local-machine icon when the address falls in an internal block per `utils/privateIp.ts`, otherwise the country's flag — and nothing here, because a credential row records no country, so there is nothing to draw a flag from and no placeholder is invented |
 | packet | `#1450`, linking to `/packets?sel=1450` — the packet browser's own selection key. When the source row recorded a different `packet_last`, the tooltip names it. `—` when no frame was recorded |
 | evidence | One redacted line of context from the backend (for example the header line), truncated to 320 px with the full text and the note in the tooltip |
@@ -216,6 +222,15 @@ protocol, 256 KiB per stream and 20 s per reassembly, with any cap that bit reco
 warning. The values are written only into `credentials`; `detail` keeps saying a password was
 present and nothing more. On this project's lab capture that half costs about 3.5 s and
 recovers the SMTP password, where reading the stored rows alone reported the username only.
+
+**A request body is read by its own content type.** The `content_type` column on an
+`http_transactions` row is the **response's** type, so it cannot say how to read a request
+body; using it once read a form login whose endpoint answered JSON as prose and reported one
+medium finding whose value was the whole string `admin&password=secret123`. The reader now
+comes from the request's own `Content-Type`, falls back to the body's shape when the request
+declared none (a JSON document, or a single line of `name=value` pairs — `&` or `;`
+separated), and still parses a body that provably *is* JSON whatever it was labelled
+([`docs/CREDENTIALS.md`](../docs/CREDENTIALS.md) §3.1.1).
 
 ### 3.1 URL parameters the page reads
 

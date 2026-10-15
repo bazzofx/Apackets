@@ -1187,6 +1187,22 @@ export interface CredentialFinding {
   note: string | null
   /** When the row was written — the time of the scan, not the time of the traffic. */
   created_at?: number | null
+  /**
+   * How many times this value appeared in the capture.
+   *
+   * The listing shows one row per distinct value (`?unique=1`, the default), so a
+   * credential the capture carried seven times is one row with `occurrences: 7`
+   * rather than seven rows saying the same thing. The row is the earliest
+   * occurrence — its value, preview, method and source field are that stored row's
+   * own — and the rest are named by `stream_ids` / `locations`.
+   */
+  occurrences?: number
+  /** Every stream the value was seen in, ascending; the row's own `stream_id` is the first. */
+  stream_ids?: number[]
+  /** Every protocol the value was seen in, when more than one. */
+  protocols?: string[]
+  /** Every location the value was read from, when more than one. */
+  locations?: string[]
 }
 
 /** The list envelope's own counts. */
@@ -1194,6 +1210,8 @@ export interface CredentialCounts {
   total?: number
   by_kind?: Record<string, number>
   by_confidence?: Record<string, number>
+  /** Stored occurrences behind those distinct values, so "seen seven times" is visible. */
+  occurrences?: number
 }
 
 /** `GET /api/analyses/{id}/credentials` (§8.1). */
@@ -1204,6 +1222,8 @@ export interface CredentialsListResponse {
   page_size: number
   /** True when this response carried full values, i.e. it was asked for `reveal=1`. */
   reveal: boolean
+  /** True when the listing is one row per distinct value — the default view. */
+  unique?: boolean
   scan: CredentialScanState
   counts: CredentialCounts
   note?: string | null

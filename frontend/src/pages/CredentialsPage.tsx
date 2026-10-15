@@ -582,6 +582,21 @@ function CredentialValueCell({ analysisId, row, initiallyRevealed = false }: Val
         </button>
         {reveal.isFetching ? <Loader2 size={11} className="animate-spin text-faint" aria-hidden /> : null}
         <span className="text-2xs text-faint">{formatNumber(row.value_length)} ch</span>
+        {/* The list shows one row per distinct value, so a value the capture carried
+            more than once says so here rather than appearing once and looking unique
+            in a way it is not. */}
+        {typeof row.occurrences === 'number' && row.occurrences > 1 ? (
+          <span
+            className="chip border-border2 bg-surface2 text-muted"
+            title={`This value appeared ${formatNumber(row.occurrences)} times in this capture across ${
+              row.stream_ids && row.stream_ids.length > 0
+                ? `${formatNumber(row.stream_ids.length)} stream(s): ${row.stream_ids.join(', ')}`
+                : 'the sessions beside it'
+            }. It is one credential seen ${formatNumber(row.occurrences)} times, so one row stands for all of them.`}
+          >
+            ×{formatNumber(row.occurrences)}
+          </span>
+        ) : null}
         {row.value_truncated ? (
           <span
             className="chip border-warn/40 bg-warn/10 text-warn"
@@ -1153,7 +1168,13 @@ function CredentialsContent() {
                             className="text-accent2 hover:underline"
                             title={`Open ${row.transport?.toUpperCase() ?? ''} stream ${String(
                               row.stream_id,
-                            )} on the Conversations page's Timeline tab. ${endpoints}.`}
+                            )} on the Conversations page's Timeline tab. ${endpoints}.${
+                              row.stream_ids && row.stream_ids.length > 1
+                                ? ` This value was also seen in stream(s) ${row.stream_ids
+                                    .filter((idValue) => idValue !== row.stream_id)
+                                    .join(', ')} — the first one is linked.`
+                                : ''
+                            }`}
                           >
                             {`${row.transport ?? 'tcp'} #${String(row.stream_id)}`}
                           </Link>

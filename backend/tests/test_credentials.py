@@ -650,6 +650,29 @@ def test_a_url_query_value_is_percent_decoded(insert_http, run_scan):
     assert _one(rows, kind="password")["value"] == "Ex@mple+123"
 
 
+def test_every_name_in_the_shared_keyword_list_is_a_field_kind():
+    """The comment above `_FIELD_KINDS` claims its list is fully covered; check it.
+
+    `_FIELD_KINDS` merges `http_analyzer.CREDENTIAL_KEYWORDS` — the application's
+    existing answer to "does this request look like it carries a credential" — so
+    the two features cannot disagree about a password form. A comment cannot hold
+    that promise on its own: if the shared list grows a name with no kind, the
+    scanner would silently stop seeing the field the other feature still flags.
+    """
+    derived = set(ca._CREDENTIAL_KEYWORD_NAMES)
+    missing = sorted(derived - set(ca._FIELD_KINDS))
+    assert missing == [], f"shared keywords with no field kind: {missing}"
+
+
+def test_the_shared_keyword_names_are_normalised_the_same_way_as_a_field():
+    """`user=`, `authorization:` and `api-key` must reduce to the names matched."""
+    assert "user" in ca._CREDENTIAL_KEYWORD_NAMES
+    assert "authorization" in ca._CREDENTIAL_KEYWORD_NAMES
+    assert "pass" in ca._CREDENTIAL_KEYWORD_NAMES
+    for name in ca._CREDENTIAL_KEYWORD_NAMES:
+        assert name == ca.normalise_name(name), name
+
+
 def test_a_form_body_field_is_high_confidence(insert_http, run_scan):
     insert_http(
         content_type="application/x-www-form-urlencoded",
@@ -733,9 +756,29 @@ def test_a_json_body_without_a_content_type_is_still_parsed_as_json(insert_http,
 
 
 def test_a_non_textual_body_is_not_scanned(insert_http, run_scan):
-    insert_http(content_type="image/png", request_body="password=Example123&token=abcdef")
+    # The **request's** own Content-Type is the signal (§3.1.1). The row's
+    # `content_type` column describes the response and can neither select nor
+    # suppress a reader for a request body, so this asserts the request header.
+    insert_http(
+        content_type="application/json",
+        request_headers=json.dumps({"Content-Type": "image/png"}),
+        request_body="password=Example123&token=abcdef",
+    )
     rows, _ = run_scan()
     assert rows == []
+
+
+def test_a_response_content_type_cannot_suppress_a_request_body(insert_http, run_scan):
+    # The other half of the same rule, and the false negative it removes: a form
+    # POST answered with an image, or with anything else, is still a form POST.
+    insert_http(
+        content_type="image/png",
+        request_headers=json.dumps({"Content-Type": "application/x-www-form-urlencoded"}),
+        request_body="username=alice&password=Example123",
+    )
+    rows, _ = run_scan()
+    assert _one(rows, kind="username")["value"] == "alice"
+    assert _one(rows, kind="password")["value"] == "Example123"
 
 
 def test_a_free_text_label_is_medium_and_an_unlabelled_shape_is_low(insert_http, run_scan):
@@ -1017,7 +1060,11 @@ def test_only_the_matched_shape_is_stored_from_a_longer_value(insert_http, run_s
 
 
 def test_no_shape_is_reported_from_a_body_that_is_not_scanned(insert_http, run_scan):
-    insert_http(content_type="application/octet-stream", request_body=f"github {GITHUB}")
+    insert_http(
+        content_type="application/json",
+        request_headers=json.dumps({"Content-Type": "application/octet-stream"}),
+        request_body=f"github {GITHUB}",
+    )
     rows, _ = run_scan()
     assert rows == []
 
@@ -1994,6 +2041,32 @@ def test_a_mechanism_this_build_does_not_decode_reports_nothing(
     )
     rows, _ = run_scan(capture=Path(CAPTURE_FILE))
     assert rows == []
+
+
+def test_a_verb_after_an_unfinished_exchange_is_not_read_as_a_password(
+    insert_session, fake_reassembly, run_scan
+):
+    """``QUIT`` and ``DATA`` are valid Base64, and are still not credentials.
+
+    The exchange that ``AUTH LOGIN`` announced did not happen, so the next client
+    line is the next command; decoding it would invent a password out of control
+    characters, which is exactly what the printability test in ``_decode_base64``
+    exists to prevent.
+    """
+    insert_session(
+        "smtp", {"commands": [{"verb": "AUTH", "arg": "LOGIN", "count": 1}]}, stream_id=4
+    )
+    fake_reassembly(
+        lambda stream_id: follow_stream_fixture(
+            client="10.0.0.1:40000",
+            server="10.0.0.2:25",
+            client_lines=[f"AUTH LOGIN {b64('alice')}", "QUIT", "DATA", "NOOP"],
+            server_lines=["535 5.7.8 Authentication credentials invalid"],
+        )
+    )
+    rows, _ = run_scan(capture=Path(CAPTURE_FILE))
+    assert _find(rows, value="alice"), "the username the command did carry is reported"
+    assert _find(rows, kind="password") == []
 
 
 def test_the_servers_side_of_the_channel_is_never_read(

@@ -43,8 +43,6 @@ function or constant it concerns; the readings are listed in ``CONTRACT_NOTES``.
 
 from __future__ import annotations
 
-import base64
-import binascii
 import json
 import re
 import threading
@@ -57,7 +55,7 @@ from urllib.parse import parse_qsl
 from app.core import runtime_settings
 from app.core.logging import get_logger
 from app.db import database as db
-from app.services import tshark
+from app.services import http_analyzer, protocol_analyzer, tshark
 from app.services.jobs import JobContext
 
 log = get_logger("apackets.credentials")
@@ -187,8 +185,27 @@ CONTRACT_NOTES: tuple[str, ...] = (
 #: The §3.2 list, grouped by the kind a match yields. The grouping is this
 #: module's reading: the contract fixes which *names* are credential-like, and
 #: the kind column of §6 needs one answer per match.
+#:
+#: Two lists are merged here, and deliberately. ``http_analyzer.CREDENTIAL_KEYWORDS``
+#: is the application's existing answer to "does this request look like it carries a
+#: credential", and every name in it is covered below, so the two features cannot
+#: disagree about a password form. The rest of §3.2's list is added because that
+#: keyword list was written to *flag a request*, not to name a field: it holds
+#: haystack substrings (``pass=``, ``user=``, ``authorization:``) and misses names a
+#: real login uses — ``login``, ``logon``, ``account``, ``email``, ``sessionid``,
+#: ``access_token``, ``client_secret`` — which this contract names explicitly.
+_CREDENTIAL_KEYWORD_NAMES: frozenset[str] = frozenset(
+    keyword.rstrip("=:").strip().lower().replace("-", "_")
+    for keyword in http_analyzer.CREDENTIAL_KEYWORDS
+)
+
 _FIELD_KINDS: dict[str, str] = {
-    "user": "username",
+    # http_analyzer.CREDENTIAL_KEYWORDS, reduced to the field names it implies.
+    **{name: "username" for name in ("user",)},
+    **{name: "password" for name in ("pass", "passwd", "pwd", "password")},
+    **{name: "api_key" for name in ("api_key", "apikey")},
+    **{name: "other_secret" for name in ("secret", "token", "authorization")},
+    # §3.2's wider list, and the paragraph above says why it is wider.
     "username": "username",
     "user_name": "username",
     "login": "username",
@@ -197,22 +214,13 @@ _FIELD_KINDS: dict[str, str] = {
     "email": "username",
     "account": "username",
     "name": "username",
-    "pass": "password",
-    "passwd": "password",
-    "password": "password",
-    "pwd": "password",
-    "secret": "other_secret",
     "client_secret": "api_key",
-    "api_key": "api_key",
-    "apikey": "api_key",
     "access_key": "api_key",
     "access_token": "other_secret",
     "auth_token": "other_secret",
-    "token": "other_secret",
     "session": "other_secret",
     "sessionid": "other_secret",
     "bearer": "bearer_token",
-    "authorization": "other_secret",
 }
 
 #: The §3.1 cookie markers: a cookie *name* that mentions one of these is
@@ -558,28 +566,55 @@ def _json_object(raw: Any) -> dict:
     return value if isinstance(value, dict) else {}
 
 
-def _decode_base64(text: str) -> str | None:
-    """Strict Base64, in the one place a protocol says the field is Base64 (§3.1).
+def _request_headers(raw: Any) -> dict[str, str]:
+    """The stored request header block as ``{name: value}``.
 
-    Padding is tolerated because RFC 4648 allows it to be omitted and captures
-    routinely show it missing. Nothing else is: an alphabet character outside the
-    standard set, or bytes that are not UTF-8 text, mean this is not the encoding
-    the protocol said it was, and a value that is not decoded is reported as the
-    opaque string it was.
+    ``http_analyzer`` keeps the block as JSON in ``http_transactions`` today
+    (``json.dumps(request.headers)``), and ``parse_header_lines`` is this
+    application's parser for the ``\\x1f``-aggregated text TShark emits before that.
+    Both shapes are accepted here — and the text one goes through the app's own
+    parser rather than a second one, so a header name is split, unescaped and
+    de-duplicated exactly as the HTTP analyser and its flagging already do.
     """
-    candidate = text.strip()
-    if not candidate or len(candidate) < 4 or not _BASE64_RE.match(candidate):
-        return None
-    padded = candidate + "=" * (-len(candidate) % 4)
-    try:
-        raw = base64.b64decode(padded, validate=True)
-    except (binascii.Error, ValueError):
-        return None
-    try:
-        decoded = raw.decode("utf-8")
-    except UnicodeDecodeError:
-        return None
-    if not decoded:
+    if isinstance(raw, dict):
+        return {
+            str(name): str(value)
+            for name, value in raw.items()
+            if isinstance(name, str) and isinstance(value, str)
+        }
+    if not isinstance(raw, str) or not raw.strip():
+        return {}
+    text = raw.strip()
+    if text.startswith("{"):
+        try:
+            parsed = json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            parsed = None
+        if isinstance(parsed, dict):
+            return {
+                str(name): str(value)
+                for name, value in parsed.items()
+                if isinstance(name, str) and isinstance(value, str)
+            }
+    return http_analyzer.parse_header_lines(raw, separator=http_analyzer.HEADER_SEPARATOR)
+
+
+def _decode_base64(text: str) -> str | None:
+    """The application's strict Base64 decoder, as a plain ``str | None`` (§3.1).
+
+    Base64 is decoded only where a protocol says the field is Base64 — HTTP Basic,
+    ``AUTH PLAIN``, ``AUTH LOGIN`` — and when it is decoded it goes through
+    :func:`protocol_analyzer.maybe_base64`, the one strict decoder in this build,
+    so the credential scanner and the protocol analyser cannot disagree about
+    whether a string was Base64. That decoder requires at least eight characters,
+    a multiple of four, the standard alphabet, and a decode that is printable
+    UTF-8 (the NUL of an ``AUTH PLAIN`` pair excepted) — which is why an exchange
+    that stopped early cannot turn the next command verb into a password, and why
+    a value that is not decoded is reported as the opaque string it was, or not at
+    all.
+    """
+    decoded, looked_like_base64 = protocol_analyzer.maybe_base64(text)
+    if not looked_like_base64:
         return None
     return decoded
 
@@ -1339,6 +1374,50 @@ def _body_reader(content_type: str | None) -> str:
     return "skip"
 
 
+def _request_content_type(headers: Any) -> str | None:
+    """The *request's* own ``Content-Type``, or ``None`` when it sent none.
+
+    ``http_transactions.content_type`` describes the **response**, so it can never
+    say how to read a request body: a browser POST of a form to an endpoint that
+    answers ``application/json`` has a form body and a JSON content type. Keeping
+    the two apart is what stops a body from being read as prose (§3.1).
+    """
+    if not isinstance(headers, dict):
+        return None
+    for name, value in headers.items():
+        if not isinstance(name, str) or not isinstance(value, str):
+            continue
+        if normalise_name(name) == "content_type":
+            return value
+    return None
+
+
+def _form_shape(text: str) -> bool:
+    """True when a body has the structure of ``name=value`` pairs, not prose.
+
+    Only the shape is judged, so this is a fallback for a body whose request sent
+    no usable content type — never a replacement for a declared one. A form body
+    is a single line and every ``&``-separated chunk carries its own ``=``; that
+    is strict enough to leave multi-line prose (``password: hunter2``) and
+    sentences (``the user=admin logged in``) to the text reader.
+    """
+    sample = text.strip()
+    if not sample or sample[0] in "{[":
+        return False
+    if "\n" in sample or "\r" in sample:
+        return False
+    if "=" not in sample:
+        return False
+    chunks = [chunk for chunk in sample.split("&") if chunk]
+    if not chunks or any("=" not in chunk for chunk in chunks):
+        return False
+    for name, _ in _form_pairs(sample):
+        name = name.strip()
+        if name and len(name) <= 64 and not any(char.isspace() for char in name):
+            return True
+    return False
+
+
 def scan_http(scan: _Scan, row: Any) -> None:
     """One ``http_transactions`` row: request headers, query and request body."""
     base: dict[str, Any] = {
@@ -1362,7 +1441,7 @@ def scan_http(scan: _Scan, row: Any) -> None:
         _scan_header(scan, name=name, value=value, base=base)
 
     _scan_query(scan, row=row, base=base)
-    _scan_body(scan, row=row, base=base)
+    _scan_body(scan, row=row, headers=headers, base=base)
 
 
 def _scan_header(scan: _Scan, *, name: str, value: str, base: dict[str, Any]) -> None:
@@ -1549,38 +1628,71 @@ def _scan_query(scan: _Scan, *, row: Any, base: dict[str, Any]) -> None:
 
 
 def _form_pairs(text: str) -> list[tuple[str, str]]:
-    """``parse_qsl`` without its failure modes: bad pairs are dropped, not raised."""
-    try:
-        pairs = parse_qsl(text, keep_blank_values=True, strict_parsing=False)
-    except ValueError:  # pragma: no cover - parse_qsl is tolerant by request
-        return []
-    return [(str(name), str(value)) for name, value in pairs]
+    """``parse_qsl`` without its failure modes: bad pairs are dropped, not raised.
+
+    Both ``&`` and ``;`` separate pairs. ``parse_qsl`` cannot do that itself: its
+    ``separator`` argument is a *literal* string in this Python (3.12.6), so
+    ``separator="&;"`` matches nothing and the whole body came back as one field
+    whose value swallowed the next one. ``;`` is therefore rewritten to ``&``
+    first — a literal ``;`` inside a value is percent-encoded as ``%3B`` by the
+    urlencoded spec, so this cannot cut a value in half.
+    """
+    pairs: list[tuple[str, str]] = []
+    for chunk in text.replace(";", "&").split("&"):
+        if not chunk:
+            continue
+        try:
+            found = parse_qsl(chunk, keep_blank_values=True, strict_parsing=False)
+        except ValueError:  # pragma: no cover - parse_qsl is tolerant by request
+            continue
+        pairs.extend((str(name), str(value)) for name, value in found)
+    return pairs
 
 
-def _scan_body(scan: _Scan, *, row: Any, base: dict[str, Any]) -> None:
+def _scan_body(
+    scan: _Scan, *, row: Any, headers: Any, base: dict[str, Any]
+) -> None:
     """The request body, read as a form, as JSON, or as free text (§3.1)."""
     body = row["request_body"]
     if not isinstance(body, str) or not body:
         return
-    reader = _body_reader(row["content_type"])
+
+    # The request's own header decides (§3.1). The row's `content_type` column is
+    # the response's, and using it read a form POST whose endpoint answered JSON
+    # as prose, which produced one medium finding whose whole value was
+    # `admin&password=secret123` instead of the two fields the server received.
+    declared = _request_content_type(headers)
+    reader = _body_reader(declared) if declared else "unknown"
     if reader == "skip":
         return
 
     text = body[:MAX_BODY_CHARS]
     if reader == "form":
+        # A declaration is believed, with one exception: a body that parses as a
+        # JSON document is one, whatever it was labelled, because the parse is
+        # proof of what it is. Reading it as a form would find nothing at all.
+        stripped = text.lstrip()
+        if stripped.startswith(("{", "[")) and _scan_json(scan, text=text, base=base):
+            return
         _scan_form(scan, text=text, base=base)
         return
     if reader == "json":
         if _scan_json(scan, text=text, base=base):
             return
+        # Declared JSON but not JSON: fall back to the body's own shape.
+        if _form_shape(text):
+            _scan_form(scan, text=text, base=base)
+            return
         _scan_text(scan, text=text, base=base)
         return
 
-    # A body the analyser kept as text: a JSON document whose content type was
-    # never recorded is still parsed as JSON rather than as prose, because the
-    # parse is proof of what it is and reading it as text would lose every field.
+    # No content type recorded: the shape decides, and a JSON document is parsed
+    # rather than read as prose because the parse is proof of what it is.
     stripped = text.lstrip()
     if stripped.startswith(("{", "[")) and _scan_json(scan, text=text, base=base):
+        return
+    if _form_shape(text):
+        _scan_form(scan, text=text, base=base)
         return
     _scan_text(scan, text=text, base=base)
 
@@ -1589,6 +1701,11 @@ def _scan_form(scan: _Scan, *, text: str, base: dict[str, Any]) -> None:
     for index, (name, value) in enumerate(_form_pairs(text)):
         if index >= MAX_FIELDS_PER_LOCATION:
             break
+        # A form value ends at the pair separator, and quotes around it are
+        # transport, not content.
+        value = value.strip()
+        if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
+            value = value[1:-1]
         kind = _FIELD_KINDS.get(normalise_name(name))
         if kind is not None:
             scan.add(
@@ -1710,12 +1827,26 @@ def _text_fields(text: str) -> Iterator[tuple[str, str]]:
             continue
         name = line[:index].strip().strip('"\'{[,')
         value = line[index + 1:].strip()
+        # A value ends at the next pair separator, so a one-line
+        # `user=a&pass=b` read as text still yields two fields rather than one
+        # value made of the whole tail.
+        value = _terminate(value)
         value = value.rstrip(",")
         if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
             value = value[1:-1]
         if not name or len(name) > 64 or any(char.isspace() for char in name):
             continue
         yield name, value
+
+
+def _terminate(value: str) -> str:
+    """Cut a label's value at the first pair separator (``&`` or ``;``)."""
+    end = len(value)
+    for separator in ("&", ";"):
+        position = value.find(separator)
+        if position != -1:
+            end = min(end, position)
+    return value[:end].strip()
 
 
 # --------------------------------------------------------------------------

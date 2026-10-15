@@ -37,7 +37,11 @@ application's own dissectors already decoded:
   means a new capture pass over port-23 streams, which this phase deliberately does not do.
 * **DNS labels.** A credential-shaped query label is not a credential until something proves
   it is; without a protocol context there is no such proof, so nothing is reported from DNS.
-* **Non-textual bodies.** A gzip or image body is not scanned as text. `content_type` decides.
+* **Non-textual bodies.** A gzip or image body is not scanned as text: a request whose own
+  `Content-Type` says so is skipped (§3.1.1). A body whose request declared nothing is read
+  by its shape, and a body that is neither JSON nor a form is read as free text — a binary
+  body that arrived with no declaration at all is therefore read as text, which finds
+  nothing unless it happens to contain a labelled or shaped value.
 * **What the analysers capped.** The scanner reads the rows the other analysers wrote, so
   anything they truncated (HTTP body previews, the per-session command cap) is beyond reach
   too. This is the price of being lightweight, and §10 states it.
@@ -99,6 +103,32 @@ Candidates first, then judgement — never one giant regex over raw bytes.
 Base64 is decoded **only** where a protocol says the field is Base64 (Basic credentials,
 `AUTH LOGIN`, `AUTH PLAIN`). A Base64-looking string with no context is reported as *nothing*.
 
+#### 3.1.1 Choosing the reader for a body
+
+`http_transactions.content_type` is the **response's** content type. It can never say how to
+read a **request** body, and using it to do so read the most ordinary login on the web — a
+form POST to an endpoint that answers JSON — as prose, producing one medium finding whose
+value was the whole string `admin&password=secret123` instead of the two `high` fields the
+server received. The rule is therefore:
+
+1. **The request's own `Content-Type`** (from `request_headers`) selects the reader. A
+   declaration is believed, including `text/*` and a type that says *skip*.
+2. **No usable declaration** (the header was absent) ⇒ the body's shape decides, and only
+   two shapes are recognised, because each is self-evidencing:
+   * a JSON document (starts with `{` or `[` and parses) is read as JSON;
+   * a **single line** in which every `&`-separated chunk carries its own `=` and at least
+     one chunk has a plausible field name is read as a form.
+   Everything else is read as free text, which keeps multi-line labelled prose
+   (`password: hunter2`) and sentences (`the user=admin logged in`) in the text reader.
+3. **A declared form that parses as JSON** is read as JSON: the parse is proof of what the
+   body is, and reading it as a form would find nothing.
+
+Pairs are separated by `&` **and** `;` (the older separator; `parse_qsl` in this Python
+takes `separator` as one literal string, so `;` is rewritten to `&` first, and a literal
+`;` inside a value must be percent-encoded as `%3B`). Values are percent-decoded, `+`
+becomes a space, and a pair of surrounding quotes is removed. A value always ends at the
+next pair separator, in the form reader and in the free-text label reader alike.
+
 ### 3.2 Field-name matching
 
 A field name is matched case-insensitively, with `_` and `-` treated alike, against:
@@ -110,6 +140,15 @@ access_token, auth_token, token, session, sessionid, bearer, authorization
 ```
 
 A match yields a **candidate**; its value becomes a finding only if it passes §3.4.
+
+This list **contains** `http_analyzer.CREDENTIAL_KEYWORDS` — the application's existing
+answer to *"does this request look like it carries a credential"* — reduced to the field
+names it implies (`user=`, `authorization:` and the rest are haystack substrings, so the
+trailing punctuation is dropped). The two features therefore cannot disagree about a
+password form. That keyword list was written to flag a *request*, not to name a *field*, so
+it is a floor rather than the whole list: the names above are what this contract adds.
+`test_every_name_in_the_shared_keyword_list_is_a_field_kind` fails if the shared list ever
+grows a name with no kind here.
 
 ### 3.3 Secret shapes (targeted patterns)
 
@@ -235,9 +274,30 @@ response omits is reported as unavailable rather than assumed to hold the defaul
 
 ### 8.1 `GET /api/analyses/{analysis_id}/credentials`
 
-Query: `kind`, `protocol`, `confidence`, `stream_id`, `reveal` (`1` to include `value`),
-`sort` (`confidence|kind|protocol|created_at`, default `confidence`), `order`
+Query: `kind`, `protocol`, `confidence`, `stream_id`, `unique` (default `1`; `0` for every
+occurrence), `reveal` (`1` to include `value`), `sort`
+(`confidence|kind|protocol|created_at`, default `confidence`), `order`
 (`asc|desc`, default `desc`), `page`, `page_size`.
+
+**The default view is one row per distinct value.** A credential is the value; the streams it
+crossed are where it was seen. A capture that authenticates seven times with one username and
+one password carries **one** username and **one** password, and seven identical rows would say
+something untrue about it — so `unique=1` returns one row per distinct `(kind, value)`, and each
+row names every occurrence behind it:
+
+| Extra item field | Meaning |
+|---|---|
+| `occurrences` | how many stored rows this value accounts for |
+| `stream_ids` | every stream it was seen in, ascending; the row's own `stream_id` is the first |
+| `protocols` | every protocol it was seen in, when more than one |
+| `locations` | every location it was read from, when more than one |
+
+The row itself is the **earliest occurrence**, so its value, preview, method, source field and
+packet numbers belong to one real stored row rather than to a blend of several. Nothing is
+merged into the value: the stored rows are untouched, and `unique=0` returns them one by one for
+anyone who wants the per-stream evidence. `counts.total`, `counts.by_kind` and
+`counts.by_confidence` count **distinct values** in this view, and `counts.occurrences` reports
+the stored rows behind them, so "one credential seen seven times" can never be read as seven.
 
 ```json
 {
@@ -267,6 +327,7 @@ Query: `kind`, `protocol`, `confidence`, `stream_id`, `reveal` (`1` to include `
   "page": 1,
   "page_size": 50,
   "reveal": false,
+  "unique": true,
   "capped": false,
   "scan": {
     "enabled": true,
@@ -278,7 +339,7 @@ Query: `kind`, `protocol`, `confidence`, `stream_id`, `reveal` (`1` to include `
     "findings": 1,
     "seconds": 0.4
   },
-  "counts": { "total": 1, "by_kind": { "username": 0, "password": 1 }, "by_confidence": { "high": 1 } },
+  "counts": { "total": 1, "by_kind": { "username": 0, "password": 1 }, "by_confidence": { "high": 1 }, "occurrences": 7 },
   "note": "…"
 }
 ```
@@ -296,6 +357,7 @@ Counts only — **no values at all, not even previews** — plus the same `scan`
 ```json
 {
   "total": 3,
+  "occurrences": 9,
   "by_kind": { "username": 1, "password": 2 },
   "by_protocol": { "http": 1, "smtp": 2 },
   "by_confidence": { "high": 3, "medium": 0, "low": 0 },
@@ -309,10 +371,13 @@ Counts only — **no values at all, not even previews** — plus the same `scan`
 }
 ```
 
-`stream_count` counts distinct **(protocol, stream_id) pairs**: one stream carrying two
-protocols counts twice, because the two are different sessions that happen to share a number.
-`limits` carries the caps that applied to this scan in words, so the page can state them
-without inventing them.
+Every count is of **distinct values**, matching §8.1's default view, and `occurrences` carries
+the stored rows behind them, so the tiles and the listing can never disagree about how many
+credentials a capture holds. `stream_count` counts distinct **(protocol, stream_id) pairs**: one
+stream carrying two protocols counts twice, because the two are different sessions that happen
+to share a number — `streams[].findings` stays a count of stored occurrences in that stream, so
+the per-stream evidence is still visible. `limits` carries the caps that applied to this scan in
+words, so the page can state them without inventing them.
 
 ### 8.3 `POST /api/analyses/{analysis_id}/credentials/scan`
 
