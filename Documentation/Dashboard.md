@@ -1,9 +1,8 @@
 # Dashboard
 
-The first page of the running application (`/`): seven headline figures, a conversation
-map, the busiest senders and receivers, the domains this capture resolved, the protocol
-mix and the shape of the traffic over time — all for the one capture selected in the top
-bar.
+The first page of the running application (`/`): seven headline figures, the shape of the
+traffic over time, a conversation map, the busiest senders and receivers, the domains this
+capture resolved and the protocol mix — all for the one capture selected in the top bar.
 
 The component is `frontend/src/pages/DashboardPage.tsx`, wrapped in
 `frontend/src/components/AnalysisGuard.tsx`. Its pieces live in
@@ -53,19 +52,34 @@ A missing figure renders as an em-dash (`—`) in faint text rather than as `0`:
 `formatNumber`, `formatBytes` and `formatDuration` in `frontend/src/utils/format.ts` all
 return `EMPTY = '—'` for `null`/`undefined`/non-finite input.
 
-### 2.2 The map panel: geography, or conversations
+### 2.2 Traffic over time
+
+`frontend/src/components/dashboard/TrafficSparkline.tsx` inside a `ChartPanel`: a filled
+area chart of `traffic_series` with a `packets` / `bytes` toggle, the X axis formatted as
+local clock time (`HH:MM:SS`) and the Y axis formatted as a count or a byte size.
+
+It is the **first panel under the KPI tiles and spans the full width**, directly above the
+map: the shape of a capture over time is the thing to read first, and a time series needs
+the width. Everything below it — the map, the extremes, the domains, the protocol mix —
+keeps its own full or half width as §2.3 to §2.6 describe.
+
+Panel subtitle: `N buckets · <interval> per bucket` when the response carries an interval
+greater than zero, and just `N buckets` otherwise. The X value of a point is the **start**
+of its bucket (`t = start + index × interval`).
+
+### 2.3 The map panel: geography, or conversations
 
 The panel in the middle of the Dashboard answers "where does this capture talk to" by default,
 and "who talked to whom" on request. A two-way toggle in the panel header switches between
 them and the choice lives in the URL (`?map=graph`), so a link to either view is shareable and
 Back returns to the other. The panel's other header action is a **Host inventory** button.
 
-* **Geography** is the default: the world map, described in §2.2.1.
-* **Conversations** is the graph this panel has always drawn, described in §2.2.2. Neither
+* **Geography** is the default: the world map, described in §2.3.1.
+* **Conversations** is the graph this panel has always drawn, described in §2.3.2. Neither
   view replaces the other — topology and geography are different questions about the same
   capture — so both stay.
 
-#### 2.2.1 Geography — where the capture's addresses are
+#### 2.3.1 Geography — where the capture's addresses are
 
 `frontend/src/components/dashboard/WorldMap.tsx` draws it and
 `frontend/src/components/dashboard/CountryList.tsx` lists it underneath. The contract for the
@@ -133,7 +147,7 @@ the only thing in APackets that downloads anything: one public CC BY 4.0 file, a
 with no account and no API key, fetched by the backend when the reader asks and never at render
 time. No capture data is involved in the request.
 
-#### 2.2.2 The conversation graph
+#### 2.3.2 The conversation graph
 
 `frontend/src/components/dashboard/NetworkMap.tsx`; its subtitle is *who talked to whom in this
 capture, sized by bytes*.
@@ -160,7 +174,7 @@ animates. Heavier conversations pull their endpoints closer (`target` distance f
 Nodes are focusable (`tabIndex=0`, `role="button"`), and Enter or space activates them
 exactly as a click does.
 
-### 2.3 Most data sent / Most data received
+### 2.4 Most data sent / Most data received
 
 Two cards from `frontend/src/components/dashboard/TrafficExtremeCard.tsx`, side by side
 from the `md` breakpoint. *Most data sent* reads `traffic_extremes.max_sender`; *Most data
@@ -180,7 +194,7 @@ When no host has a non-zero value in that column the card draws a question-mark 
 the sentence *No host sent (or received) any data in this capture — nothing to rank.
 Shown honestly rather than as a zero row.*
 
-### 2.4 Top domains
+### 2.5 Top domains
 
 `frontend/src/components/dashboard/DomainBars.tsx`. One row per domain, ranked by total
 bytes, with a split bar on a single scale: the accent segment is `bytes_sent`, the second
@@ -202,7 +216,7 @@ endpoint's `domain_limit` query parameter defaults to `5` and is not sent by the
 Dashboard. In practice this panel shows **at most five domains**, and there is no control
 on the page to ask for more.
 
-### 2.5 Protocol mix
+### 2.6 Protocol mix
 
 `frontend/src/components/dashboard/ProtocolMix.tsx` inside a `ChartPanel`. A donut of the
 **seven** largest protocols from `protocol_distribution`, with two toggle buttons —
@@ -213,17 +227,6 @@ with wraparound.
 
 Panel subtitle: `top N protocols`, where N is the smaller of 7 and the number of rows the
 endpoint returned.
-
-### 2.6 Traffic over time
-
-`frontend/src/components/dashboard/TrafficSparkline.tsx` inside a `ChartPanel`: a filled
-area chart of `traffic_series` with the same `packets` / `bytes` toggle, the X axis
-formatted as local clock time (`HH:MM:SS`) and the Y axis formatted as a count or a byte
-size.
-
-Panel subtitle: `N buckets · <interval> per bucket` when the response carries an interval
-greater than zero, and just `N buckets` otherwise. The X value of a point is the **start**
-of its bucket (`t = start + index × interval`).
 
 ### 2.7 The two closing lines
 

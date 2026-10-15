@@ -247,6 +247,24 @@ function DashboardOverview() {
         </div>
       </div>
 
+      {/* Full width, above the map: the shape of the capture over time is the
+          first thing to read, and a time series wants the width far more than a
+          half column can give it. */}
+      <ChartPanel
+        title="Traffic over time"
+        subtitle={
+          interval && interval > 0
+            ? `${(data.traffic_series ?? []).length} buckets · ${formatDuration(interval)} per bucket`
+            : `${(data.traffic_series ?? []).length} buckets`
+        }
+        height={210}
+        isEmpty={(data.traffic_series ?? []).length === 0}
+        emptyTitle="No traffic series"
+        emptyDescription="The capture has no packets to bucket over time."
+      >
+        <TrafficSparkline series={data.traffic_series ?? []} />
+      </ChartPanel>
+
       <Panel
         className="shadow-bloom"
         subtitle={
@@ -360,33 +378,19 @@ function DashboardOverview() {
         </div>
       </Panel>
 
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-        <ChartPanel
-          title="Protocol mix"
-          subtitle={`top ${Math.min(7, (data.protocol_distribution ?? []).length)} protocols`}
-          height={210}
-          isEmpty={(data.protocol_distribution ?? []).length === 0}
-          emptyTitle="No protocol distribution"
-          emptyDescription="No packets were indexed for this capture."
-        >
-          <ProtocolMix distribution={data.protocol_distribution ?? []} />
-        </ChartPanel>
-
-        <ChartPanel
-          title="Traffic over time"
-          subtitle={
-            interval && interval > 0
-              ? `${(data.traffic_series ?? []).length} buckets · ${formatDuration(interval)} per bucket`
-              : `${(data.traffic_series ?? []).length} buckets`
-          }
-          height={210}
-          isEmpty={(data.traffic_series ?? []).length === 0}
-          emptyTitle="No traffic series"
-          emptyDescription="The capture has no packets to bucket over time."
-        >
-          <TrafficSparkline series={data.traffic_series ?? []} />
-        </ChartPanel>
-      </div>
+      {/* Protocol mix is full width now that the time series has moved above the
+          map: one chart alone in a two-column grid would have sat in half the
+          width with nothing beside it. */}
+      <ChartPanel
+        title="Protocol mix"
+        subtitle={`top ${Math.min(7, (data.protocol_distribution ?? []).length)} protocols`}
+        height={210}
+        isEmpty={(data.protocol_distribution ?? []).length === 0}
+        emptyTitle="No protocol distribution"
+        emptyDescription="No packets were indexed for this capture."
+      >
+        <ProtocolMix distribution={data.protocol_distribution ?? []} />
+      </ChartPanel>
 
       <div className="flex flex-wrap items-center gap-2 px-1 pb-1 text-2xs text-muted">
         <FileText size={13} className="text-faint" aria-hidden />

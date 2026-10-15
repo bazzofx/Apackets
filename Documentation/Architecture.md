@@ -304,6 +304,10 @@ narrowly as one can be:
   `-g <packet number>` would need the index rather than the filter, so neither is
   used. Verified against Wireshark 4.6.8: an unknown option exits `1` at once,
   while this argument vector leaves the GUI running.
+* **The reported pid is a launcher, not the window.** Windows Wireshark re-execs
+  itself, so the process a request starts exits while the window it spawned keeps
+  running. A pid that is already gone therefore proves nothing about whether the
+  window opened; it is reported for the log's sake, not as a handle on the GUI.
 * **Absence is reported, not guessed.** `resolve_binary()` looks in the
   configured path (`APACKETS_WIRESHARK_PATH`), on `PATH`, next to the TShark this
   application already uses, and in the known install directories, then reports the

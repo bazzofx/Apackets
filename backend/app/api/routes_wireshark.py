@@ -59,7 +59,9 @@ def post_wireshark(
     reason when the GUI is not installed, and ``410 capture_missing`` (from the
     dependency) when the capture has been removed. Success means the process was
     started; whether the window is visible on the operator's desktop is between
-    them and their window manager.
+    them and their window manager. The ``pid`` reported is the process this
+    request started — Windows Wireshark re-execs itself, so that one is a launcher
+    which exits while the window it spawned keeps running, not a handle on the GUI.
     """
     path = capture_path(row)
     try:
