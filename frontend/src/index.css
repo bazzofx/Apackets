@@ -1421,6 +1421,13 @@
     background-color: rgb(var(--c-surface2));
   }
 
+  /* The local-machine icon is a picture of a computer rather than a flag, so it
+     is fitted inside the same box instead of being cropped to fill it — a cropped
+     computer is not a computer. Same size as a flag, as asked. */
+  .host-flag-local {
+    object-fit: contain;
+  }
+
   .ip-menu-foot-ok {
     border-top-color: rgb(var(--c-ok) / 0.4);
   }

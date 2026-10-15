@@ -78,6 +78,79 @@ Columns. Sortable headers are marked S.
 A footer under the table states the chip convention and that every column comes from the
 backend.
 
+### 2.3.1 The icon beside an address
+
+Every row's address is preceded by an icon: the **flag** of the country the address is
+registered to, or the **local-machine icon** when the address is one of ours (§2.3.2). The
+country comes from the **same DB-IP country dataset the Dashboard's map reads**
+([GEOGRAPHY.md](../docs/GEOGRAPHY.md)). The icon is decorative (`alt=""`) with the fact in its
+tooltip, and the flag's tooltip says what the country actually means — *where this address
+block is registered, not necessarily where the host is*. The address stays the row's identity;
+the icon is a hint about it.
+
+**Where the country comes from.** `GET /hosts` and `GET /hosts/{ip}` carry a `country` field,
+computed per request in `routes_hosts._host_row` rather than stored in the `hosts` table — it
+depends on which dataset is installed and on nothing about the capture, so a capture analysed
+before the dataset arrived gains locations the moment it is installed, with no re-analysis.
+The dataset is resolved once per request, not once per row.
+
+**How a flag is chosen.** By name, never by guesswork. The files in
+`frontend/src/country-flags/` are indexed by their own normalised names — lower-case, accents
+folded, punctuation to `_` — and a code is looked up as itself first, then through the names
+the `mledoze/countries` dataset records for that country (common name, official name, CIOC
+code and alt spellings):
+
+| Code | File | Why |
+|---|---|---|
+| `BY` | `by_.ico` | the file's normalised name *is* the code |
+| `CW` | `curacao.ico` | matched on the country's own name, "Curaçao" |
+| `GB` | `uk.ico` | matched on the alt spelling "UK" |
+| `SX` | `sint_maarten.ico` | matched on "Sint Maarten" |
+| `XK` | `kosovo.ico` | matched on "Kosovo" |
+
+The four codes that need a name other than their own are generated into
+`frontend/src/theme/countryFlags.generated.ts` by `.tmp/ui-flags/build_flag_names.py`, so the
+mapping is reproducible rather than hand-kept.
+
+**What is not drawn, and why.** A code with no flag file gets **no flag at all** — not a
+neighbour's flag, and not a placeholder that would read as one — the same rule the map follows
+for unplaceable addresses. Today that is **11 of the 245 codes the GeoIP dataset can report**:
+`BQ` (Caribbean Netherlands), `GF` (French Guiana), `GP` (Guadeloupe), `HM` (Heard & McDonald
+Islands), `MF` (Saint Martin), `PM` (Saint Pierre & Miquelon), `RE` (Réunion), `SJ` (Svalbard
+& Jan Mayen), `UM` (US Minor Outlying Islands), `VG` (British Virgin Islands) and `VI` (US
+Virgin Islands). A further 23 files in the directory match no code the dataset reports and are
+therefore never used: `abkhazia`, `an`, `basque`, `cc`, `commonwealth`, `cx`, `eh`, `england`,
+`eu`, `ic`, `mars`, `nagorno-karabakh`, `nato`, `nf`, `olympic`, `red_cross`, `scotland`,
+`somaliland`, `south_ossetia`, `tf`, `tr-cy`, `un` and `wales` — the set carries organisations,
+stateless nations and a few codes this dataset never emits. (`wales`, `scotland` and `england`
+are present as their own files but no code the dataset reports resolves to them: the United
+Kingdom is one `GB`.)
+
+**No flag is also what you get** for a public address the dataset could not place, for any
+native IPv6 address (this build indexes the dataset's IPv4 rows only), for the `ZZ` unknown
+bucket, and when no dataset is installed at all. In every one of those cases the backend sends
+`country: null` and the row draws nothing.
+
+**Local addresses get the local-machine icon instead** (§2.3.2). `frontend/src/country-flags/pc.png` is
+drawn for an address that falls inside an internal block, checked in
+`frontend/src/utils/privateIp.ts`: RFC 1918 (`10/8`, `172.16/12`, `192.168/16`), loopback
+(`127/8`), link-local (`169.254/16`), carrier-grade NAT (`100.64/10`), `0.0.0.0/8`, multicast
+(`224/4`) and reserved (`240/4`) — plus IPv6 `::1`, `fc00::/7` and `fe80::/10`, with an
+IPv4-mapped address unwrapped first. Its tooltip says *"a local address — private, loopback,
+link-local or reserved, so no country applies"*, and it carries `data-country="local"`.
+
+It is drawn in the same box as a flag (1 × 0.6875 rem) but fitted inside it rather than cropped
+to fill it, because it is a picture of a computer rather than a rectangle of colour. The rule
+is a display rule and lives in one small function; the authority on what an address is remains
+the backend's `scope` field, which the detail panel and the map use.
+
+### 2.3.2 The local-machine icon
+
+`pc.png` sits in the flag directory and is addressed by its file name, not by a country code —
+no code can ever resolve to it. It is drawn when `isLocalAddress(ip)` is true, which is the CIDR
+list in §2.3.1 and nothing else; otherwise the flag rule applies, and where neither applies the
+cell draws nothing at all.
+
 Pagination uses page sizes 50 / 100 / 250 / 500 / 1000; a `page_size` that is not one of
 those five falls back to 100.
 

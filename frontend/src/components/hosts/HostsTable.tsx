@@ -20,22 +20,40 @@ import {
 } from '@/components/hosts/chips'
 import type { Host, SortOrder } from '@/types'
 import { countryName } from '@/theme/worldMap'
-import { flagUrl } from '@/theme/countryFlags'
+import { flagUrl, LOCAL_ICON_URL } from '@/theme/countryFlags'
+import { isLocalAddress } from '@/utils/privateIp'
 import { formatBytes, formatNumber, formatTimestamp } from '@/utils/format'
 
 /**
- * The country of an address, as its flag.
+ * The icon before an address: the local-machine icon when the address is one of
+ * ours, otherwise the country's flag, otherwise nothing.
  *
- * Nothing is drawn when there is no country, and the flag is decorative with the
- * country's name as its tooltip (the same name table the map uses), so a reader
- * who cannot see the image still gets the fact. It sits *at* the address rather
- * than replacing it: the flag is a hint about the row, the address is the row's
- * identity.
+ * The rule is a CIDR check (`utils/privateIp.ts`) — if the address falls in an
+ * internal block, it is local and gets `pc.png`; no flag is drawn for it either
+ * way, because a private address has no country. Everything is decorative
+ * (`alt=""`) with a tooltip that carries the fact in words.
  */
-function HostFlag({ country }: { country?: string | null }) {
-  const url = flagUrl(country)
-  if (url === null || country === null || country === undefined) return null
-  const code = country.trim().toUpperCase()
+function HostFlag({ ip, country }: { ip: string; country?: string | null }) {
+  const local = isLocalAddress(ip)
+  const url = local ? LOCAL_ICON_URL : flagUrl(country)
+  if (url === null) return null
+
+  if (local) {
+    return (
+      <img
+        src={url}
+        alt=""
+        width={16}
+        height={11}
+        loading="lazy"
+        className="host-flag host-flag-local"
+        title={`${ip} is a local address — private, loopback, link-local or reserved, so no country applies`}
+        data-country="local"
+      />
+    )
+  }
+
+  const code = String(country ?? '').trim().toUpperCase()
   return (
     <img
       src={url}
@@ -210,7 +228,7 @@ export function HostsTable({ hosts, selectedIp, onSelect, sort, order, onSort }:
                         drawn when there is no country: a private address, an IPv6
                         address or an uninstalled dataset gets nothing, rather than
                         a placeholder that would read as a country. */}
-                    <HostFlag country={host.country} />
+                    <HostFlag ip={host.ip} country={host.country} />
                     <button
                       type="button"
                       className={clsx(

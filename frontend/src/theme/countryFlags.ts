@@ -28,11 +28,10 @@
 
 import { COUNTRY_FLAG_FILES } from '@/theme/countryFlags.generated'
 
-const modules = import.meta.glob('../country-flags/*.ico', {
-  eager: true,
-  query: '?url',
-  import: 'default',
-}) as Record<string, string>
+const modules = import.meta.glob(
+  ['../country-flags/*.ico', '../country-flags/*.png'],
+  { eager: true, query: '?url', import: 'default' },
+) as Record<string, string>
 
 /** The one spelling used on both sides of the comparison. */
 export function flagKey(value: string): string {
@@ -48,7 +47,7 @@ export function flagKey(value: string): string {
 /** Normalised file name → the URL Vite resolved for that file. */
 export const FLAG_URLS: Record<string, string> = Object.fromEntries(
   Object.entries(modules).map(([path, url]) => {
-    const stem = (path.split('/').pop() ?? '').replace(/\.ico$/i, '')
+    const stem = (path.split('/').pop() ?? '').replace(/\.(ico|png)$/i, '')
     return [flagKey(stem), url]
   }),
 )
@@ -68,3 +67,12 @@ export function flagUrl(code: string | null | undefined): string | null {
 
 /** How many flags this build carries — used by the documentation checks. */
 export const FLAG_COUNT = Object.keys(FLAG_URLS).length
+
+/**
+ * The local-machine icon (`pc.png`), drawn for addresses that are not public.
+ *
+ * It lives in the flag directory, and its file name is `pc`, so it would never be
+ * reached by a country code — it is addressed by name here, once, and the caller
+ * decides *when* an address is local (see `utils/privateIp.ts`).
+ */
+export const LOCAL_ICON_URL: string | null = FLAG_URLS[flagKey('pc')] ?? null
