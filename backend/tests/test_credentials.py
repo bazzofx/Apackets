@@ -16,15 +16,18 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import threading
 import time
 from pathlib import Path
 
 import pytest
 
+import protocol_captures as capture_builders
 from app.core import runtime_settings
 from app.core.config import settings
 from app.db import database as db
 from app.services import credential_analyzer as ca
+from app.services import protocol_analyzer, tshark
 
 ANALYSIS_ID = "a1b2c3d4e5f60718293a4b5c6d7e8f90"
 OTHER_ID = "0011223344556677889900aabbccddee"
@@ -71,10 +74,11 @@ def akia(index: int) -> str:
 
 
 class StubContext:
-    """The minimum a JobContext has to offer the scanner."""
+    """The minimum a JobContext has to offer the scanner (and the protocol analyser)."""
 
     def __init__(self) -> None:
         self.stages: list[str] = []
+        self.cancel_event = threading.Event()
 
     def set_stage(self, stage: str, progress: float | None = None) -> None:
         self.stages.append(stage)
@@ -211,6 +215,89 @@ def analysis(fresh_db):  # noqa: ARG001
     return _make
 
 
+@pytest.fixture(scope="session")
+def control_captures(scratch_dir: Path) -> dict[str, Path]:
+    """Two real captures (§2b tests), built once for this module.
+
+    ``ftp`` and ``email`` are the builders ``tests/test_protocol_captures.py``
+    already uses: the FTP one authenticates with ``USER``/``PASS`` and the email one
+    holds SMTP ``AUTH LOGIN``, POP3 ``USER``/``PASS`` and IMAP ``LOGIN``, so the
+    control-channel half of the contract is exercised against what TShark and the
+    protocol analyser actually produce rather than against a shape a test invented.
+    """
+    directory = scratch_dir / "credential-captures"
+    directory.mkdir(parents=True, exist_ok=True)
+    return {
+        "ftp": capture_builders.ftp_capture(directory),
+        "email": capture_builders.email_capture(directory),
+    }
+
+
+@pytest.fixture()
+def analyser_sessions(fresh_db, control_captures):  # noqa: ARG001
+    """Run the real protocol analyser over a real capture and return its rows.
+
+    This is what makes the §2(b) tests honest: the rows are the analyser's own, so
+    the test can assert that the password is *not* in them and still recover it
+    from the control channel.
+    """
+
+    def _run(name: str = "ftp") -> list[dict]:
+        protocol_analyzer.analyze(StubContext(), ANALYSIS_ID, control_captures[name])
+        rows = db.query_all(
+            "SELECT * FROM protocol_sessions WHERE analysis_id = ? ORDER BY id",
+            (ANALYSIS_ID,),
+        )
+        return [dict(row) for row in rows]
+
+    return _run
+
+
+@pytest.fixture()
+def fake_reassembly(monkeypatch):
+    """Answer ``tshark.follow_stream`` from a handler, and record what was asked.
+
+    The reassembly is TShark's, and a test of the *scanner* should not depend on a
+    capture the scanner did not build; the real-capture tests above cover the call
+    itself, and these cover every branch of reading its answer.
+    """
+
+    def _install(handler):
+        calls: list[int] = []
+
+        def _follow(path, stream_id, mode="ascii", **kwargs):  # noqa: ARG001
+            calls.append(int(stream_id))
+            answer = handler(int(stream_id))
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
+
+        monkeypatch.setattr(tshark, "follow_stream", _follow)
+        return calls
+
+    return _install
+
+
+def follow_stream_fixture(
+    *, client: str, server: str, client_lines: list[str], server_lines: list[str] | None = None
+) -> tshark.FollowStream:
+    """A ``FollowStream`` shaped exactly as ``tshark.parse_follow_raw`` returns one."""
+    stream = tshark.FollowStream()
+    stream.node0 = client
+    stream.node1 = server
+    stream.found = True
+    for direction, lines in ((0, client_lines), (1, server_lines or [])):
+        if not lines:
+            continue
+        text = "".join(f"{line}\r\n" for line in lines)
+        stream.chunks.append(
+            tshark.StreamChunk(
+                direction=direction, byte_len=len(text), data=text, hex=text.encode().hex()
+            )
+        )
+    return stream
+
+
 @pytest.fixture()
 def seeded(analysis, insert_http, insert_session, run_scan):
     """A small representative capture, with a finding at each confidence.
@@ -254,7 +341,8 @@ def seeded(analysis, insert_http, insert_session, run_scan):
 # helpers
 # --------------------------------------------------------------------------
 
-def _find(rows, *, kind=None, location=None, value=None, protocol=None, confidence=None):
+def _find(rows, *, kind=None, location=None, value=None, protocol=None, confidence=None,
+          method=None):
     out = []
     for row in rows:
         if kind is not None and row["kind"] != kind:
@@ -266,6 +354,8 @@ def _find(rows, *, kind=None, location=None, value=None, protocol=None, confiden
         if protocol is not None and row["protocol"] != protocol:
             continue
         if confidence is not None and row["confidence"] != confidence:
+            continue
+        if method is not None and row["method"] != method:
             continue
         out.append(row)
     return out
@@ -362,12 +452,10 @@ def test_the_stage_writes_nothing_but_its_own_table_and_marker(insert_http, run_
     assert marker is not None and marker["findings"] == 2
 
 
-def test_the_scan_runs_no_capture_pass(insert_http, run_scan, monkeypatch):
-    """The contract's "no new capture pass", as an assertion rather than a comment."""
-    from app.services import tshark
-
+def test_the_http_half_needs_no_capture_pass(insert_http, run_scan, monkeypatch):
+    """HTTP is read from the stored rows: no TShark call at all for that half (§2a)."""
     def _forbidden(*args, **kwargs):  # pragma: no cover - only reached on failure
-        raise AssertionError("the credential scanner must not invoke TShark")
+        raise AssertionError("the HTTP half of the scan must not invoke TShark")
 
     for name in ("run", "run_bytes", "run_z", "stream_fields", "follow_stream", "packet_json"):
         monkeypatch.setattr(tshark, name, _forbidden)
@@ -375,15 +463,18 @@ def test_the_scan_runs_no_capture_pass(insert_http, run_scan, monkeypatch):
     insert_http(request_headers=json.dumps({"Authorization": f"Basic {b64('alice:Example123')}"}))
     rows, stats = run_scan()
     assert stats["findings"] == 2
+    assert stats["control_streams"] == 0
     assert len(rows) == 2
 
 
-def test_a_capture_path_is_never_opened(insert_http, run_scan):
-    """The stage takes its siblings' signature and ignores the path."""
+def test_a_missing_capture_costs_only_the_control_channels(insert_http, insert_session, run_scan):
+    """§2(b) needs the capture; the rows half does not, so a purged upload still scans."""
     insert_http(request_headers=json.dumps({"Authorization": f"Basic {b64('alice:Example123')}"}))
+    insert_session("ftp", {"commands": [{"verb": "PASS", "count": 1}]})
     rows, stats = run_scan(capture=Path("N:/does/not/exist/capture.pcap"))
     assert stats["findings"] == 2
-    assert len(rows) == 2
+    assert stats["control_streams"] == 0
+    assert any("was not read" in warning for warning in stats["warnings"])
 
 
 def test_only_rows_of_the_named_analysis_are_read(insert_http, run_scan):
@@ -1050,7 +1141,7 @@ def test_a_disabled_scan_writes_nothing_and_names_the_setting(insert_http):
     assert stats["enabled"] is False
     assert stats["skipped"] is True
     assert stats["findings"] == 0
-    assert "credential_scan_enabled" in stats["warning"]
+    assert any("credential_scan_enabled" in w for w in stats["warnings"])
     assert _table_counts() == before
     assert ca.stage_marker(ANALYSIS_ID) is None
 
@@ -1430,10 +1521,15 @@ def test_the_scan_block_reports_the_setting_and_the_last_run(client, seeded):
     scan = client.get(f"/api/analyses/{ANALYSIS_ID}/credentials").json()["scan"]
     assert scan["enabled"] is True
     assert scan["protocols"] == list(runtime_settings.CREDENTIAL_PROTOCOLS)
+    assert scan["protocols_scanned"] == ["http", "ftp"]
     assert scan["stage_ran"] is True
     assert scan["scanned_at"] is not None
     assert scan["rows"] == 7
     assert scan["rows_written_at"] is not None
+    assert scan["findings"] == 7
+    assert scan["seconds"] is not None
+    assert scan["capped"] is False
+    assert scan["matched"] == 7
 
 
 def test_the_scan_block_still_reports_rows_when_the_setting_is_off(client, seeded):
@@ -1441,6 +1537,34 @@ def test_the_scan_block_still_reports_rows_when_the_setting_is_off(client, seede
     body = client.get(f"/api/analyses/{ANALYSIS_ID}/credentials").json()
     assert body["scan"]["enabled"] is False
     assert body["scan"]["rows"] == 7
+
+
+def test_a_capped_scan_says_so_in_the_envelope(client, analysis, insert_http, run_scan):
+    """§8.1's ``capped``: MAX_FINDINGS stopped the stage storing everything it matched."""
+    analysis()
+    insert_http(
+        stream_id=401,
+        content_type="application/x-www-form-urlencoded",
+        request_body="&".join(f"password=value-{index:03d}" for index in range(199)),
+    )
+    for index in range(10):
+        insert_http(
+            stream_id=402 + index,
+            content_type="text/plain",
+            request_body=f"unlabelled token {akia(index)} in the clear",
+        )
+    run_scan()
+    body = client.get(f"/api/analyses/{ANALYSIS_ID}/credentials").json()
+    assert body["capped"] is True
+    assert body["scan"]["capped"] is True
+    assert body["scan"]["matched"] == 209
+    assert body["scan"]["rows"] == body["total"] == ca.MAX_FINDINGS
+
+
+def test_an_uncapped_scan_says_so(client, seeded):
+    body = client.get(f"/api/analyses/{ANALYSIS_ID}/credentials").json()
+    assert body["capped"] is False
+    assert body["scan"]["matched"] == body["scan"]["findings"]
 
 
 def test_summary_carries_no_values_at_all(client, seeded):
@@ -1462,14 +1586,57 @@ def test_summary_counts_kinds_protocols_and_confidences(client, seeded):
     assert body["by_confidence"]["high"] == 5
     assert body["by_confidence"]["low"] == 1
     assert body["high_confidence"] == 5
-    # §8.2's "streams involved": the count a header states, and the ids behind it.
-    assert body["streams"] == 5
+    # §8.2: ``streams`` is the per-(protocol, stream) breakdown and ``stream_count``
+    # the number of those pairs.
     assert body["stream_count"] == 5
-    assert body["stream_ids"] == [30, 31, 32, 33, 34]
-    assert {entry["stream_id"] for entry in body["stream_details"]} == {30, 31, 32, 33, 34}
-    assert sum(entry["findings"] for entry in body["stream_details"]) == 7
+    assert {entry["stream_id"] for entry in body["streams"]} == {30, 31, 32, 33, 34}
+    assert sum(entry["findings"] for entry in body["streams"]) == 7
+    assert all(set(entry) == {"stream_id", "protocol", "findings"} for entry in body["streams"])
     assert body["scan"]["rows"] == 7
-    assert body["limits"] == list(ca.CONTRACT_NOTES)
+
+
+def test_the_summary_limits_state_the_caps_that_applied(client, seeded):
+    """§8.2's ``limits``: the caps in words, plus what this run could not read."""
+    limits = client.get(f"/api/analyses/{ANALYSIS_ID}/credentials/summary").json()["limits"]
+    assert limits
+    text = " ".join(limits)
+    for constant in (
+        str(ca.MAX_FINDINGS),
+        str(ca.MAX_CONTROL_STREAMS),
+        str(ca.MAX_STREAM_CHARS),
+        str(ca.STREAM_TIMEOUT_S),
+        str(ca.MAX_BODY_CHARS),
+    ):
+        assert constant in text, constant
+    assert any("control stream" in line for line in limits)
+    assert all("•••" not in line for line in limits)
+
+
+def test_the_summary_limits_name_the_caps_that_actually_bit(
+    client, analysis, insert_session, fake_reassembly, run_scan
+):
+    analysis()
+    for index in range(30):
+        insert_session(
+            "ftp",
+            {"commands": [{"verb": "PASS", "count": 1}], "password_present": True},
+            stream_id=100 + index,
+        )
+    fake_reassembly(
+        lambda stream_id: tshark.TsharkTimeout("slow")
+        if stream_id == 100
+        else follow_stream_fixture(
+            client="10.0.0.1:40000",
+            server="10.0.0.2:21",
+            client_lines=[f"PASS value-{stream_id}"],
+        )
+    )
+    run_scan(capture=Path(CAPTURE_FILE))
+    limits = client.get(f"/api/analyses/{ANALYSIS_ID}/credentials/summary").json()["limits"]
+    assert any("MAX_CONTROL_STREAMS" in line for line in limits)
+    assert any("Stream 100 (ftp) was not read" in line and "20s" in line for line in limits)
+    # A limit is stated in words, never with a value in it.
+    assert all("value-" not in line for line in limits)
 
 
 def test_summary_is_empty_for_an_analysis_with_no_rows(client, analysis):
@@ -1478,10 +1645,11 @@ def test_summary_is_empty_for_an_analysis_with_no_rows(client, analysis):
     assert body["total"] == 0
     assert body["scan"]["stage_ran"] is False
     assert body["scan"]["scanned_at"] is None
-    assert body["streams"] == 0
-    assert body["stream_ids"] == []
-    assert body["stream_details"] == []
+    assert body["streams"] == []
+    assert body["stream_count"] == 0
     assert body["by_kind"]["password"] == 0
+    # The caps are still stated, because they are what a scan would apply.
+    assert body["limits"]
 
 
 def test_the_read_routes_404_for_an_unknown_analysis(client):
@@ -1624,3 +1792,535 @@ def test_the_settings_page_can_turn_the_scan_back_on(client, analysis, insert_ht
 
 def test_capabilities_report_the_credentials_router(client):
     assert client.get("/api/capabilities").json()["features"]["credentials"] is True
+
+
+# ==========================================================================
+# 15. the control channel (§2b) — against the real captures
+# ==========================================================================
+
+def _details(rows: list[dict], protocol: str) -> dict:
+    row = _one(rows, protocol=protocol)
+    return json.loads(row["detail"])
+
+
+def test_the_analysers_rows_hold_the_login_but_not_the_password(analyser_sessions):
+    """The premise §2b rests on: the value is deliberately absent from the database."""
+    rows = analyser_sessions("ftp")
+    detail = _details(rows, "ftp")
+    verbs = {entry["verb"]: entry for entry in detail["commands"]}
+
+    assert "PASS" in verbs, "the analyser records the verb"
+    assert "arg" not in verbs["PASS"], "and deliberately not its argument"
+    assert detail.get("password_present") is True
+    assert "guest@example.com" not in json.dumps(detail)
+
+
+def test_ftp_pass_is_recovered_from_the_control_channel(
+    analyser_sessions, control_captures, run_scan
+):
+    analyser_sessions("ftp")            # the analyser's own rows, nothing else
+    rows, stats = run_scan(capture=control_captures["ftp"])
+
+    password = _one(rows, kind="password", value="guest@example.com")
+    assert password["confidence"] == "high"
+    assert password["method"] == ca.CONTROL_METHOD
+    assert password["location"] == "ftp_pass_command"
+    assert password["protocol"] == "ftp"
+    assert password["source_field"] == "PASS"
+    assert password["direction"] == "client_to_server"
+    assert password["value_preview"] == ca.preview("guest@example.com")
+    assert "guest@example.com" not in password["evidence"]
+    assert stats["control_streams"] == 1
+
+    # The USER the analyser already stored is still reported, once, from the row.
+    username = _one(rows, kind="username", value="anonymous")
+    assert username["method"] == "command_arg"
+
+
+def test_smtp_auth_login_exchange_is_read_from_the_control_channel(
+    analyser_sessions, control_captures, run_scan
+):
+    """SMTP keeps the mechanism; the Base64 that answers it is only on the wire."""
+    sessions = analyser_sessions("email")
+    smtp = _details(sessions, "smtp")
+    assert smtp.get("password_present") is True
+    assert "s3cr3t" not in json.dumps(smtp)
+
+    rows, stats = run_scan(capture=control_captures["email"])
+
+    password = _one(rows, kind="password", value="s3cr3t")
+    assert password["protocol"] == "smtp"
+    assert password["location"] == "smtp_auth_login"
+    assert password["confidence"] == "high"
+    assert password["method"] == ca.CONTROL_METHOD
+    assert b64("s3cr3t") not in password["evidence"]
+    assert _one(rows, kind="username", value="alice")
+    assert stats["control_streams"] == 3
+
+
+def test_pop3_and_imap_logins_are_read_from_the_control_channel(
+    analyser_sessions, control_captures, run_scan
+):
+    analyser_sessions("email")
+    rows, _ = run_scan(capture=control_captures["email"])
+
+    assert _one(rows, kind="username", value="dave")["protocol"] == "pop3"
+    pop3 = _one(rows, kind="password", value="hunter2")
+    assert pop3["location"] == "pop3_pass_command"
+    assert pop3["method"] == ca.CONTROL_METHOD
+
+    imap = _one(rows, kind="password", value="p@ss w0rd")
+    assert imap["protocol"] == "imap"
+    assert imap["location"] == "imap_login_command"
+    assert imap["confidence"] == "high"
+    assert _one(rows, kind="username", value="erin")["protocol"] == "imap"
+
+
+# --------------------------------------------------------------------------
+# the same reading, exercised on every branch of the exchange
+# --------------------------------------------------------------------------
+
+def _ftp_password_session(insert_session, *, stream_id: int = 3, port: int = 21) -> None:
+    insert_session(
+        "ftp",
+        {"commands": [{"verb": "USER", "arg": "carol", "count": 1}, {"verb": "PASS", "count": 1}],
+         "username": "carol", "password_present": True},
+        stream_id=stream_id,
+        server_port=port,
+    )
+
+
+def test_auth_plain_with_an_inline_token_is_decoded_from_the_channel(
+    insert_session, fake_reassembly, run_scan
+):
+    _ftp_password_session(insert_session)
+    insert_session(
+        "smtp",
+        {"commands": [{"verb": "AUTH", "arg": "PLAIN", "count": 1}]},
+        stream_id=4,
+        server_port=25,
+    )
+    fake_reassembly(
+        lambda stream_id: follow_stream_fixture(
+            client="10.0.0.1:40000",
+            server="10.0.0.2:25",
+            client_lines=[f"AUTH PLAIN {b64(chr(0) + 'bob' + chr(0) + 'Example123')}"],
+        )
+        if stream_id == 4
+        else follow_stream_fixture(
+            client="10.0.0.1:40000", server="10.0.0.2:21", client_lines=["PASS S3cretFtp"]
+        )
+    )
+    rows, _ = run_scan(capture=Path(CAPTURE_FILE))
+
+    assert _one(rows, kind="username", value="bob")["location"] == "smtp_auth_plain"
+    password = _one(rows, kind="password", value="Example123")
+    assert password["location"] == "smtp_auth_plain"
+    assert password["confidence"] == "high"
+
+
+def test_auth_plain_without_an_inline_token_waits_for_the_next_line(
+    insert_session, fake_reassembly, run_scan
+):
+    """``AUTH PLAIN`` alone is answered by the Base64 blob on the next client line."""
+    insert_session(
+        "smtp", {"commands": [{"verb": "AUTH", "arg": "PLAIN", "count": 1}]}, stream_id=4
+    )
+    fake_reassembly(
+        lambda stream_id: follow_stream_fixture(
+            client="10.0.0.1:40000",
+            server="10.0.0.2:25",
+            client_lines=["AUTH PLAIN", b64("\0bob\0Example123")],
+            server_lines=["334 "],
+        )
+    )
+    rows, _ = run_scan(capture=Path(CAPTURE_FILE))
+    assert _one(rows, kind="username", value="bob")
+    assert _one(rows, kind="password", value="Example123")
+
+
+def test_auth_login_without_an_inline_token_waits_for_both_lines(
+    insert_session, fake_reassembly, run_scan
+):
+    insert_session(
+        "smtp", {"commands": [{"verb": "AUTH", "arg": "LOGIN", "count": 1}]}, stream_id=4
+    )
+    fake_reassembly(
+        lambda stream_id: follow_stream_fixture(
+            client="10.0.0.1:40000",
+            server="10.0.0.2:25",
+            client_lines=["AUTH LOGIN", b64("alice"), b64("Example123")],
+            server_lines=["334 VXNlcm5hbWU6", "334 UGFzc3dvcmQ6"],
+        )
+    )
+    rows, _ = run_scan(capture=Path(CAPTURE_FILE))
+    assert _one(rows, kind="username", value="alice")["location"] == "smtp_auth_login"
+    assert _one(rows, kind="password", value="Example123")["location"] == "smtp_auth_login"
+
+
+def test_auth_plain_that_is_not_a_credential_pair_is_medium_from_the_channel(
+    insert_session, fake_reassembly, run_scan
+):
+    insert_session(
+        "smtp", {"commands": [{"verb": "AUTH", "arg": "PLAIN", "count": 1}]}, stream_id=4
+    )
+    fake_reassembly(
+        lambda stream_id: follow_stream_fixture(
+            client="10.0.0.1:40000",
+            server="10.0.0.2:25",
+            client_lines=[f"AUTH PLAIN {b64('only-one-field')}"],
+        )
+    )
+    rows, _ = run_scan(capture=Path(CAPTURE_FILE))
+    row = _one(rows, kind="other_secret")
+    assert row["value"] == b64("only-one-field")
+    assert row["confidence"] == "medium"
+
+
+def test_a_mechanism_this_build_does_not_decode_reports_nothing(
+    insert_session, fake_reassembly, run_scan
+):
+    """CRAM-MD5's answer is a hash, not a password: nothing is reported for it."""
+    insert_session(
+        "smtp", {"commands": [{"verb": "AUTH", "arg": "CRAM-MD5", "count": 1}]}, stream_id=4
+    )
+    fake_reassembly(
+        lambda stream_id: follow_stream_fixture(
+            client="10.0.0.1:40000",
+            server="10.0.0.2:25",
+            client_lines=["AUTH CRAM-MD5", "YWxpY2UgYjNjNmQ1ZjY="],
+            server_lines=["334 PDEyMzQ1Njc4OTA+"],
+        )
+    )
+    rows, _ = run_scan(capture=Path(CAPTURE_FILE))
+    assert rows == []
+
+
+def test_the_servers_side_of_the_channel_is_never_read(
+    insert_session, fake_reassembly, run_scan
+):
+    """A server line is a challenge or a banner, never the client's credential."""
+    _ftp_password_session(insert_session)
+    fake_reassembly(
+        lambda stream_id: follow_stream_fixture(
+            client="10.0.0.1:40000",
+            server="10.0.0.2:21",
+            client_lines=["USER carol", "PASS S3cretFtp"],
+            server_lines=["331 Password required", "PASS server-side-deception"],
+        )
+    )
+    rows, _ = run_scan(capture=Path(CAPTURE_FILE))
+    assert sorted(_values(rows)) == ["S3cretFtp", "carol"]
+    assert _find(rows, value="server-side-deception") == []
+
+
+def test_a_stream_whose_client_side_cannot_be_identified_is_named(
+    insert_session, fake_reassembly, run_scan
+):
+    _ftp_password_session(insert_session)
+    fake_reassembly(
+        lambda stream_id: follow_stream_fixture(
+            client="192.0.2.9:1",
+            server="192.0.2.9:2",
+            client_lines=["PASS S3cretFtp"],
+        )
+    )
+    rows, stats = run_scan(capture=Path(CAPTURE_FILE))
+    assert _find(rows, kind="password") == []
+    assert any("client's side" in warning for warning in stats["warnings"])
+
+
+def test_a_stream_the_reassembly_did_not_find_is_named(
+    insert_session, fake_reassembly, run_scan
+):
+    _ftp_password_session(insert_session)
+    fake_reassembly(lambda stream_id: tshark.FollowStream())
+    rows, stats = run_scan(capture=Path(CAPTURE_FILE))
+    assert _find(rows, kind="password") == []
+    assert any("reassembled no content" in warning for warning in stats["warnings"])
+
+
+def test_a_udp_session_is_not_reassembled(insert_session, fake_reassembly, run_scan):
+    _ftp_password_session(insert_session)
+    db.execute(
+        "UPDATE protocol_sessions SET transport = 'udp' WHERE analysis_id = ?", (ANALYSIS_ID,)
+    )
+    calls = fake_reassembly(lambda stream_id: follow_stream_fixture(
+        client="10.0.0.1:40000", server="10.0.0.2:21", client_lines=["PASS S3cretFtp"]
+    ))
+    rows, stats = run_scan(capture=Path(CAPTURE_FILE))
+    assert calls == []
+    assert _find(rows, kind="password") == []
+    assert any("TCP streams" in warning for warning in stats["warnings"])
+
+
+# --------------------------------------------------------------------------
+# what §2b must not do
+# --------------------------------------------------------------------------
+
+def test_a_session_with_no_credential_verb_is_not_reassembled(
+    insert_session, fake_reassembly, run_scan
+):
+    insert_session(
+        "ftp",
+        {"commands": [{"verb": "CWD", "arg": "/pub", "count": 1},
+                      {"verb": "RETR", "arg": "report.pdf", "count": 1}]},
+        stream_id=7,
+    )
+    calls = fake_reassembly(
+        lambda stream_id: follow_stream_fixture(
+            client="10.0.0.1:40000",
+            server="10.0.0.2:21",
+            client_lines=["PASS S3cretFtp"],
+        )
+    )
+    rows, stats = run_scan(capture=Path(CAPTURE_FILE))
+    assert calls == []
+    assert rows == []
+    assert stats["control_streams"] == 0
+
+
+def test_an_authenticated_login_without_a_verb_is_still_reassembled(
+    insert_session, fake_reassembly, run_scan
+):
+    """``password_present``/``auth_username`` are the analyser's record of a login."""
+    insert_session("smtp", {"auth_username": "alice", "password_present": True}, stream_id=9)
+    calls = fake_reassembly(
+        lambda stream_id: follow_stream_fixture(
+            client="10.0.0.1:40000", server="10.0.0.2:25", client_lines=["PASS S3cretFtp"]
+        )
+    )
+    rows, stats = run_scan(capture=Path(CAPTURE_FILE))
+    assert calls == [9]
+    assert stats["control_streams"] == 1
+    assert _one(rows, kind="password", value="S3cretFtp")
+
+
+def test_http_streams_are_never_reassembled(insert_http, insert_session, fake_reassembly,
+                                            run_scan):
+    """HTTP has its bodies stored, so §2b leaves its streams alone."""
+    insert_http(stream_id=1,
+                request_headers=json.dumps({"Authorization": f"Basic {b64('alice:Example123')}"}))
+    _ftp_password_session(insert_session, stream_id=2)
+    calls = fake_reassembly(
+        lambda stream_id: follow_stream_fixture(
+            client="10.0.0.1:40000", server="10.0.0.2:21", client_lines=["PASS S3cretFtp"]
+        )
+    )
+    rows, _ = run_scan(capture=Path(CAPTURE_FILE))
+    assert calls == [2], "the HTTP row's stream 1 must not be followed"
+    assert _one(rows, kind="password", value="Example123")
+    assert _one(rows, kind="password", value="S3cretFtp")
+
+
+def test_a_protocol_outside_the_selection_is_not_reassembled(
+    insert_session, fake_reassembly, run_scan
+):
+    _ftp_password_session(insert_session)
+    calls = fake_reassembly(
+        lambda stream_id: follow_stream_fixture(
+            client="10.0.0.1:40000", server="10.0.0.2:21", client_lines=["PASS S3cretFtp"]
+        )
+    )
+    rows, _ = run_scan(protocols=["http"], capture=Path(CAPTURE_FILE))
+    assert calls == []
+    assert rows == []
+
+
+def test_no_value_is_written_into_protocol_sessions_detail(
+    analyser_sessions, control_captures, run_scan
+):
+    """§10: ``credentials`` is the only table that holds a value."""
+    analyser_sessions("ftp")
+    before = {
+        row["id"]: row["detail"]
+        for row in db.query_all(
+            "SELECT id, detail FROM protocol_sessions WHERE analysis_id = ?", (ANALYSIS_ID,)
+        )
+    }
+
+    rows, _ = run_scan(capture=control_captures["ftp"])
+    assert _find(rows, value="guest@example.com"), "the fixture must recover the password"
+
+    after = {
+        row["id"]: row["detail"]
+        for row in db.query_all(
+            "SELECT id, detail FROM protocol_sessions WHERE analysis_id = ?", (ANALYSIS_ID,)
+        )
+    }
+    assert after == before, "the stage must not touch protocol_sessions"
+    for detail in after.values():
+        assert "guest@example.com" not in detail
+        assert "password_present" in detail or "commands" in detail
+
+    # And the value it did store is the redacted-by-default one every other row is.
+    stored = db.query_all("SELECT * FROM credentials WHERE analysis_id = ?", (ANALYSIS_ID,))
+    assert any(row["value"] == "guest@example.com" for row in stored)
+    assert all(row["value_preview"] != row["value"] for row in stored)
+
+
+# --------------------------------------------------------------------------
+# the caps of §9
+# --------------------------------------------------------------------------
+
+def test_the_control_stream_cap_is_honoured(insert_session, fake_reassembly, run_scan):
+    for index in range(30):
+        _ftp_password_session(insert_session, stream_id=500 + index)
+    calls = fake_reassembly(
+        lambda stream_id: follow_stream_fixture(
+            client="10.0.0.1:40000",
+            server="10.0.0.2:21",
+            client_lines=[f"PASS value-{stream_id}"],
+        )
+    )
+    rows, stats = run_scan(capture=Path(CAPTURE_FILE))
+
+    assert ca.MAX_CONTROL_STREAMS == 25
+    assert len(calls) == 25
+    assert calls == sorted(calls), "lowest stream id first"
+    assert calls == [500 + index for index in range(25)]
+    assert stats["control_streams"] == 25
+    assert _find(rows, value="value-500") and _find(rows, value="value-524")
+    assert _find(rows, value="value-525") == []
+    assert any("MAX_CONTROL_STREAMS" in warning for warning in stats["warnings"])
+
+
+def test_the_stream_character_cap_is_honoured(insert_session, fake_reassembly, run_scan):
+    _ftp_password_session(insert_session)
+    filler = "220 " + "x" * (ca.MAX_STREAM_CHARS + 10)
+    fake_reassembly(
+        lambda stream_id: follow_stream_fixture(
+            client="10.0.0.1:40000",
+            server="10.0.0.2:21",
+            client_lines=[filler, "PASS BeyondTheCap1"],
+        )
+    )
+    rows, stats = run_scan(capture=Path(CAPTURE_FILE))
+    assert _find(rows, value="BeyondTheCap1") == []
+    assert any("MAX_STREAM_CHARS" in warning for warning in stats["warnings"])
+
+
+def test_a_timeout_is_tolerated_and_the_http_half_still_completes(
+    insert_http, insert_session, fake_reassembly, run_scan
+):
+    insert_http(request_headers=json.dumps({"Authorization": f"Basic {b64('alice:Example123')}"}))
+    _ftp_password_session(insert_session)
+    insert_session("smtp", {"auth_username": "bob", "password_present": True}, stream_id=4)
+    fake_reassembly(
+        lambda stream_id: tshark.TsharkTimeout("one stream took too long")
+        if stream_id == 3
+        else follow_stream_fixture(
+            client="10.0.0.1:40000", server="10.0.0.2:25", client_lines=["PASS SmtpOnly123"]
+        )
+    )
+    rows, stats = run_scan(capture=Path(CAPTURE_FILE))
+
+    # The HTTP half is complete, the readable stream was read, the timeout was named.
+    assert _one(rows, kind="password", value="Example123")
+    assert _one(rows, kind="password", value="SmtpOnly123")
+    assert stats["control_streams"] == 1
+    assert any(
+        "Stream 3 (ftp) was not read" in warning and "20s" in warning
+        for warning in stats["warnings"]
+    )
+
+
+def test_a_failed_reassembly_is_tolerated_and_the_http_half_still_completes(
+    insert_http, insert_session, fake_reassembly, run_scan
+):
+    insert_http(request_headers=json.dumps({"Authorization": f"Basic {b64('alice:Example123')}"}))
+    _ftp_password_session(insert_session)
+    fake_reassembly(lambda stream_id: tshark.TsharkError("no such stream"))
+    rows, stats = run_scan(capture=Path(CAPTURE_FILE))
+
+    # The two HTTP findings and the identity the analyser stored are all present;
+    # nothing was invented for the stream that could not be read.
+    assert stats["findings"] == 3
+    assert stats["control_streams"] == 0
+    assert sorted(_values(rows)) == ["Example123", "alice", "carol"]
+    assert any("TShark could not reassemble it" in warning for warning in stats["warnings"])
+
+
+def test_the_control_channel_is_read_the_same_way_twice(insert_session, fake_reassembly,
+                                                        run_scan):
+    _ftp_password_session(insert_session)
+
+    def handler(stream_id):
+        return follow_stream_fixture(
+            client="10.0.0.1:40000",
+            server="10.0.0.2:21",
+            client_lines=["USER carol", "PASS S3cretFtp"],
+            server_lines=["331 Password required"],
+        )
+
+    fake_reassembly(handler)
+    columns = [row["name"] for row in db.query_all("PRAGMA table_info(credentials)")]
+    stable = [name for name in columns if name not in {"id", "created_at"}]
+
+    first, _ = run_scan(capture=Path(CAPTURE_FILE))
+    second, _ = run_scan(capture=Path(CAPTURE_FILE))
+
+    def shape(rows):
+        return [tuple(row[name] for name in stable) for row in rows]
+
+    assert shape(first) == shape(second)
+    assert sorted(_values(first)) == ["S3cretFtp", "carol"]
+
+
+def test_protocols_scanned_reports_only_what_had_rows(client, analysis, insert_http,
+                                                      insert_session, run_scan):
+    analysis()
+    insert_http(request_headers=json.dumps({"Authorization": f"Basic {b64('alice:Example123')}"}))
+    insert_session("smtp", {"auth_username": "alice", "password_present": True}, stream_id=9)
+    run_scan(capture=None)
+    scan = client.get(f"/api/analyses/{ANALYSIS_ID}/credentials").json()["scan"]
+    assert scan["protocols_scanned"] == ["http", "smtp"]
+    assert scan["protocols"] == list(runtime_settings.CREDENTIAL_PROTOCOLS)
+    assert scan["control_streams"] == 0
+
+
+# --------------------------------------------------------------------------
+# the capture the contract was amended against
+# --------------------------------------------------------------------------
+
+REAL_LAB09 = (
+    Path(__file__).resolve().parents[2] / "data" / "uploads" / "9e2ef6a921304dc9ac0c739133682641.pcap"
+)
+
+
+@pytest.mark.skipif(
+    not REAL_LAB09.is_file(), reason="the lab-09 capture is not present on this machine"
+)
+def test_the_lab_capture_yields_smtp_passwords_the_rows_do_not_hold(run_scan):
+    """The real capture, where the row says ``password_present`` and the wire says the value.
+
+    This is the case the contract's §2(b) exists for: seven SMTP sessions that
+    authenticated with ``AUTH LOGIN``, whose stored detail holds the mechanism, the
+    identity and the boolean - and no password. The scan reads the seven control
+    channels and stores seven passwords, and every one of them is still absent from
+    the row it was read next to.
+    """
+    protocol_analyzer.analyze(StubContext(), ANALYSIS_ID, REAL_LAB09)
+    sessions = db.query_all(
+        "SELECT * FROM protocol_sessions WHERE analysis_id = ? AND protocol = 'smtp'",
+        (ANALYSIS_ID,),
+    )
+    assert sessions, "the lab capture holds SMTP sessions"
+    for row in sessions:
+        detail = json.loads(row["detail"])
+        assert detail.get("password_present") is True
+        assert detail.get("auth_username")
+
+    rows, stats = run_scan(capture=REAL_LAB09)
+
+    recovered = _find(rows, kind="password", protocol="smtp", method=ca.CONTROL_METHOD)
+    assert len(recovered) == len(sessions) == stats["control_streams"]
+    assert {row["confidence"] for row in recovered} == {"high"}
+    assert {row["location"] for row in recovered} == {"smtp_auth_login"}
+
+    stored = db.query_all(
+        "SELECT detail FROM protocol_sessions WHERE analysis_id = ?", (ANALYSIS_ID,)
+    )
+    for row in recovered:
+        assert row["value_preview"] != row["value"]
+        assert all(row["value"] not in record["detail"] for record in stored)

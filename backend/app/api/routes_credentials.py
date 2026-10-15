@@ -209,11 +209,15 @@ def list_credentials(
     )
 
     body = page.envelope([_item(row, reveal=reveal) for row in rows], total)
+    scan = ca.scan_state(analysis_id)
     body.update(
         {
             "analysis_id": analysis_id,
             "generated_at": time.time(),
             "reveal": reveal,
+            # §8.1: whether MAX_FINDINGS stopped the stage storing everything it
+            # matched, so a short list is never read as the whole truth.
+            "capped": scan["capped"],
             "counts": {
                 "total": total,
                 "by_kind": _complete_counts(_grouped(where, params, "kind"), ca.KINDS),
@@ -221,7 +225,7 @@ def list_credentials(
                     _grouped(where, params, "confidence"), ca.CONFIDENCE_LEVELS
                 ),
             },
-            "scan": ca.scan_state(analysis_id),
+            "scan": scan,
             "note": NOTE,
         }
     )
@@ -265,12 +269,6 @@ def credentials_summary(analysis_id: str) -> dict:
             params,
         )
     ]
-    stream_ids = sorted(
-        {row["stream_id"] for row in db.query_all(
-            f"SELECT DISTINCT stream_id FROM credentials WHERE {where}", params
-        )},
-        key=lambda value: (value is None, value),
-    )
 
     by_kind = _complete_counts(_grouped(where, params, "kind"), ca.KINDS)
     by_protocol = _complete_counts(_grouped(where, params, "protocol"), ca.PROTOCOLS)
@@ -284,16 +282,17 @@ def credentials_summary(analysis_id: str) -> dict:
         "by_protocol": by_protocol,
         "by_confidence": by_confidence,
         "high_confidence": by_confidence.get("high", 0),
-        # §8.2 asks for "the streams involved" and leaves the shape open. The count
-        # is what a page header states; the ids and the per-stream breakdown are
-        # here because they are what makes the count answerable.
-        "streams": len(stream_ids),
-        "stream_count": len(stream_ids),
-        "stream_ids": stream_ids,
-        "stream_details": streams,
+        # §8.2: ``streams`` is the per-(protocol, stream) breakdown, and
+        # ``stream_count`` counts those pairs — one stream number carrying two
+        # protocols is two sessions that happen to share a number, so it counts
+        # twice.
+        "streams": streams,
+        "stream_count": len(streams),
+        # §8.2's ``limits``: the caps that applied to this scan, in words, with the
+        # ones that actually bit named by the run itself.
+        "limits": ca.scan_limits(analysis_id),
         "scan": ca.scan_state(analysis_id),
         "note": NOTE,
-        "limits": list(ca.CONTRACT_NOTES),
     }
 
 

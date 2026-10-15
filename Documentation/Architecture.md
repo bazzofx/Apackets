@@ -94,13 +94,14 @@ is the span each stage owns in the `BANDS` dict at the top of `pipeline.py`.
 | 7 | `protocols` | 83–90% | `services/protocol_analyzer.py` | `analyze` | `protocol_sessions` (Email, SSH, FTP, VoIP, SMB — see [PROTOCOLS.md](../docs/PROTOCOLS.md)) |
 | 8 | `hosts` | 90–93% | `services/host_analyzer.py` | `analyze` | `hosts` |
 | 9 | `objects` | 93–96% | `services/object_extractor.py` | `analyze` | `objects` + files under `data/analyses/<id>/objects/` |
-| 10 | `detection` | 96–98% | `services/detection_engine.py` | `analyze` | `findings` (built-in rules) |
-| 11 | `suricata` | 98–99% | `services/suricata_engine.py` | `analyze` | `findings` (`rule_id = suricata:<sid>`) |
-| 12 | `finalise` | 99–100% | `services/pipeline.py` | `_cache_protocol_hierarchy`, `_store_warnings`, `_refresh_counts` | `stats_cache`, `analyses` counters |
+| 10 | `credentials` | 96–97% | `services/credential_analyzer.py` | `analyze` | `credentials` (visible users, passwords, keys and tokens — see [CREDENTIALS.md](../docs/CREDENTIALS.md)). Reads the rows stages 4 and 7 wrote, and reassembles the control channel of the mail/FTP sessions those stages redacted values out of; skipped entirely when the setting is off |
+| 11 | `detection` | 97–98% | `services/detection_engine.py` | `analyze` | `findings` (built-in rules) |
+| 12 | `suricata` | 98–99% | `services/suricata_engine.py` | `analyze` | `findings` (`rule_id = suricata:<sid>`) |
+| 13 | `finalise` | 99–100% | `services/pipeline.py` | `_cache_protocol_hierarchy`, `_store_warnings`, `_refresh_counts` | `stats_cache`, `analyses` counters |
 
 Notes that matter when reading the code:
 
-* **Stages 1–2 are mandatory, 3–10 are optional.** The optional loop catches every
+* **Stages 1–2 are mandatory, 3–11 are optional.** The optional loop catches every
   exception per stage, appends a warning and moves on, so one broken dissector
   costs you that stage's table and nothing else. The warnings are stored in
   `stats_cache` under `kind='warnings'` and returned by
@@ -161,7 +162,7 @@ upload.
 | `credentials` | `id` (autoincrement) | Visible credentials the capture carried — username, password, API key, bearer token or other secret — with the protocol and stream they came from, the location and field inside it, how the value was derived (`basic_decode`, `form_field`, `command_arg`, …), a confidence, the packet range and a **redacted** preview; the full value is served only when a caller asks for it with `reveal=1`. Written by a stage that reads the other analysers' rows rather than the capture, so it costs no extra dissection pass. Fixed by [`docs/CREDENTIALS.md`](../docs/CREDENTIALS.md). |
 | `objects` | `id` | Files recovered from the capture: display filename, stored path, protocol, content type, size, md5/sha1/sha256, endpoints, status (`complete`/`partial`/`failed`) and note. |
 | `indicators` | `id` (autoincrement) | Analyst-supplied indicator values used by the indicator-match rule, optionally scoped to one analysis. |
-| `settings` | `key` | Key/value store: runtime overrides of the editable limits (`app_settings`), the detection thresholds (`detection_config`) and the Suricata matcher configuration (`suricata_config`). |
+| `settings` | `key` | Key/value store: runtime overrides of the editable limits (`app_settings`), the detection thresholds (`detection_config`), the Suricata matcher configuration (`suricata_config`) and the credential scan's switch and protocol selection (`credential_config`). |
 | `stats_cache` | `(analysis_id, kind)` | Expensive derived artefacts: the protocol hierarchy (`protocol_hierarchy`) and the pipeline warnings (`warnings`), each a JSON blob. |
 | `suricata_rules` | `sid` | Imported Suricata-compatible rules: parsed header, `options` JSON, `unsupported` list, `supported`/`enabled`/`approximate` flags, source and the verbatim rule text. |
 

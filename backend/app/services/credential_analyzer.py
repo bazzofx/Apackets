@@ -1,41 +1,44 @@
-"""Credential discovery over the rows the other analysers already wrote.
+"""Credential discovery over the rows the other analysers wrote, plus the control
+channels of the four command protocols.
 
-The normative contract is ``docs/CREDENTIALS.md``. This module implements it
-without a capture pass of its own: it reads ``http_transactions`` and
-``protocol_sessions``, decides which of their fields are credential-bearing,
-and never invents a value that no stored row carried.
+The normative contract is ``docs/CREDENTIALS.md``, whose §2 gives the stage two
+sources and no third: the rows the other analysers already wrote, and — for FTP,
+SMTP, POP3 and IMAP only — the control channel of a session those rows say
+exchanged a credential, reassembled with the stream machinery this application
+already uses. Nothing is invented, and a value is only ever reported where a
+protocol said what the field is.
 
 Why it is built this way:
 
-* **No new capture pass.** Every value comes from a field the HTTP or protocol
-  analyser already decoded and stored, so the stage costs two SELECTs instead of
-  a TShark pass, and a capture the other stages could not read yields nothing
-  here either rather than a different, half-decoded answer.
+* **The rows first, because they are free.** HTTP needs no capture access at all:
+  its bodies are stored with their transactions, so the HTTP half of a scan works
+  even on an installation whose uploads have been purged.
+* **The control channel second, because the value is deliberately not in the
+  database.** ``protocol_analyzer`` blanks a ``PASS`` argument and keeps an SMTP
+  ``AUTH`` command's mechanism without the Base64 exchange that follows it
+  (``docs/PROTOCOLS.md`` §1.3), and that redaction must not be undone: every
+  ``/protocols`` response sends ``detail`` to the browser, so a value written
+  there would be served unredacted. The reassembly happens here, for the streams
+  the analyser already classified, and the value goes into ``credentials`` and
+  nowhere else (§10).
 * **Base64 is decoded only where a protocol says the field is Base64** (§3.1):
-  HTTP Basic, and ``AUTH PLAIN`` / ``AUTH LOGIN``. Everywhere else a
-  Base64-looking string is left alone, because decoding a token that nothing
-  identified would manufacture a value the wire never carried.
+  HTTP Basic, and ``AUTH PLAIN`` / ``AUTH LOGIN`` / ``AUTHENTICATE``. Everywhere
+  else a Base64-looking string is left alone, because decoding a token that
+  nothing identified would manufacture a value the wire never carried.
 * **Redaction happens before storage.** A finding's ``evidence`` line quotes the
-  source field with the value's middle removed, so a row read straight out of
-  SQLite leaks no more than the API does, and ``value_preview`` never equals the
-  full value (§5).
+  source field or command with the value's middle removed, so a row read straight
+  out of SQLite leaks no more than the API does, and ``value_preview`` never
+  equals the full value (§5).
 * **Nothing is logged.** The stage logs counts and kinds; a credential value
-  never enters a log line, a warning or an error message (§5).
+  never enters a log line, a warning or an error message (§5). The warnings the
+  stage does record name streams, protocols and caps — never values.
 
-Two limits of the stored rows are worth stating where they can be read (§3.1's
-"only what the analysers capped"):
-
-* ``protocol_analyzer`` blanks the argument of an FTP/POP3 ``PASS`` command and
-  keeps only the mechanism name of an SMTP/POP3 ``AUTH`` command, and IMAP
-  commands carry no argument at all. This scanner reads whatever is stored and
-  reports nothing where nothing was stored: an upstream redaction is a fact of
-  this build, not evidence that no credential crossed the wire.
-* Bodies are read from the stored previews, so a credential the HTTP analyser
-  did not keep in its preview cannot be found here.
+An optional stage never sinks an analysis: a control stream that cannot be
+reassembled (capture purged, timeout, nothing to follow) is skipped and named in
+the stage warning, and the HTTP half of the scan still writes its findings.
 
 Where this module had to interpret the contract, the reasoning is on the
-function or constant it concerns; the disagreements are listed in the module's
-``CONTRACT_NOTES``.
+function or constant it concerns; the readings are listed in ``CONTRACT_NOTES``.
 """
 
 from __future__ import annotations
@@ -44,6 +47,7 @@ import base64
 import binascii
 import json
 import re
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -53,6 +57,7 @@ from urllib.parse import parse_qsl
 from app.core import runtime_settings
 from app.core.logging import get_logger
 from app.db import database as db
+from app.services import tshark
 from app.services.jobs import JobContext
 
 log = get_logger("apackets.credentials")
@@ -69,6 +74,30 @@ MIN_VALUE_CHARS = 3         # shorter values are ignored
 PREVIEW_HEAD = 3            # §5
 PREVIEW_TAIL = 2            # §5
 JSON_DEPTH = 6              # how deep the JSON walker looks
+
+# §2(b): the control channels of the four command protocols, reassembled. Small
+# numbers on purpose - a mail control stream is a few hundred bytes, and the caps
+# are what keep a capture with thousands of mail streams cheap.
+MAX_CONTROL_STREAMS = 25    # control streams reassembled per protocol
+MAX_STREAM_CHARS = 262144   # characters examined from one reassembled stream
+STREAM_TIMEOUT_S = 20       # wall clock for one reassembly
+
+#: The verbs §2(a) reads out of ``detail.commands`` to decide that a session
+#: exchanged a credential, and whose control channel is therefore worth reading.
+CONTROL_VERBS: frozenset[str] = frozenset(
+    {"USER", "PASS", "AUTH", "LOGIN", "AUTHENTICATE"}
+)
+
+#: ``method`` of a value read out of a reassembled control channel, so a reader can
+#: tell a value the analyser stored from one this stage recovered from the wire.
+CONTROL_METHOD = "control_stream"
+
+#: The verbs a value can follow in the reassembled text (§3.1's command grammar).
+_SASL_MECHANISMS: frozenset[str] = frozenset({"PLAIN", "LOGIN"})
+
+#: The IMAP commands this stage reads. A token that is not one of them, in front of
+#: one that is, is the command's tag (``a2 LOGIN …``) rather than a verb.
+_IMAP_COMMANDS: frozenset[str] = frozenset({"LOGIN", "AUTHENTICATE"})
 
 #: §5's separator between the head and the tail of a redacted value.
 PREVIEW_SEPARATOR = "•••"
@@ -120,16 +149,26 @@ MARKER_KIND = "credentials"
 #:    hide and, for a value too short to split, prints no character of it at all.
 #: 2. §3.3 is written with markdown-escaped pipes (``ghp\\|gho``); the patterns
 #:    here use the alternation the intent requires.
-#: 3. §2 gives FTP ``detail.auth_username``; the FTP detail the analyser actually
+#: 3. §2(a) gives FTP ``detail.auth_username``; the FTP detail the analyser actually
 #:    writes uses ``username``, so both names are read.
-#: 4. §8 does not say what ``order`` defaults to. It is ``desc``, like every other
-#:    list endpoint in this application, and the confidence sort is expressed so
-#:    that ``desc`` means "highest confidence first".
+#: 4. §8 gives no default for ``order``; it is ``desc``, like every other list
+#:    endpoint in this application, and the confidence sort is expressed so that
+#:    ``desc`` means "highest confidence first".
 #: 5. §9 says MAX_FIELDS_PER_LOCATION limits "candidate fields"; it is applied to
 #:    every field read from one location, because that is what bounds the work.
 #: 6. §6 does not say whether ``value_length`` counts the stored value or the wire
 #:    value; ``Documentation/Credentials.md`` §6 does, so a truncated row reports
 #:    512 and sets ``value_truncated`` rather than a length it cannot show.
+#: 7. §2(b) gates a reassembly on "a credential-bearing verb, or an authenticated
+#:    SMTP/POP3/IMAP login"; the second clause is read as the record of an
+#:    authenticated login the analyser keeps in ``password_present`` and
+#:    ``auth_username``, and it is applied to FTP too, whose detail records the
+#:    same two facts under ``username``.
+#: 8. §2(a) lists the command *verbs* as the signal that a credential was
+#:    exchanged; a command argument the analyser did store (an FTP ``USER``, an
+#:    identity in ``auth_username``) is still read as a value, because it is a
+#:    value the row literally carries - the verbs add the control channel, they do
+#:    not take away what the row already holds.
 CONTRACT_NOTES: tuple[str, ...] = (
     "§5's no-full-value rule is applied to values of every length (see preview()).",
     "§3.3's escaped pipes are read as alternation.",
@@ -137,6 +176,8 @@ CONTRACT_NOTES: tuple[str, ...] = (
     "order defaults to desc; confidence sorts high first under desc.",
     "MAX_FIELDS_PER_LOCATION bounds every field read from one location.",
     "value_length counts the stored value, so a truncated row reports MAX_VALUE_CHARS.",
+    "a session that recorded an authenticated login is read like one that recorded a verb.",
+    "a value the analyser did store is still reported; the verbs add the control channel.",
 )
 
 # --------------------------------------------------------------------------
@@ -357,7 +398,21 @@ class _Scan:
     def __init__(self, analysis_id: str) -> None:
         self.analysis_id = analysis_id
         self.findings: list[Finding] = []
+        #: What the scan could not read, and which caps bit (§9). These become the
+        #: stage's warnings and §8.2's ``limits``; they name streams, protocols and
+        #: caps, never a value.
+        self.notes: list[str] = []
+        #: The protocols a source row actually answered for, so an empty section is
+        #: never read as "the capture held nothing" (§8.1's ``protocols_scanned``).
+        self.scanned: set[str] = set()
+        self.control_streams = 0
         self._seen: set[tuple] = set()
+        #: ``(kind, value, protocol, stream_id)`` for the command protocols. The same
+        #: identity reaches this stage twice — once in the analyser's row and once on
+        #: the wire it was read from — and a session with one username has one
+        #: username, not two rows saying it. HTTP is not deduplicated this way: two
+        #: header fields or two JSON fields with the same value are two locations.
+        self._session_values: set[tuple] = set()
         #: Shape-derived values already reported for this analysis, so the
         #: whole-text pass of one location cannot repeat a labelled field's find.
         self._shape_reported: set[tuple[str, str]] = set()
@@ -426,6 +481,12 @@ class _Scan:
 
         drawn = evidence_value if evidence_value is not None else text
         evidence = _evidence(evidence_prefix, preview(drawn))
+
+        if protocol != "http":
+            session_key = (kind, text, protocol, stream_id)
+            if session_key in self._session_values:
+                return
+            self._session_values.add(session_key)
 
         key = (
             kind,
@@ -802,6 +863,454 @@ def _imap_tokens(arg: str) -> list[str]:
     if current:
         tokens.append("".join(current))
     return tokens
+
+
+# --------------------------------------------------------------------------
+# §2(b) the control channel of the four command protocols
+# --------------------------------------------------------------------------
+#
+# The value is deliberately absent from the database: ``protocol_analyzer`` blanks
+# a ``PASS`` argument and reduces an SMTP ``AUTH`` command to its mechanism. So the
+# value is read back off the wire - from the *client's* side of the stream the
+# analyser already classified, reassembled by TShark's own ``follow`` (the same
+# call the stream viewer uses), and it is written into ``credentials`` and nowhere
+# else (§10): ``protocol_sessions.detail`` goes to the browser on every
+# ``/protocols`` response, and that page has no reveal control.
+
+def _wants_control_stream(detail: dict) -> bool:
+    """Whether §2(a)'s rows say this session exchanged a credential.
+
+    A verb §2(a) names is the direct signal. The indirect one is a session that
+    recorded an *authenticated login*: ``password_present`` and the identity are
+    exactly what the analyser keeps instead of the value, so a session that
+    authenticated with no verb left in its capped command list is still worth
+    reading. Nothing else qualifies — a session whose detail says nothing about
+    credentials has its control channel left alone.
+    """
+    if {verb for verb, _ in _commands(detail)} & CONTROL_VERBS:
+        return True
+    if detail.get("password_present") is True:
+        return True
+    return any(
+        isinstance(detail.get(key), str) and detail[key]
+        for key in ("auth_username", "username")
+    )
+
+
+def _client_direction(follow: tshark.FollowStream, row: Any) -> int | None:
+    """Which of TShark's two nodes is this session's client, as direction 0 or 1.
+
+    ``follow`` numbers the endpoints itself, and its numbering is not the client's:
+    an SMTP session's first packet is the server's greeting. So the mapping is made
+    by matching the endpoint the protocol analyser recorded as the client — the
+    same way ``stream_analyzer`` decides which node a row's client is. When the
+    two do not line up, nothing is read from the stream rather than guessing which
+    side is which.
+    """
+    ip = row["client_ip"]
+    port = row["client_port"]
+    if not ip or port is None:
+        return None
+    endpoint = f"{ip}:{port}"
+    if follow.node0 == endpoint:
+        return 0
+    if follow.node1 == endpoint:
+        return 1
+    return None
+
+
+def _reassemble_control(
+    capture_path: Path,
+    row: Any,
+    *,
+    cancel_event: threading.Event | None = None,
+) -> tuple[str | None, str | None, bool]:
+    """``(client_text, reason_it_is_missing, truncated)`` for one control stream.
+
+    One reassembly, capped by :data:`STREAM_TIMEOUT_S` and cancelled with the job.
+    Every failure mode is returned rather than raised: a control stream is one
+    optional fact among many, and the stage exists to report what it could read,
+    not to fail an analysis because a capture was purged or a stream could not be
+    followed.
+    """
+    stream_id = row["stream_id"]
+    if stream_id is None:
+        return None, "the session carries no stream id", False
+
+    transport = row["transport"]
+    if transport and transport != "tcp":
+        return None, f"TShark reassembles TCP streams, and this one is {transport}", False
+
+    try:
+        follow = tshark.follow_stream(
+            capture_path,
+            int(stream_id),
+            "ascii",
+            timeout=STREAM_TIMEOUT_S,
+            cancel_event=cancel_event,
+        )
+    except tshark.TsharkTimeout:
+        return None, f"reassembly exceeded the {STREAM_TIMEOUT_S}s budget", False
+    except tshark.TsharkError as exc:
+        return None, f"TShark could not reassemble it ({exc})", False
+
+    if not follow.found or not follow.chunks:
+        return None, "TShark reassembled no content for it", False
+
+    direction = _client_direction(follow, row)
+    if direction is None:
+        return None, "the client's side of the stream could not be identified", False
+
+    text = "".join(chunk.data or "" for chunk in follow.chunks if chunk.direction == direction)
+    truncated = len(text) > MAX_STREAM_CHARS
+    return text[:MAX_STREAM_CHARS], None, truncated
+
+
+def _control_base(row: Any) -> dict[str, Any]:
+    """The columns every finding from one session shares (as ``scan_session``)."""
+    return {
+        "transport": row["transport"],
+        "stream_id": row["stream_id"],
+        "direction": "client_to_server",
+        "client_ip": row["client_ip"],
+        "client_port": row["client_port"],
+        "server_ip": row["server_ip"],
+        "server_port": row["server_port"],
+        "packet_first": row["first_frame"],
+        "packet_last": row["last_frame"],
+    }
+
+
+def _control_command(protocol: str, line: str) -> tuple[str, str, str]:
+    """One client line as ``(verb, argument, tag)``, or ``("", "", "")``.
+
+    The four protocols share a shape — a verb, then its argument — and IMAP adds a
+    leading tag (``a2 LOGIN …``). The tag is recognised as *not a verb* rather than
+    by its shape, because "the first token is whatever it is" cannot tell a tag
+    from a command; the argument keeps its own text (quoting included) so each
+    verb's parser can decide what its arguments are.
+    """
+    text = line.strip()
+    if not text:
+        return "", "", ""
+
+    head, _, remainder = text.partition(" ")
+    verb = head.upper()
+    tag = ""
+    if protocol == "imap" and verb not in _IMAP_COMMANDS:
+        tag = head
+        head, _, remainder = remainder.strip().partition(" ")
+        verb = head.upper()
+    return verb, remainder.strip(), tag
+
+
+def _looks_like_a_sasl_token(line: str) -> bool:
+    """A single Base64 token, which is how a SASL continuation line arrives."""
+    text = line.strip()
+    if not text or " " in text or len(text) < 4:
+        return False
+    return bool(_BASE64_RE.match(text))
+
+
+def scan_control_stream(
+    scan: _Scan, *, protocol: str, row: Any, text: str, truncated: bool
+) -> None:
+    """Read the authentication lines out of one reassembled control channel.
+
+    Only the client's side is passed in, because a credential is always sent by
+    the client and the server's side is full of Base64 challenges that look like
+    credentials and are not. A SASL exchange is followed as the state machine the
+    mechanisms are: ``AUTH LOGIN`` is answered by a Base64 username and then a
+    Base64 password, and ``AUTH PLAIN`` without an inline argument by the single
+    Base64 ``\\0user\\0pass`` token — the exchange ``protocol_analyzer`` records as
+    ``password_present`` and nothing more.
+    """
+    base = _control_base(row)
+    if truncated:
+        scan.notes.append(
+            f"Stream {row['stream_id']} ({protocol}) is longer than MAX_STREAM_CHARS = "
+            f"{MAX_STREAM_CHARS} characters; only its first {MAX_STREAM_CHARS} were read."
+        )
+
+    #: ``("PLAIN"|"LOGIN", step)`` while a mechanism is awaiting its next token.
+    state: tuple[str, int] | None = None
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        if state is not None:
+            mechanism, step = state
+            if _looks_like_a_sasl_token(line):
+                decoded = _decode_base64(line)
+                if decoded is not None:
+                    state = None
+                    if mechanism == "PLAIN":
+                        _emit_plain_values(
+                            scan, protocol=protocol, base=base, decoded=decoded, encoded=line
+                        )
+                    else:
+                        _emit_control_value(
+                            scan, protocol=protocol, value=decoded,
+                            kind="username" if step == 1 else "password",
+                            location=f"{protocol}_auth_login", base=base,
+                            evidence_prefix="AUTH LOGIN ", evidence_value=line,
+                            source_field="AUTH",
+                            note=(
+                                f"{protocol.upper()} AUTH LOGIN, decoded from the exchange "
+                                "that follows the command"
+                            ),
+                        )
+                        if step == 1:
+                            state = (mechanism, 2)
+                    continue
+            # Not a continuation after all: read the line as a command.
+            state = None
+
+        verb, arg, tag = _control_command(protocol, line)
+        if not verb:
+            continue
+
+        if verb == "USER" and arg and protocol != "imap":
+            _emit_control_value(
+                scan, protocol=protocol, value=arg, kind="username",
+                location=f"{protocol}_user_command", base=base,
+                evidence_prefix="USER ", source_field="USER",
+                note=f"{protocol.upper()} USER command, read from the control channel",
+            )
+        elif verb == "PASS" and arg:
+            _emit_control_value(
+                scan, protocol=protocol, value=arg, kind="password",
+                location=f"{protocol}_pass_command", base=base,
+                evidence_prefix="PASS ", source_field="PASS",
+                note=(
+                    f"{protocol.upper()} PASS command, read from the control channel "
+                    "because the analyser records only that a password was present"
+                ),
+            )
+        elif verb in {"AUTH", "AUTHENTICATE"} and arg:
+            state = _scan_sasl_command(
+                scan, protocol=protocol, base=base, arg=arg, tag=tag
+            )
+        elif verb == "LOGIN" and protocol == "imap" and arg:
+            _scan_imap_login_line(scan, base=base, arg=arg)
+
+
+def _scan_sasl_command(
+    scan: _Scan, *, protocol: str, base: dict[str, Any], arg: str, tag: str
+) -> tuple[str, int] | None:
+    """``AUTH``/``AUTHENTICATE <mechanism> [<token>]``; returns the pending state."""
+    mechanism, _, rest = arg.strip().partition(" ")
+    mechanism = mechanism.upper()
+    rest = rest.strip()
+    prefix = "AUTHENTICATE" if tag else "AUTH"
+
+    if mechanism not in _SASL_MECHANISMS:
+        # CRAM-MD5, NTLM and every other mechanism has a shape this build does not
+        # decode: nothing is reported rather than a hash reported as a password.
+        return None
+
+    if mechanism == "PLAIN":
+        if not rest:
+            return ("PLAIN", 1)
+        decoded = _decode_base64(rest)
+        if decoded is not None:
+            _emit_plain_values(
+                scan, protocol=protocol, base=base, decoded=decoded, encoded=rest
+            )
+            return None
+        _emit_control_value(
+            scan, protocol=protocol, value=rest, kind="other_secret",
+            location=f"{protocol}_auth_plain", base=base,
+            evidence_prefix=f"{prefix} PLAIN ", source_field=prefix,
+            confidence="medium",
+            note=(
+                f"An {protocol.upper()} AUTH PLAIN argument that is not the "
+                "\\0user\\0pass pair the mechanism promises; kept whole rather than "
+                "guessed at"
+            ),
+        )
+        return None
+
+    # mechanism == "LOGIN"
+    tokens = rest.split()
+    if not tokens:
+        return ("LOGIN", 1)
+    username = _decode_base64(tokens[0])
+    if username is None:
+        return None
+    _emit_control_value(
+        scan, protocol=protocol, value=username, kind="username",
+        location=f"{protocol}_auth_login", base=base,
+        evidence_prefix=f"{prefix} LOGIN ", evidence_value=tokens[0],
+        source_field=prefix,
+        note=f"{protocol.upper()} AUTH LOGIN, decoded from the command's argument",
+    )
+    if len(tokens) < 2:
+        return ("LOGIN", 2)
+    password = _decode_base64(tokens[1])
+    if password is None:
+        return None
+    _emit_control_value(
+        scan, protocol=protocol, value=password, kind="password",
+        location=f"{protocol}_auth_login", base=base,
+        evidence_prefix=f"{prefix} LOGIN ", evidence_value=tokens[1],
+        source_field=prefix,
+        note=f"{protocol.upper()} AUTH LOGIN, decoded from the command's argument",
+    )
+    return None
+
+
+def _emit_plain_values(
+    scan: _Scan, *, protocol: str, base: dict[str, Any], decoded: str, encoded: str
+) -> None:
+    """The two halves of a decoded ``\\0user\\0pass``, or one opaque value."""
+    parts = decoded.split("\x00")
+    if len(parts) >= 2 and parts[-1]:
+        for value, kind in ((parts[-2], "username"), (parts[-1], "password")):
+            _emit_control_value(
+                scan, protocol=protocol, value=value, kind=kind,
+                location=f"{protocol}_auth_plain", base=base,
+                evidence_prefix="AUTH PLAIN ", evidence_value=encoded,
+                source_field="AUTH",
+                note=f"{protocol.upper()} AUTH PLAIN, decoded from the exchange",
+            )
+        return
+    _emit_control_value(
+        scan, protocol=protocol, value=encoded, kind="other_secret",
+        location=f"{protocol}_auth_plain", base=base,
+        evidence_prefix="AUTH PLAIN ", source_field="AUTH", confidence="medium",
+        note=(
+            f"An {protocol.upper()} AUTH PLAIN value that is not the \\0user\\0pass "
+            "pair the mechanism promises; kept whole rather than guessed at"
+        ),
+    )
+
+
+def _scan_imap_login_line(scan: _Scan, *, base: dict[str, Any], arg: str) -> None:
+    tokens = _imap_tokens(arg)
+    if not tokens:
+        return
+    _emit_control_value(
+        scan, protocol="imap", value=tokens[0], kind="username",
+        location="imap_login_command", base=base, evidence_prefix="LOGIN ",
+        source_field="LOGIN",
+        note="IMAP LOGIN command, read from the control channel",
+    )
+    if len(tokens) >= 2:
+        _emit_control_value(
+            scan, protocol="imap", value=tokens[-1], kind="password",
+            location="imap_login_command", base=base, evidence_prefix="LOGIN ",
+            source_field="LOGIN",
+            note="IMAP LOGIN command, read from the control channel",
+        )
+
+
+def _emit_control_value(
+    scan: _Scan,
+    *,
+    protocol: str,
+    value: Any,
+    kind: str,
+    location: str,
+    base: dict[str, Any],
+    evidence_prefix: str,
+    note: str,
+    source_field: str,
+    confidence: str = "high",
+    evidence_value: str | None = None,
+) -> None:
+    """One value read out of a reassembled control channel.
+
+    An authentication command is a protocol-confirmed location, so its value is
+    ``high`` (§4) — except where the value is not what the mechanism promised, and
+    is kept whole as an opaque secret: that is the same "we could not read it, here
+    is the string" case as a malformed Basic header, and it scores the same way.
+    """
+    scan.add(
+        value=value,
+        kind=kind,
+        protocol=protocol,
+        location=location,
+        method=CONTROL_METHOD,
+        confidence=confidence,
+        note=note,
+        source_field=source_field,
+        evidence_prefix=evidence_prefix,
+        evidence_value=evidence_value,
+        **base,
+    )
+
+
+def control_candidates(
+    scan: _Scan, protocol: str, rows: Sequence[Any]
+) -> list[Any]:
+    """The sessions of one protocol whose control channel §2(b) is worth reading.
+
+    Lowest stream id first, and at most :data:`MAX_CONTROL_STREAMS` of them per
+    protocol. What the cap cut is returned to the caller as a note, never dropped
+    silently (§9, §10).
+    """
+    wanted: list[Any] = []
+    streamless = 0
+    for row in rows:
+        if row["stream_id"] is None:
+            streamless += 1
+            continue
+        if _wants_control_stream(_json_object(row["detail"])):
+            wanted.append(row)
+
+    wanted.sort(key=lambda item: (int(item["stream_id"]), int(item["id"])))
+    if len(wanted) > MAX_CONTROL_STREAMS:
+        dropped = len(wanted) - MAX_CONTROL_STREAMS
+        wanted = wanted[:MAX_CONTROL_STREAMS]
+        scan.notes.append(
+            f"{dropped} {protocol} control stream(s) were not read: MAX_CONTROL_STREAMS = "
+            f"{MAX_CONTROL_STREAMS} streams are reassembled per protocol, lowest stream id first."
+        )
+    if streamless:
+        scan.notes.append(
+            f"{streamless} {protocol} session(s) carry no stream id, so their control "
+            "channel could not be read."
+        )
+    return wanted
+
+
+def scan_control_channels(
+    scan: _Scan,
+    *,
+    protocols: Sequence[str],
+    rows: Sequence[Any],
+    capture_path: Path,
+    cancel_event: threading.Event | None = None,
+) -> int:
+    """§2(b) for every protocol in the selection; returns the streams reassembled.
+
+    Only sessions the analyser already classified as one of the four command
+    protocols are considered — the rows are already filtered to them — and only the
+    client's side of each is read. An HTTP stream never reaches this function:
+    HTTP bodies are stored with their transactions, so reassembling one here would
+    be a second capture pass for data the stage already has (§2).
+    """
+    reassembled = 0
+    selected = [name for name in protocols if name != "http"]
+    for protocol in selected:
+        group = [row for row in rows if str(row["protocol"] or "").lower() == protocol]
+        for row in control_candidates(scan, protocol, group):
+            text, reason, truncated = _reassemble_control(
+                capture_path, row, cancel_event=cancel_event
+            )
+            if text is None:
+                scan.notes.append(
+                    f"Stream {row['stream_id']} ({protocol}) was not read: {reason}."
+                )
+                continue
+            reassembled += 1
+            scan_control_stream(
+                scan, protocol=protocol, row=row, text=text, truncated=truncated
+            )
+    return reassembled
 
 
 # --------------------------------------------------------------------------
@@ -1228,33 +1737,76 @@ INSERT INTO credentials (
 """
 
 
-def collect(analysis_id: str, protocols: Sequence[str]) -> list[Finding]:
-    """Every finding the stored rows support, in discovery order.
+@dataclass(slots=True)
+class ScanResult:
+    """What one pass over a capture's rows (and control channels) produced.
 
-    Only the protocols the caller selected are read, and only the two tables §2
-    names: an empty selection reads nothing at all, which is what "none" means
-    rather than "everything".
+    ``notes`` is the honest half: the caps that bit and the streams that could not
+    be read. It becomes the stage's warnings and §8.2's ``limits``, and it never
+    carries a value — only streams, protocols and caps.
+    """
+
+    findings: list[Finding]
+    notes: list[str]
+    scanned: list[str]
+    control_streams: int
+
+
+def collect(
+    analysis_id: str,
+    protocols: Sequence[str],
+    *,
+    capture_path: Path | None = None,
+    cancel_event: threading.Event | None = None,
+) -> ScanResult:
+    """Every finding §2's two sources support, in discovery order.
+
+    Only the protocols the caller selected are read, and only the tables §2 names:
+    an empty selection reads nothing at all, which is what "none" means rather than
+    "everything". With no ``capture_path`` the stage keeps to the stored rows — the
+    HTTP half of the scan needs nothing else — and the four command protocols keep
+    whatever the analyser stored. With one, §2(b) additionally reassembles the
+    control channel of the sessions those rows say exchanged a credential.
     """
     scan = _Scan(analysis_id)
     selected = set(protocols)
 
     if "http" in selected:
-        for row in db.query_all(_SELECT_HTTP, (analysis_id,)):
+        rows = db.query_all(_SELECT_HTTP, (analysis_id,))
+        for row in rows:
             scan_http(scan, row)
-        log.debug("credential scan read the HTTP transactions of %s", analysis_id)
+        if rows:
+            scan.scanned.add("http")
+        log.debug("credential scan read %d HTTP transaction(s) of %s", len(rows), analysis_id)
 
     command_protocols = [name for name in PROTOCOLS if name != "http" and name in selected]
+    sessions: list[Any] = []
     if command_protocols:
         placeholders = ", ".join("?" for _ in command_protocols)
-        rows = db.query_all(
+        sessions = db.query_all(
             f"{_SELECT_SESSION.split(' ORDER BY')[0]} AND protocol IN ({placeholders})"
             " ORDER BY id",
             (analysis_id, *command_protocols),
         )
-        for row in rows:
+        for row in sessions:
+            scan.scanned.add(str(row["protocol"] or "").lower())
             scan_session(scan, row)
 
-    return scan.findings
+    if capture_path is not None and command_protocols:
+        scan.control_streams = scan_control_channels(
+            scan,
+            protocols=command_protocols,
+            rows=sessions,
+            capture_path=Path(capture_path),
+            cancel_event=cancel_event,
+        )
+
+    return ScanResult(
+        findings=scan.findings,
+        notes=list(scan.notes),
+        scanned=sorted(scan.scanned, key=PROTOCOLS.index),
+        control_streams=scan.control_streams,
+    )
 
 
 def rank(findings: Sequence[Finding]) -> list[Finding]:
@@ -1361,6 +1913,10 @@ def scan_state(analysis_id: str) -> dict:
     The two are deliberately separate: turning the scan off does not delete what
     it found, so the block has to be able to report the settings that would apply
     *if* it ran again next to the run that produced the rows on screen.
+    ``stage_ran`` is what tells a *never scanned* analysis from a scanned one that
+    found nothing, and ``rows``/``rows_written_at`` are the rows actually stored -
+    which a later run with the scan off leaves exactly where the earlier one put
+    them.
     """
     config = runtime_settings.credential_config()
     marker = stage_marker(analysis_id)
@@ -1372,16 +1928,50 @@ def scan_state(analysis_id: str) -> dict:
     return {
         "enabled": bool(config["credential_scan_enabled"]),
         "protocols": list(config["credential_protocols"]),
+        "protocols_scanned": list(marker.get("protocols_scanned", [])) if marker else [],
         "scanned_at": marker.get("scanned_at") if marker else None,
         "stage_ran": marker is not None,
-        "protocols_scanned": list(marker.get("protocols", [])) if marker else [],
-        "findings": int(marker.get("findings", 0)) if marker else 0,
-        "by_kind": dict(marker.get("by_kind", {})) if marker else {},
-        "seconds": marker.get("seconds") if marker else None,
-        "try_count": marker.get("try_count") if marker else None,
-        "rows": int(counts["n"]) if counts else 0,
         "rows_written_at": counts["written_at"] if counts else None,
+        "findings": int(marker.get("findings", 0)) if marker else 0,
+        "seconds": marker.get("seconds") if marker else None,
+        # Live-API extras: what MAX_FINDINGS cut (§8.1's ``capped``), what the
+        # stage matched before the cap, what is actually stored now, and the kind
+        # histogram the page's tiles are drawn from.
+        "capped": bool(marker.get("capped", False)) if marker else False,
+        "matched": int(marker.get("matched", 0)) if marker else 0,
+        "rows": int(counts["n"]) if counts else 0,
+        "by_kind": dict(marker.get("by_kind", {})) if marker else {},
+        "control_streams": int(marker.get("control_streams", 0)) if marker else 0,
     }
+
+
+def limits_in_words(marker: dict | None = None) -> list[str]:
+    """§8.2's ``limits``: the caps that applied to this scan, in words.
+
+    The constants first, so the page can state what this build observes without
+    inventing a number, and then the run's own notes — the caps that actually bit
+    and the streams that could not be read — because "at most 25 per protocol" and
+    "25 of 41 were read" are different statements.
+    """
+    lines = [
+        f"At most {MAX_FINDINGS} findings are stored for one analysis, highest confidence first.",
+        f"At most {MAX_CONTROL_STREAMS} control streams are reassembled per protocol, "
+        "lowest stream id first.",
+        f"At most {MAX_STREAM_CHARS} characters are examined from one reassembled control stream.",
+        f"One control stream is given {STREAM_TIMEOUT_S} seconds to reassemble before it is skipped.",
+        f"HTTP bodies are read from the stored previews, at most {MAX_BODY_CHARS} characters each.",
+        f"At most {MAX_FIELDS_PER_LOCATION} fields are read from one form, JSON document or query.",
+        f"A value longer than {MAX_VALUE_CHARS} characters is stored truncated, with "
+        "value_truncated set.",
+    ]
+    if marker:
+        lines.extend(str(note) for note in marker.get("unread", []))
+    return lines
+
+
+def scan_limits(analysis_id: str) -> list[str]:
+    """``limits_in_words`` for the last run recorded for one analysis."""
+    return limits_in_words(stage_marker(analysis_id))
 
 
 # --------------------------------------------------------------------------
@@ -1390,19 +1980,20 @@ def scan_state(analysis_id: str) -> dict:
 
 
 def analyze(ctx: JobContext, analysis_id: str, capture_path: Path | None = None) -> dict:
-    """Scan the rows already stored for ``analysis_id`` and persist the findings.
+    """Scan one analysis's rows — and, for the four command protocols, its control channels.
 
-    ``capture_path`` is accepted so this stage has the signature every other
-    stage has, and is deliberately never opened: the contract forbids a second
-    capture pass (§2), so the only inputs are ``http_transactions`` and
-    ``protocol_sessions``.
+    ``capture_path`` is the capture §2(b) reassembles control streams from. The
+    HTTP half of the scan never touches it: HTTP bodies are stored with their
+    transactions, so a purged capture costs the command protocols their channel
+    and nothing else. Every failure to read one is recorded in ``warnings`` and
+    never raised, because an optional stage that could sink an analysis would be
+    worse than a partial answer (the pipeline's own rule).
 
     When the runtime setting ``credential_scan_enabled`` is false the stage writes
-    nothing at all — not even the rows it wrote last time, because §7 says turning
-    the scan off does not delete what it found — and returns a ``warning`` naming
-    the setting for the pipeline to record.
+    nothing at all — not even disturbing the rows it wrote last time, because §7
+    says turning the scan off does not delete what it found — and returns a warning
+    naming the setting for the pipeline to record.
     """
-    del capture_path  # no capture pass: see the docstring and docs/CREDENTIALS.md §2
     started = time.monotonic()
     ctx.set_stage("Scanning for credentials")
 
@@ -1413,11 +2004,13 @@ def analyze(ctx: JobContext, analysis_id: str, capture_path: Path | None = None)
             "enabled": False,
             "skipped": True,
             "findings": 0,
+            "matched": 0,
+            "capped": False,
             "protocols": list(config["credential_protocols"]),
-            "warning": (
+            "warnings": [
                 "The credential scan is disabled by the setting "
                 "credential_scan_enabled; no credential rows were written."
-            ),
+            ],
         }
 
     protocols = list(config["credential_protocols"])
@@ -1429,8 +2022,22 @@ def analyze(ctx: JobContext, analysis_id: str, capture_path: Path | None = None)
         )
 
     ctx.check_cancelled()
-    findings = rank(collect(analysis_id, protocols))
+    scan = collect(
+        analysis_id,
+        protocols,
+        capture_path=capture_path,
+        cancel_event=getattr(ctx, "cancel_event", None),
+    )
     ctx.check_cancelled()
+
+    findings = rank(scan.findings)
+    capped = len(scan.findings) > MAX_FINDINGS
+    warnings = list(scan.notes)
+    if capped:
+        warnings.append(
+            f"{len(scan.findings)} findings were matched and MAX_FINDINGS = {MAX_FINDINGS} "
+            "were stored, highest confidence first; the rest were not kept."
+        )
     _persist(analysis_id, findings)
 
     seconds = round(time.monotonic() - started, 3)
@@ -1443,20 +2050,30 @@ def analyze(ctx: JobContext, analysis_id: str, capture_path: Path | None = None)
         "enabled": True,
         "skipped": False,
         "findings": len(findings),
+        "matched": len(scan.findings),
+        "capped": capped,
         "by_kind": by_kind,
         "by_confidence": by_confidence,
         "by_protocol": by_protocol,
         "protocols": protocols,
+        "protocols_scanned": scan.scanned,
+        "control_streams": scan.control_streams,
         "seconds": seconds,
+        "warnings": warnings,
     }
     write_marker(
         analysis_id,
         {
             "findings": len(findings),
+            "matched": len(scan.findings),
+            "capped": capped,
             "by_kind": by_kind,
             "by_confidence": by_confidence,
             "by_protocol": by_protocol,
             "protocols": protocols,
+            "protocols_scanned": scan.scanned,
+            "control_streams": scan.control_streams,
+            "unread": warnings,
             "seconds": seconds,
             "scanned_at": time.time(),
         },
@@ -1464,26 +2081,33 @@ def analyze(ctx: JobContext, analysis_id: str, capture_path: Path | None = None)
     # Counts and kinds only: a credential value never reaches a log line (§5).
     kinds = ", ".join(f"{kind}={count}" for kind, count in sorted(by_kind.items())) or "none"
     log.info(
-        "credential scan for %s wrote %d finding(s) in %.2fs (%s)",
+        "credential scan for %s wrote %d finding(s) from %d control stream(s) in %.2fs (%s)",
         analysis_id,
         len(findings),
+        scan.control_streams,
         seconds,
         kinds,
     )
+    for note in warnings:
+        log.info("credential scan for %s: %s", analysis_id, note)
     return result
 
 
 __all__ = [
     "CONFIDENCE_LEVELS",
     "CONTRACT_NOTES",
+    "CONTROL_METHOD",
+    "CONTROL_VERBS",
     "EVIDENCE_MAX_CHARS",
     "Finding",
     "JSON_DEPTH",
     "KINDS",
     "MARKER_KIND",
     "MAX_BODY_CHARS",
+    "MAX_CONTROL_STREAMS",
     "MAX_FIELDS_PER_LOCATION",
     "MAX_FINDINGS",
+    "MAX_STREAM_CHARS",
     "MAX_VALUE_CHARS",
     "MIN_VALUE_CHARS",
     "PATTERNS",
@@ -1491,12 +2115,19 @@ __all__ = [
     "PREVIEW_SEPARATOR",
     "PREVIEW_TAIL",
     "PROTOCOLS",
+    "STREAM_TIMEOUT_S",
+    "ScanResult",
     "analyze",
     "collect",
+    "control_candidates",
+    "limits_in_words",
     "normalise_name",
     "preview",
     "rank",
+    "scan_control_channels",
+    "scan_control_stream",
     "scan_http",
+    "scan_limits",
     "scan_session",
     "scan_state",
     "shape_of",

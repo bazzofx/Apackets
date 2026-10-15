@@ -201,14 +201,17 @@ def run_analysis(ctx: JobContext, analysis_id: str, capture_path: Path) -> None:
                 time.monotonic() - stage_started,
                 outcome,
             )
-            # A stage that declined to run says so in its outcome. The credential
-            # scanner is the first: with ``credential_scan_enabled`` false it
-            # writes nothing and the warning names the setting, so an empty
-            # credentials page is never read as a clean capture (docs/CREDENTIALS.md
-            # §7, §10).
-            declined = outcome.get("warning") if isinstance(outcome, dict) else None
-            if declined:
-                warnings.append(str(declined))
+            # A stage that declined to run, or that had to leave something unread,
+            # says so in its outcome. The credential scanner is the first: with
+            # ``credential_scan_enabled`` false it writes nothing, and a control
+            # stream it could not reassemble is named. Either way the warning
+            # reaches the analysis, so an empty page is never read as a clean
+            # capture (docs/CREDENTIALS.md §9, §10).
+            declined = outcome.get("warnings") if isinstance(outcome, dict) else None
+            if isinstance(declined, str):
+                declined = [declined]
+            for message in declined or []:
+                warnings.append(str(message))
         except Exception as exc:  # noqa: BLE001 - one stage must not sink the job
             log.exception("stage %s failed", stage)
             warnings.append(f"The {stage} stage failed: {type(exc).__name__}: {exc}")

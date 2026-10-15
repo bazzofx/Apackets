@@ -202,9 +202,20 @@ The queries are held under the react-query keys `['credentials', analysisId, par
 `['credentials-summary', analysisId]` and `['credential-value', analysisId, id, kind, protocol,
 confidence, stream_id]`. A rescan invalidates the first two. On the backend the stage is
 `backend/app/services/credential_analyzer.py` and the endpoints are
-`backend/app/api/routes_credentials.py`; the scanner makes no capture pass of its own — it reads
-the rows `http_transactions` and `protocol_sessions` already hold
+`backend/app/api/routes_credentials.py`
 ([`docs/CREDENTIALS.md`](../docs/CREDENTIALS.md) §2).
+
+**Two sources, and one of them costs a capture pass.** The HTTP half reads the rows
+`http_transactions` already holds — headers, URL query and body — and costs no dissection at
+all. The mail and FTP half cannot work that way: `protocol_analyzer` deliberately writes
+`password_present: true` instead of the password (and blanks a `PASS` argument), because
+`protocol_sessions.detail` is served to the browser by the protocol pages with no reveal
+control. So for those protocols the scanner reassembles the **client's half of the control
+channel** with TShark and reads the authentication lines out of it, capped at 25 streams per
+protocol, 256 KiB per stream and 20 s per reassembly, with any cap that bit recorded as a stage
+warning. The values are written only into `credentials`; `detail` keeps saying a password was
+present and nothing more. On this project's lab capture that half costs about 3.5 s and
+recovers the SMTP password, where reading the stored rows alone reported the username only.
 
 ### 3.1 URL parameters the page reads
 
