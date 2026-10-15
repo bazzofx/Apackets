@@ -321,12 +321,12 @@ export function HostDetailPanel({ analysisId, ip, onClose }: HostDetailPanelProp
         </button>
       </header>
 
-      {/* Two cards side by side, each the full width of its column from `xl` up:
+      {/* Two cards side by side from `xl` up, each taking exactly half the width:
           what the capture recorded for this endpoint, and registration data for
           the address. Below `xl` they stack rather than squeeze. The record
-          tables are their own full-width section underneath, so a wide screen
-          is not spent on four half-width tables. */}
-      <div className="grid grid-cols-1 gap-3 p-3 xl:grid-cols-[minmax(0,1fr)_23rem]">
+          tables are their own full-width section underneath, so a wide screen is
+          not spent on four half-width tables. */}
+      <div className="grid grid-cols-1 gap-3 p-3 xl:grid-cols-2">
         <section className="host-card" data-host-info>
           <header className="host-card-head">
             <div className="host-card-title">

@@ -59,10 +59,22 @@ GRAPH_MAX_PORTS = 5
 JSON_COLUMNS: tuple[str, ...] = ("ports", "protocols", "dns_names", "tls_sni", "peers")
 
 
-def _host_row(row) -> dict:
-    """Serialise a ``hosts`` row, parsing its JSON columns."""
+def _host_row(row, dataset: "geoip.Dataset | None" = None) -> dict:
+    """Serialise a ``hosts`` row, parsing its JSON columns.
+
+    ``country`` is added the same way ``scope`` is: computed here rather than
+    stored, because it is a fact about the address and about which dataset is
+    installed, not about the capture — a capture analysed before the dataset was
+    downloaded gains locations the moment it is installed, with no re-analysis.
+
+    The dataset is passed in rather than resolved per row: ``geoip.current_dataset()``
+    costs a stat call or two, and a page of hosts is hundreds of addresses. ``None``
+    means nothing is installed, and then every row honestly reports no country
+    instead of a guess.
+    """
     data = json_or(dict(row))
     data["scope"] = address_scope(data.get("ip"))
+    data["country"] = dataset.country_for(data.get("ip")) if dataset is not None else None
     return data
 
 
@@ -158,8 +170,12 @@ def list_hosts(
         (analysis_id,),
     )
 
+    # Resolved once for the page, not once per row: `current_dataset()` is cheap
+    # but it is not free, and a page of hosts is hundreds of addresses.
+    dataset = geoip.current_dataset()
+
     return {
-        **page.envelope([_host_row(r) for r in rows], total),
+        **page.envelope([_host_row(r, dataset=dataset) for r in rows], total),
         "total_bytes": int(overall["b"]) if overall else 0,
         "total_hosts": int(overall["n"]) if overall else 0,
     }
@@ -364,6 +380,9 @@ def get_host(analysis_id: str, ip: str) -> dict:
     return {
         **json_or(dict(row)),
         "scope": address_scope(row["ip"]),
+        # The same computed country the inventory rows carry, so one address reads
+        # the same on both endpoints.
+        "country": geoip.country_for(row["ip"]),
         "packet_count": int(packet_row["n"]) if packet_row else 0,
         "conversations": [dict(r) for r in conversations],
         "dns_queries": [dict(r) for r in dns_queries],

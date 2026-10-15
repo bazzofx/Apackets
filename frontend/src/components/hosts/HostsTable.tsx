@@ -19,7 +19,36 @@ import {
   parseStringList,
 } from '@/components/hosts/chips'
 import type { Host, SortOrder } from '@/types'
+import { countryName } from '@/theme/worldMap'
+import { flagUrl } from '@/theme/countryFlags'
 import { formatBytes, formatNumber, formatTimestamp } from '@/utils/format'
+
+/**
+ * The country of an address, as its flag.
+ *
+ * Nothing is drawn when there is no country, and the flag is decorative with the
+ * country's name as its tooltip (the same name table the map uses), so a reader
+ * who cannot see the image still gets the fact. It sits *at* the address rather
+ * than replacing it: the flag is a hint about the row, the address is the row's
+ * identity.
+ */
+function HostFlag({ country }: { country?: string | null }) {
+  const url = flagUrl(country)
+  if (url === null || country === null || country === undefined) return null
+  const code = country.trim().toUpperCase()
+  return (
+    <img
+      src={url}
+      alt=""
+      width={16}
+      height={11}
+      loading="lazy"
+      className="host-flag"
+      title={`${countryName(code)} (${code}) — where this address block is registered, not necessarily where the host is`}
+      data-country={code}
+    />
+  )
+}
 
 /** Sort allow-list — mirrors `routes_hosts.SORTABLE` exactly. */
 export const HOST_SORT_KEYS = [
@@ -175,17 +204,25 @@ export function HostsTable({ hosts, selectedIp, onSelect, sort, order, onSort }:
                 data-ip={host.ip}
               >
                 <td>
-                  <button
-                    type="button"
-                    className={clsx(
-                      'mono text-left hover:underline',
-                      selected ? 'text-accent2' : 'text-text',
-                    )}
-                    onClick={() => onSelect(host.ip)}
-                    title={`Show detail for ${host.ip}`}
-                  >
-                    {host.ip}
-                  </button>
+                  <span className="flex items-center gap-1.5">
+                    {/* The country the address sits in, as its own flag, from the
+                        same DB-IP dataset the Dashboard's map reads. No flag is
+                        drawn when there is no country: a private address, an IPv6
+                        address or an uninstalled dataset gets nothing, rather than
+                        a placeholder that would read as a country. */}
+                    <HostFlag country={host.country} />
+                    <button
+                      type="button"
+                      className={clsx(
+                        'mono text-left hover:underline',
+                        selected ? 'text-accent2' : 'text-text',
+                      )}
+                      onClick={() => onSelect(host.ip)}
+                      title={`Show detail for ${host.ip}`}
+                    >
+                      {host.ip}
+                    </button>
+                  </span>
                 </td>
                 <td>
                   <MonoCell maxWidth={150}>{host.mac}</MonoCell>

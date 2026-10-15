@@ -736,6 +736,16 @@ export interface Host {
   peers: string[] | null
   /** Precise endpoint classification; see `HostGraphNode.scope`. */
   scope?: string | null
+  /**
+   * ISO 3166-1 alpha-2 code from the installed DB-IP country dataset, or `null`.
+   *
+   * Computed per request rather than stored (see `routes_hosts._host_row`), so a
+   * capture analysed before the dataset was installed gains locations the moment
+   * it is. `null` means "not known here" — a private address, an IPv6 address
+   * (this build indexes the dataset's IPv4 rows), an address outside every range,
+   * or no dataset installed at all.
+   */
+  country?: string | null
 }
 
 export type HostsListResponse = Paginated<Host> & {

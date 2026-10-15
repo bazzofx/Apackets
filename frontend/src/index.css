@@ -1266,7 +1266,7 @@
 
   /* The API's own statement of what a lookup is and is not. Collapsed by
      default: it is provenance, not a fact about the address, and a paragraph of
-     it at the foot of a 23rem rail would outweigh the facts above it. */
+     it at the foot of the rail would outweigh the facts above it. */
   .lookup-disclosure {
     padding-top: 0.125rem;
   }
@@ -1403,6 +1403,22 @@
     color: rgb(var(--c-faint));
     border-top: 1px solid rgb(var(--c-border) / 0.7);
     margin-top: 0.25rem;
+  }
+
+  /* The country flag in the host inventory.
+   *
+   * A fixed box with the image fitted into it, because the flag files come in
+   * whatever sizes their authors chose: without this the rows would jitter and
+   * one flag would tower over its neighbours. The hairline border keeps a white
+   * flag (Japan, Poland) visible against the panel. */
+  .host-flag {
+    flex-shrink: 0;
+    width: 1rem;
+    height: 0.6875rem;
+    object-fit: cover;
+    border: 1px solid rgb(var(--c-border2) / 0.8);
+    border-radius: 1px;
+    background-color: rgb(var(--c-surface2));
   }
 
   .ip-menu-foot-ok {

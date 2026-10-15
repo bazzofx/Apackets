@@ -64,7 +64,7 @@ Columns. Sortable headers are marked S.
 
 | Column | Contents |
 |---|---|
-| IP (S) | The address; clicking it selects the host (sets `host=<ip>`) and opens the detail panel |
+| IP (S) | The address, with **its country's flag** beside it (§2.3.1); clicking it selects the host (sets `host=<ip>`) and opens the detail panel |
 | MAC | The most frequently observed MAC for that address, or `—` |
 | Scope | `private` (RFC1918/RFC4193/loopback/link-local), `public`, or `unknown` when the address cannot be parsed |
 | First seen (S) / Last seen (S) | Capture-relative frame timestamps, from `MIN`/`MAX(time_epoch)` |
@@ -96,8 +96,8 @@ query parameter so it can be linked. It is three bands, top to bottom:
 | Two cards side by side | **Host info** — the counters, pivots, chips and cap note below — next to **Registration lookup**, the rail of §2.5 |
 | Full-width records section | The four capped tables, each still its own panel with its own cap line, and the closing note |
 
-From the `xl` breakpoint up the two cards sit side by side, each filling its own column:
-host info flexes, the rail is 23 rem. Below `xl` they stack, so neither is squeezed.
+From the `xl` breakpoint up the two cards sit side by side, **each taking exactly half the
+width**. Below `xl` they stack, so neither is squeezed.
 
 **Host info** carries the traffic the capture recorded for this address.
 

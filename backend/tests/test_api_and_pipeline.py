@@ -685,6 +685,79 @@ def test_hosts_mark_public_addresses_as_public(client, run_analysis, dns_capture
     assert public_hosts["total"] >= 1
 
 
+def test_host_rows_carry_the_country_of_the_address(client, run_analysis, dns_capture):
+    """The country is computed per request from the installed dataset.
+
+    It is not a column: it depends on which dataset is installed and on nothing
+    about the capture, so a capture analysed before the dataset arrived gains
+    locations without being re-analysed. Without a dataset every row reports
+    ``None`` — "not known here" — and never a guess.
+    """
+    analysis_id, _ = run_analysis(dns_capture)
+    body = client.get(f"/api/analyses/{analysis_id}/hosts").json()
+
+    for row in body["items"]:
+        assert "country" in row, "every host row carries the field"
+        if row["is_private"] == 1:
+            assert row["country"] is None, "a private address is never given a country"
+
+    public = [row for row in body["items"] if row["is_private"] == 0]
+    assert public, "the fixture has a public address"
+    resolver = next(
+        (row for row in public if row["ip"] == generators.expected("dns")["resolver"]), None
+    )
+    assert resolver is not None
+    # 8.8.8.8 is in the United States in the dataset this project documents.
+    if resolver["country"] is not None:
+        assert resolver["country"] == "US", resolver["country"]
+        assert len(resolver["country"]) == 2
+
+
+def test_host_detail_carries_the_same_country_as_the_row(client, run_analysis, dns_capture):
+    analysis_id, _ = run_analysis(dns_capture)
+    resolver_ip = generators.expected("dns")["resolver"]
+    row = next(
+        item
+        for item in client.get(f"/api/analyses/{analysis_id}/hosts").json()["items"]
+        if item["ip"] == resolver_ip
+    )
+    detail = client.get(f"/api/analyses/{analysis_id}/hosts/{resolver_ip}").json()
+    assert detail["country"] == row["country"], "one address, one answer, on both endpoints"
+
+
+def test_no_dataset_means_no_country_rather_than_a_guess(
+    client, run_analysis, dns_capture, monkeypatch
+):
+    import app.services.geoip as geoip_module
+
+    monkeypatch.setattr(geoip_module, "current_dataset", lambda: None)
+    analysis_id, _ = run_analysis(dns_capture)
+    rows = client.get(f"/api/analyses/{analysis_id}/hosts").json()["items"]
+    assert rows, "the fixture produces hosts"
+    assert all(row["country"] is None for row in rows), (
+        "with no dataset installed every row must say so, not invent a country"
+    )
+
+
+def test_the_dataset_is_resolved_once_per_request(client, run_analysis, dns_capture, monkeypatch):
+    """A page of hosts is hundreds of addresses; the table is read once, not per row."""
+    import app.services.geoip as geoip_module
+
+    calls = {"n": 0}
+    real = geoip_module.current_dataset
+
+    def counting():
+        calls["n"] += 1
+        return real()
+
+    monkeypatch.setattr(geoip_module, "current_dataset", counting)
+    analysis_id, _ = run_analysis(dns_capture)
+    calls["n"] = 0
+    body = client.get(f"/api/analyses/{analysis_id}/hosts", params={"page_size": 1000}).json()
+    assert calls["n"] == 1, f"the dataset was resolved {calls['n']} times for one page"
+    assert len(body["items"]) > 1
+
+
 def test_host_detail_and_graph(client, run_analysis, http_capture):
     analysis_id, _ = run_analysis(http_capture)
     expectations = generators.expected("http")

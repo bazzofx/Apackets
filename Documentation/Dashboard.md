@@ -55,17 +55,33 @@ return `EMPTY = '—'` for `null`/`undefined`/non-finite input.
 ### 2.2 Traffic over time
 
 `frontend/src/components/dashboard/TrafficSparkline.tsx` inside a `ChartPanel`: a filled
-area chart of `traffic_series` with a `packets` / `bytes` toggle, the X axis formatted as
-local clock time (`HH:MM:SS`) and the Y axis formatted as a count or a byte size.
+area chart of `traffic_series`, the X axis formatted as local clock time (`HH:MM:SS`).
 
 It is the **first panel under the KPI tiles and spans the full width**, directly above the
 map: the shape of a capture over time is the thing to read first, and a time series needs
 the width. Everything below it — the map, the extremes, the domains, the protocol mix —
 keeps its own full or half width as §2.3 to §2.6 describe.
 
+**Three views**, chosen by the toggles above the plot:
+
+| View | What is drawn |
+|---|---|
+| **both** (the view it opens on) | Packets and bytes as two overlaid areas, each on **its own axis** — packets on the left, bytes on the right, every tick formatted in its own unit |
+| `packets` | One area, one left axis |
+| `bytes` | One area, one right axis |
+
+Overlaying the two series on a single scale would be a lie of arithmetic rather than a
+chart: bytes outrun packets by two or three orders of magnitude, so the packet line would
+sit flat on the floor. Two axes keep both readable, and the two series are told apart twice
+over so colour is never the only cue — **packets** is a solid `accent` line, **bytes** a
+dashed `accent2` one, and the swatch legend beside the toggles names both (the same
+packets/bytes colours and dashes the Info page's traffic chart uses). Both colours come from
+the theme palette; the component carries no colour literal.
+
 Panel subtitle: `N buckets · <interval> per bucket` when the response carries an interval
 greater than zero, and just `N buckets` otherwise. The X value of a point is the **start**
-of its bucket (`t = start + index × interval`).
+of its bucket (`t = start + index × interval`). The tooltip names each series and formats it
+in its own unit, so an overlapped point is never read as one number.
 
 ### 2.3 The map panel: geography, or conversations
 
