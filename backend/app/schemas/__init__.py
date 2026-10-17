@@ -6,10 +6,17 @@ request payloads, where validation matters most.
 """
 
 from app.schemas.requests import (
+    DetectionRuleUpdate,
     FilterRequest,
     IndicatorCreate,
     SettingsUpdate,
     WiresharkRequest,
 )
 
-__all__ = ["FilterRequest", "IndicatorCreate", "SettingsUpdate", "WiresharkRequest"]
+__all__ = [
+    "DetectionRuleUpdate",
+    "FilterRequest",
+    "IndicatorCreate",
+    "SettingsUpdate",
+    "WiresharkRequest",
+]

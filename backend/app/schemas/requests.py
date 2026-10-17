@@ -38,6 +38,23 @@ class IndicatorCreate(BaseModel):
     analysis_id: str | None = None
 
 
+class DetectionRuleUpdate(BaseModel):
+    """Body of `PUT /api/detection/rules/{rule_id}`.
+
+    The built-in rules are code, so the mutable surface is deliberately narrow:
+    whether the rule runs, the thresholds it compares against, and a reset back to
+    the documented defaults. Anything else would claim a capability the engine does
+    not have.
+    """
+
+    enabled: bool | None = Field(default=None, description="Run this rule during analysis")
+    thresholds: dict[str, object] | None = Field(
+        default=None,
+        description="Threshold values keyed by name; unknown keys are rejected",
+    )
+    reset: bool = Field(default=False, description="Restore the documented defaults")
+
+
 class WiresharkRequest(BaseModel):
     """Body of ``POST /api/analyses/{id}/wireshark`` — the packet pivot.
 

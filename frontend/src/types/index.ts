@@ -931,6 +931,47 @@ export type FindingsListResponse = Paginated<Finding> & {
 }
 
 /**
+ * `GET /api/detection/rules` — the built-in heuristics the detection stage runs.
+ *
+ * Unlike `SuricataRule` these are code, not data: the shape of a rule is fixed and
+ * only its `enabled` flag and its thresholds are mutable. `threshold` is the
+ * human-readable sentence rendered from the effective `thresholds`, so the list
+ * and the finding panel always describe the same numbers the engine compares.
+ */
+export interface DetectionRule {
+  id: string
+  rule_id: string
+  title: string
+  severity: Severity
+  description: string
+  enabled: boolean
+  /** Rendered from `thresholds`; e.g. "5 or more NXDOMAIN responses for one client". */
+  threshold: string
+  thresholds: Record<string, unknown>
+  /** The documented defaults, for the reset action and the "changed" marker. */
+  defaults: Record<string, unknown>
+  notes: string
+  /** Findings this rule produced in the requested analysis (0 without one). */
+  hits: number
+  /** Only echoed by a single-rule response. */
+  effective?: Record<string, unknown>
+}
+
+export interface DetectionRulesResponse extends ItemsEnvelope<DetectionRule> {
+  total: number
+  enabled: number
+  severities: SeverityCounts
+  analysis_id: string | null
+}
+
+export interface DetectionRuleUpdate {
+  enabled?: boolean
+  /** Keyed by threshold name; unknown names are rejected by the API. */
+  thresholds?: Record<string, unknown>
+  reset?: boolean
+}
+
+/**
  * `GET /api/analyses/{id}/findings/rules`.
  *
  * Contract §5 specifies "id, title, severity, description, enabled, and hit
@@ -1516,6 +1557,8 @@ export interface FindingContextLimits {
 export interface FindingContext {
   finding: Finding
   rule: SuricataRule | null
+  /** The built-in rule behind a non-Suricata finding; null for `suricata:<sid>`. */
+  detection_rule: DetectionRule | null
   analysis: FindingContextAnalysis
   endpoints: FindingEndpoint[]
   packets: FindingContextPacket[]

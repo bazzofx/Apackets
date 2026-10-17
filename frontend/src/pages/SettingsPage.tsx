@@ -18,6 +18,7 @@ import LoadingState from '@/components/LoadingState'
 import MonoCell from '@/components/MonoCell'
 import Page from '@/components/Page'
 import Panel from '@/components/Panel'
+import DetectionRulesPanel from '@/components/DetectionRulesPanel'
 import SuricataRulesPanel from '@/components/SuricataRulesPanel'
 import ThemePanel from '@/components/ThemePanel'
 import Toolbar from '@/components/Toolbar'
@@ -790,6 +791,8 @@ function SettingsContent() {
           </div>
         )}
       </Panel>
+
+      <DetectionRulesPanel />
 
       <SuricataRulesPanel />
 

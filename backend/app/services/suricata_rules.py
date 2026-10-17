@@ -1249,6 +1249,118 @@ def delete_rule(sid: int) -> bool:
     return True
 
 
+# --------------------------------------------------------------------------
+# bundled defaults (the state a rule returns to when it is restored)
+# --------------------------------------------------------------------------
+
+_BUNDLED_INDEX: tuple[tuple[int, float], dict[int, dict[str, Any]]] | None = None
+
+
+def _file_signature(paths: list[Path]) -> tuple[int, float]:
+    """Cheap fingerprint of the rule tree: file count plus newest mtime."""
+    newest = 0.0
+    for path in paths:
+        try:
+            newest = max(newest, path.stat().st_mtime)
+        except OSError:  # pragma: no cover - unreadable file
+            continue
+    return len(paths), newest
+
+
+def bundled_rules() -> dict[int, dict[str, Any]]:
+    """Every rule the vendored tree defines, keyed by sid.
+
+    This is what "the default" means for a rule: the text on disk under
+    ``backend/rules/``, which is exactly what a fresh seed would import. The index
+    is cached against the file list's size and newest mtime, so editing a rule
+    file is picked up without restarting the process.
+    """
+    global _BUNDLED_INDEX
+    files = load_bundled_files()
+    signature = _file_signature([item[0] for item in files])
+    if _BUNDLED_INDEX is not None and _BUNDLED_INDEX[0] == signature:
+        return _BUNDLED_INDEX[1]
+
+    index: dict[int, dict[str, Any]] = {}
+    for path, source, category in files:
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:  # pragma: no cover - unreadable file
+            continue
+        rules, _errors = parse_rule_text(text)
+        for rule in rules:
+            index[rule.sid] = {
+                "parsed": rule,
+                "row": rule.as_row(),
+                "source": source,
+                "category": category,
+                "raw": rule.raw,
+            }
+    _BUNDLED_INDEX = (signature, index)
+    return index
+
+
+def default_state(sid: int) -> dict[str, Any] | None:
+    """The bundled definition of one rule, or None when it is not vendored."""
+    return bundled_rules().get(sid)
+
+
+def describe_deviation(row: Any) -> dict[str, Any]:
+    """Whether a stored rule still runs its default, and what differs if not.
+
+    Three things can move a rule away from the vendored definition: its text, its
+    ``rev``, and its enabled flag. ``restorable`` says whether there is a vendored
+    definition to return to at all - an uploaded or hand-written rule has no
+    upstream text, so only its switch can be described.
+    """
+    sid = int(row["sid"])
+    default = default_state(sid)
+    differs: list[str] = []
+    if default is None:
+        if not int(row["enabled"]):
+            differs.append("disabled")
+        return {"modified": bool(differs), "restorable": False, "differs": differs}
+
+    if str(row["raw"] or "").strip() != str(default["raw"]).strip():
+        differs.append("text")
+    if int(row["rev"] or 1) != int(default["row"].get("rev") or 1):
+        differs.append("revision")
+    if not int(row["enabled"]):
+        differs.append("disabled")
+    return {"modified": bool(differs), "restorable": True, "differs": differs}
+
+
+def modified_rule_count() -> int:
+    """How many stored rules are not running their default."""
+    return sum(1 for row in db.query_all("SELECT * FROM suricata_rules") if describe_deviation(row)["modified"])
+
+
+def restore_bundled_rule(sid: int) -> dict[str, Any] | None:
+    """Put one rule back to the definition the vendored tree carries.
+
+    The whole row is rewritten from the bundled parse - text, msg, severity,
+    options, source and category - and the rule is enabled, because that is the
+    state a fresh import would produce. Returns the restored row, or None when the
+    sid is not a vendored rule.
+    """
+    default = default_state(sid)
+    if default is None:
+        return None
+    current = get_rule(sid)
+    row = _row_for(
+        default["parsed"],
+        default["source"],
+        default["category"],
+        1,
+        created_at=(current or {}).get("created_at"),
+    )
+    with db.get_conn() as conn:
+        conn.execute(_UPSERT_SQL, row)
+        conn.execute("UPDATE suricata_rules SET enabled = 1 WHERE sid = ?", (sid,))
+    log.info("suricata rule %s restored from %s", sid, default["source"])
+    return get_rule(sid)
+
+
 def rule_stats() -> dict[str, Any]:
     row = db.query_one(
         """
@@ -1285,6 +1397,8 @@ def rule_stats() -> dict[str, Any]:
         "supported": int(row["supported"] or 0) if row else 0,
         "unsupported": int(row["unsupported"] or 0) if row else 0,
         "approximate": int(row["approximate"] or 0) if row else 0,
+        # Rules that are not running the definition the vendored tree carries.
+        "modified": modified_rule_count(),
         "severities": {name: severities.get(name, 0) for name in SEVERITIES},
         "sources": sources,
         "categories": categories,
@@ -1394,17 +1508,22 @@ __all__ = [
     "ParsedRule",
     "PortExpr",
     "RuleSyntaxError",
+    "bundled_rules",
     "config",
+    "default_state",
     "default_variables",
     "delete_rule",
+    "describe_deviation",
     "get_rule",
     "import_rules",
     "load_bundled_files",
     "merge_variables",
+    "modified_rule_count",
     "parse_address_expr",
     "parse_port_expr",
     "parse_rule",
     "parse_rule_text",
+    "restore_bundled_rule",
     "rule_stats",
     "save_config",
     "save_rule",

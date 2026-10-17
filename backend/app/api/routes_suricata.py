@@ -12,6 +12,7 @@ GET    /api/suricata/rules/{sid}               one rule, parsed
 POST   /api/suricata/rules                     create one rule from text
 PUT    /api/suricata/rules/{sid}               edit text and/or enable/disable
 DELETE /api/suricata/rules/{sid}               remove
+POST   /api/suricata/rules/{sid}/restore       put a rule back to its vendored default
 POST   /api/suricata/rules/import              upload one or more .rules files
 POST   /api/suricata/rules/seed                import the vendored rule sets
 GET    /api/suricata/config                    matcher configuration
@@ -67,6 +68,10 @@ def _rule_dict(row: dict[str, Any] | Any, hits: int | None = None) -> dict[str, 
         data[key] = parsed
     for key in ("enabled", "supported", "approximate"):
         data[key] = bool(data.get(key))
+    # Whether this rule still runs the definition the vendored tree carries, and
+    # what moved if it does not, so the interface can mark a rule that is not at
+    # its default and offer the restore action only where one exists.
+    data.update(sr.describe_deviation(row))
     if hits is not None:
         data["hits"] = hits
     return data

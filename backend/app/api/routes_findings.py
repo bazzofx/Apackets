@@ -922,6 +922,34 @@ def _context_rule(finding: dict) -> dict | None:
     return rule
 
 
+def _context_detection_rule(finding: dict) -> dict | None:
+    """The built-in rule behind a non-Suricata finding.
+
+    The counterpart of _context_rule for the heuristics in detection_engine: it
+    reports the rule's current configuration so the interface can show what fired
+    and offer the editor, instead of sending the analyst to a settings page with
+    no idea which rule to look for.
+    """
+    rule_id = str(finding.get("rule_id") or "")
+    if not rule_id or rule_id.startswith("suricata:"):
+        return None
+    spec = detection_engine.RULES.get(rule_id)
+    if spec is None:
+        return None
+    params = detection_engine.load_config().get(rule_id) or {}
+    return {
+        "rule_id": rule_id,
+        "title": spec.title,
+        "severity": spec.severity,
+        "description": spec.description,
+        "enabled": bool(params.get("enabled", True)),
+        "threshold": spec.threshold_text(params),
+        "thresholds": {key: value for key, value in params.items() if key != "enabled"},
+        "defaults": dict(spec.defaults),
+        "notes": spec.notes,
+    }
+
+
 def _context_analysis(row) -> dict:
     return {
         "id": row["id"],
@@ -982,6 +1010,7 @@ def get_finding_context(
     return {
         "finding": finding,
         "rule": _context_rule(finding),
+        "detection_rule": _context_detection_rule(finding),
         "analysis": _context_analysis(analysis_row),
         "endpoints": endpoints,
         "packets": packets,

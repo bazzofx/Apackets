@@ -129,7 +129,8 @@ export function FindingOverview({ context }: FindingOverviewProps) {
   /* The alert's own text is the longest block on this page, so it starts
      minimised and opens on demand. */
   const [alertOpen, setAlertOpen] = useState(false)
-  const { finding, rule, analysis, endpoints, counts, truncated } = context
+  const { finding, rule, detection_rule: detectionRule, analysis, endpoints, counts, truncated } =
+    context
 
   const evidence = (finding.evidence ?? {}) as Record<string, unknown>
   const matches = Array.isArray(evidence.matches)
@@ -384,6 +385,66 @@ export function FindingOverview({ context }: FindingOverviewProps) {
               {rule.raw}
             </pre>
           ) : null}
+        </Panel>
+      ) : detectionRule ? (
+        <Panel
+          flush
+          title="Detection rule behind this alert"
+          subtitle={
+            'built-in rule ' +
+            detectionRule.rule_id +
+            ' · ' +
+            detectionRule.severity +
+            (detectionRule.enabled ? '' : ' · disabled')
+          }
+          actions={
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                className="btn px-1.5 py-0.5"
+                onClick={() => navigate('/settings?rule=' + encodeURIComponent(detectionRule.rule_id))}
+                title="Open this rule in Settings to enable it or change its thresholds"
+              >
+                edit in settings
+              </button>
+            </div>
+          }
+        >
+          <dl className="grid grid-cols-1 gap-x-4 gap-y-1 p-3 text-2xs md:grid-cols-[9rem_1fr]">
+            <dt className="text-faint">Rule</dt>
+            <dd className="text-text">{detectionRule.title}</dd>
+            <dt className="text-faint">Fires when</dt>
+            <dd className="mono text-text">{detectionRule.threshold}</dd>
+            <dt className="text-faint">State</dt>
+            <dd>
+              <span
+                className={clsx(
+                  'chip',
+                  detectionRule.enabled
+                    ? 'border-ok/50 bg-ok/15 text-ok'
+                    : 'border-border2 bg-surface2 text-faint',
+                )}
+              >
+                {detectionRule.enabled ? 'enabled' : 'disabled - stored findings remain'}
+              </span>
+            </dd>
+            <dt className="text-faint">What it counts</dt>
+            <dd className="text-muted">{detectionRule.description}</dd>
+            {detectionRule.notes ? (
+              <>
+                <dt className="text-faint">Note</dt>
+                <dd className="text-muted">{detectionRule.notes}</dd>
+              </>
+            ) : null}
+          </dl>
+          <div className="flex items-start gap-2 border-t border-border px-3 py-2 text-2xs text-faint">
+            <Info size={12} className="mt-0.5 shrink-0" aria-hidden />
+            <span>
+              The matching logic is part of the detection engine and is not editable; the
+              thresholds it compares against are, in Settings, and the sentence above is
+              regenerated from whatever they are set to.
+            </span>
+          </div>
         </Panel>
       ) : null}
 

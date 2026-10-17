@@ -40,6 +40,7 @@ ROUTER_SPECS: tuple[tuple[str, str], ...] = (
     ("app.api.routes_protocols", "router"),
     ("app.api.routes_geo", "router"),
     ("app.api.routes_findings", "router"),
+    ("app.api.routes_detection", "router"),
     ("app.api.routes_objects", "router"),
     ("app.api.routes_credentials", "router"),
     ("app.api.routes_suricata", "router"),

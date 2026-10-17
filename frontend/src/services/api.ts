@@ -22,6 +22,9 @@ import type {
   CredentialsListResponse,
   CredentialsSummaryResponse,
   DeleteAnalysisResult,
+  DetectionRule,
+  DetectionRulesResponse,
+  DetectionRuleUpdate,
   DnsDomainsResponse,
   DnsListResponse,
   DnsQuery,
@@ -856,6 +859,37 @@ export function importSuricataRules(
     for (const file of files) form.append('file', file, file.name)
     xhr.send(form)
   })
+}
+
+/* ------------------------------------------------------------------ */
+/* Built-in detection rules                                            */
+/* ------------------------------------------------------------------ */
+
+export const detectionApi = {
+  /**
+   * Every built-in rule with its effective configuration. With an analysis id
+   * each rule also reports how many findings it produced in that capture.
+   */
+  rules: (analysisId?: string | null) =>
+    request<DetectionRulesResponse>(
+      `/detection/rules${buildQuery({ analysis_id: analysisId ?? undefined })}`,
+    ),
+
+  rule: (ruleId: string, analysisId?: string | null) =>
+    request<DetectionRule>(
+      `/detection/rules/${encodeURIComponent(ruleId)}${buildQuery({
+        analysis_id: analysisId ?? undefined,
+      })}`,
+    ),
+
+  /** Enable/disable, re-tune thresholds, or reset one rule to its defaults. */
+  update: (ruleId: string, payload: DetectionRuleUpdate, analysisId?: string | null) =>
+    request<DetectionRule>(
+      `/detection/rules/${encodeURIComponent(ruleId)}${buildQuery({
+        analysis_id: analysisId ?? undefined,
+      })}`,
+      { method: 'PUT', json: payload },
+    ),
 }
 
 export const suricataApi = {

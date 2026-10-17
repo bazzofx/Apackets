@@ -759,6 +759,42 @@ and the threshold, and `recommendation` with concrete next steps.
 Language must be investigative ("consistent with", "worth reviewing"), never a
 verdict ("is malware", "attack confirmed").
 
+### Editing the configuration
+
+The `detection_config` row is written only by `PUT /api/detection/rules/{rule_id}`
+(`backend/app/api/routes_detection.py`). The rule ids, the threshold keys and the type of
+each value all come from `detection_engine.RULES`, so the endpoint can only describe a knob
+the engine actually reads:
+
+* `GET /api/detection/rules[?analysis_id=]` — every rule with its id, title, severity,
+  description, `enabled`, the rendered `threshold` sentence, the effective `thresholds`,
+  the documented `defaults`, `notes`, and (with an analysis) its `hits`. The envelope also
+  carries `total`, `enabled` and per-severity counts. An unknown `analysis_id` is 404.
+* `GET /api/detection/rules/{rule_id}` — one rule in the same shape.
+* `PUT /api/detection/rules/{rule_id}[?analysis_id=]` — body `{"enabled"?: bool,
+  "thresholds"?: object, "reset"?: bool}`. A merge over the rule's *currently effective*
+  configuration, so one threshold cannot silently reset another.
+  - `404 rule_not_found` for an unknown id, with `details.allowed` listing the real ones.
+  - `422 validation_error` for an unknown threshold key (with `details.keys`), a value that
+    is not a positive number, or a `common_ports` entry that is not a port.
+  - `400 invalid_rule_update` for `enabled` inside `thresholds`, or `reset` combined with
+    any other field.
+  - `400 no_changes` for an empty body.
+  - `max_mb` is accepted for `outbound_volume` and converted to `max_bytes`; the engine
+    always derives the megabytes back from the bytes, so the stored value is never
+    ambiguous.
+
+A rule is never editable beyond this surface: its matching logic is code. Changing a
+threshold does **not** rewrite findings already stored for an analysis — those keep the
+numbers they ran with until the analysis is re-run (`POST /api/analyses/{id}/findings/rescan`,
+followed by `POST /api/analyses/{id}/suricata/run`, because the built-in engine clears every
+finding row).
+
+`GET /api/analyses/{id}/findings/{finding_id}/context` reports the rule behind a built-in
+finding as `detection_rule` (the counterpart of `rule` for `suricata:<sid>` findings), so the
+interface can name what fired and link to its editor instead of asking the analyst to guess
+which of the ten rules produced the alert.
+
 ---
 
 ## 9. Frontend contract

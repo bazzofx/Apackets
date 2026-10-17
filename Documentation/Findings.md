@@ -173,9 +173,20 @@ The panels appear in exactly this order, top to bottom:
    page's rule panel seeds its search box with that sid. Fields: Action / protocol, Classtype,
    Header (`src_net src_port direction dst_net dst_port`), State (`enabled` / `disabled`, plus a
    *"not evaluable by the matcher"* chip whose tooltip names the unsupported options), and the
-   reference when the rule has one. The panel is absent for built-in-engine findings and for a
-   Suricata finding whose rule has since been deleted.
-6. **Scope of this alert** — the **last** card, and its contents are unchanged: the
+   reference when the rule has one.
+6. **Detection rule behind this alert** — drawn **only for a built-in-engine finding**, that is
+   one whose `rule_id` is not `suricata:<sid>` (it comes from `context.detection_rule`).
+   Subtitle: `built-in rule <rule_id> · <severity>`, plus ` · disabled` when the rule has since
+   been switched off. Action: **edit in settings**, which navigates to
+   `/settings?rule=<rule_id>` — the Settings page's detection panel seeds its search box with
+   that id. Fields: Rule (the title), Fires when (the threshold sentence the engine evaluates),
+   State (`enabled`, or `disabled - stored findings remain`), What it counts (the rule's
+   description), and the rule's note when it has one. A footnote says plainly that the matching
+   logic belongs to the detection engine and is not editable, while the thresholds it compares
+   against are.
+   So exactly one of the two rule panels is ever drawn, and never neither for a finding whose
+   rule still exists.
+7. **Scope of this alert** — the **last** card, and its contents are unchanged: the
    definition-list grid of counts (alerting packets, conversations, streams with content, HTTP /
    DNS / TLS row counts, files, related findings, the capture filename, the capture length and the
    first packet timestamp), followed by the analyst caution. The panel repeats the caveat: a
