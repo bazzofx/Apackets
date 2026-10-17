@@ -25,6 +25,7 @@ import {
   Settings as SettingsIcon,
   Share2,
   ShieldAlert,
+  SlidersHorizontal,
   Terminal,
   Unplug,
   Upload,
@@ -32,7 +33,7 @@ import {
 } from 'lucide-react'
 import StatusChip from '@/components/StatusChip'
 import { useAnalysis, useHealth } from '@/hooks/useAnalysis'
-import { findingsApi } from '@/services/api'
+import { detectionApi, findingsApi, suricataApi } from '@/services/api'
 import { sectionForRoute } from '@/theme/sections'
 import { formatNumber } from '@/utils/format'
 
@@ -41,7 +42,8 @@ interface NavItem {
   label: string
   icon: LucideIcon
   badge?: string
-  badgeTone?: 'default' | 'danger'
+  /** `warn` is the same amber the rule tables use for "not at its default". */
+  badgeTone?: 'default' | 'danger' | 'warn'
   title?: string
   /** A subsection label rendered immediately above this item. */
   section?: string
@@ -172,6 +174,25 @@ export function AppLayout() {
     ? counts.high + counts.medium + counts.low + counts.informational
     : findingsCounts.data?.total
 
+  /* Rules that are not running their default, counted across both families. The
+     Alert Settings page reads the same two queries with the same keys, so this is
+     one request per list, not four, and the badge follows an edit made there. */
+  const detectionRules = useQuery({
+    queryKey: ['detection-rules', analysisId],
+    queryFn: () => detectionApi.rules(analysisId),
+    staleTime: 10_000,
+    refetchOnWindowFocus: true,
+  })
+  const suricataStats = useQuery({
+    queryKey: ['suricata-stats'],
+    queryFn: () => suricataApi.stats(),
+    staleTime: 10_000,
+    refetchOnWindowFocus: true,
+  })
+  const modifiedRules =
+    (detectionRules.data?.items ?? []).filter((rule) => rule.modified).length +
+    (suricataStats.data?.modified ?? 0)
+
   const onRefresh = () => {
     refresh()
     void queryClient.invalidateQueries()
@@ -243,6 +264,18 @@ export function AppLayout() {
       title: 'Uploaded captures',
     },
     { to: '/settings', label: 'Settings', icon: SettingsIcon },
+    {
+      to: '/alert-settings',
+      label: 'Alert Settings',
+      icon: SlidersHorizontal,
+      badge: modifiedRules > 0 ? String(modifiedRules) : undefined,
+      badgeTone: 'warn',
+      title:
+        modifiedRules > 0
+          ? modifiedRules +
+            ' rule(s) are not at their defaults - the built-in heuristics and the imported signatures'
+          : 'Alert Settings: the built-in detection rules and the imported Suricata rules',
+    },
   ]
 
   return (
@@ -282,7 +315,9 @@ export function AppLayout() {
                       'chip hidden shrink-0 lg:inline-flex',
                       item.badgeTone === 'danger'
                         ? 'border-danger/50 bg-danger/15 text-red-300'
-                        : 'border-border2 bg-surface2 text-muted',
+                        : item.badgeTone === 'warn'
+                          ? 'border-warn/50 bg-warn/15 text-warn'
+                          : 'border-border2 bg-surface2 text-muted',
                     )}
                     title={item.title}
                   >

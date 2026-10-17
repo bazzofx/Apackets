@@ -1,18 +1,17 @@
 # Settings
 
-The configuration and rule-management page (`/settings`): what the backend is actually
-running with, the handful of values an analyst may change, the **Users & Passwords**
-discovery switch and its protocol selection, the indicators the detection engine matches
-against, the **Alert rules** section (the built-in detection rules and the imported Suricata
-signatures, as two tabs of one section), and the four colour themes.
+The configuration page (`/settings`): what the backend is actually running with, the handful of
+values an analyst may change, the **Users & Passwords** discovery switch and its protocol
+selection, the indicators the detection engine matches against, and the four colour themes.
+
+The rule tables that used to live here - the built-in detection rules and the imported Suricata
+signatures - are now their own page, [Alert Settings](Alert-Settings.md) (`/alert-settings`), with
+its own sidebar entry. This document covers what remains.
 
 The component is `frontend/src/pages/SettingsPage.tsx`, with
-`frontend/src/components/ThemePanel.tsx`,
-`frontend/src/components/AlertRulesSection.tsx` (which holds
-`frontend/src/components/DetectionRulesPanel.tsx` and
-`frontend/src/components/SuricataRulesPanel.tsx`) as its large pieces. Like
-[PCAP Files](PCAP-Files.md) it is **not** wrapped in `AnalysisGuard`: most of the page makes
-sense with no capture selected, and only the rule panels' per-capture features need one.
+`frontend/src/components/ThemePanel.tsx` as its large piece. Like
+[PCAP Files](PCAP-Files.md) it is **not** wrapped in `AnalysisGuard`: the whole page makes sense
+with no capture selected.
 
 ---
 
@@ -26,7 +25,7 @@ analyst-supplied indicators are entered.
 
 ## 2. What is on the screen
 
-Seven panels, in this order.
+Six panels, in this order.
 
 ### 2.1 Theme
 
@@ -277,212 +276,7 @@ with their analysis id, even though `indicator_match` will never apply them to a
 capture. There is no control on this page to choose the scope, so anything added here is
 always global.
 
-### 2.6 Alert rules
-
-The two rule panels are **tabs of one section**, not two stacked cards. The section header reads
-*Alert rules* - *everything the analyser flags - rows tinted amber are not running their
-defaults* - and carries one button per family:
-
-| Tab | Panel | Subtitle of the panel below it |
-|---|---|---|
-| **Detection rules** | The ten built-in heuristics (2.7) | *built-in heuristics run over every capture - view, enable/disable and tune thresholds* |
-| **Suricata rules** | The imported signature set (2.8) | *signature-based detections evaluated against this capture's indexed fields* |
-
-Each tab button shows the family's rule count in muted monospace and, **when any rule in that
-family is not at its default**, an amber chip with that count and the tooltip *N rule(s) in this
-family are not at their defaults*. So the state of both families is visible without opening
-either tab - which is the point: the panels used to be stacked, and a tuned detection threshold
-sat above a 1,600-row signature table that nobody scrolled to.
-
-The tab is in the URL as `rules=detection` or `rules=suricata`, so a reload or a copied link
-keeps the tab. It also settles the two deep links the Findings page uses: `sid=<n>` opens the
-**Suricata rules** tab and `rule=<rule_id>` the **Detection rules** tab, because a finding's own
-link always means that rule rather than whichever tab was open last. Switching tabs by hand drops
-the other family's deep link from the URL, so the address bar never describes a rule that is not
-on screen.
-
-Under the tabs sits one explanatory line, identical for both families: both are decisions this
-installation makes about your traffic, each panel states what it can change and what it cannot,
-and **Restore** puts a rule back to its default - the vendored text for a signature, the
-documented thresholds for a heuristic.
-
-**Amber is the "not at defaults" signal, in both tabs.** A row is tinted (`bg-warn/[0.07]`) and
-carries a `modified` chip whose tooltip names exactly what moved, and each panel's header reports
-how many rules are in that state. The colour is only ever this one and only ever means this one
-thing - *this row is not what shipped* - so it cannot be confused with severity, with the
-`disabled` styling (60% opacity), or with the `skipped by the matcher` chip.
-
-### 2.7 Detection rules
-
-Subtitle: *built-in heuristics run over every capture - view, enable/disable and tune
-thresholds*.
-
-These are the ten rules in `backend/app/services/detection_engine.py` that produce most findings in
-a capture. They run first in the pipeline and they are the ones an analyst most often needs to
-re-tune: the NXDOMAIN burst, the outbound-volume and the repeated-failed-connection rules are all
-threshold rules, and every finding they produce is a comparison against a number that used to be
-visible only in this documentation.
-
-**The rules are code, and the panel says so.** Each rule is a Python function; nothing here
-can rewrite its matching logic. What the panel changes is the configuration that function
-reads - whether it runs, and the thresholds it compares against - and the *Fires when*
-sentence is regenerated by the backend from whatever those are set to, so the page can never
-describe a threshold the engine is not using.
-
-**Header actions**:
-
-| Button | Call | Notes |
-|---|---|---|
-| **Refresh** | `GET /api/detection/rules` | Reloads the configuration. |
-| **Re-run on capture** | `POST /api/analyses/{id}/findings/rescan` then `POST /api/analyses/{id}/suricata/run` | Disabled until an analysis is selected. The built-in engine deletes every finding row for the analysis, Suricata ones included, so the Suricata matcher is run again immediately after - the same two-step the Findings page uses. |
-
-**Stats strip** (from `GET /api/detection/rules`): how many rules, how many enabled, four severity
-count badges, how many rules are **not at defaults** (amber, with a tooltip; the figure is absent
-when every rule is at its default), and which capture the hit counts refer to. Measured in this
-library: **10 rules**, all enabled, **3 high / 5 medium / 1 low / 1 informational**, none modified.
-
-**Explanation strip**: that the rules are code rather than signatures, and that a change
-applies to the next analysis - and to an existing one only after **Re-run on capture**,
-because stored findings keep the thresholds they ran with.
-
-**Toolbar**: a search box (*search rule id, title or threshold…*, matching the id, the title,
-the threshold sentence and the description), a severity select (`all severities`, `high`,
-`medium`, `low`, `informational`), an enabled-state select (`enabled + disabled`,
-`enabled only`, `disabled only`), and a count of how many rules the filters are showing.
-
-**The table**:
-
-| Column | Content |
-|---|---|
-| Severity | A badge, labelled. |
-| Rule | The rule's title and, underneath, the `rule_id` in monospace. A rule that is disabled or whose thresholds differ from the defaults also carries an amber `modified` chip whose tooltip lists what moved (`enabled`, `min_nxdomain`, …), and the whole row is tinted amber. |
-| Fires when | The threshold sentence, truncated to 460 px with the full text in the tooltip. |
-| Hits | Findings this rule produced in the selected analysis; `0` without one. |
-| State | A button that toggles the rule between enabled and disabled. Disabled rows are drawn at 60% opacity. |
-| Actions | **Edit**, which opens the threshold editor, and **Restore**, which is enabled only while the rule is modified and puts every threshold back to its default and re-enables the rule — the same `{"reset": true}` call the editor's own button makes. |
-
-**The threshold editor** is a modal titled with the rule's title and its `rule_id` and severity,
-containing:
-
-* the *Fires when* sentence, so the effect of the numbers below is visible next to them;
-* a **Run this rule during analysis** checkbox;
-* one row per threshold, with the key in monospace, its unit underneath (`seconds`, `count`,
-  `ratio, 0 to 1`, `times the median sender`, `megabytes`, `ports, comma separated`), the
-  input, and the documented default beside it;
-* the rule's own note, when it has one (*long labels are also common in legitimate CDN, DKIM
-  and telemetry domains*, for example).
-
-Values are checked in the browser against the same rules the API applies, so a rejected value
-is explained in place rather than only after a round trip. **Save rule** stays disabled until
-something actually differs, and **Restore defaults** issues `{"reset": true}` — available from
-the editor and from the row's own **Restore** button, so a rule can be put back without opening
-the editor at all.
-
-Two keys are deliberately not editable as such:
-
-* `enabled` is the switch above the table, not a threshold; the API refuses it inside
-  `thresholds`.
-* `max_mb` is a mirror of `max_bytes` that the engine always derives, so the outbound-volume
-  rule's byte limit is edited in **megabytes** under the `max_bytes` row and sent as `max_mb`; the
-  API converts it and the stored value stays bytes.
-
-Three rules (`http_suspicious_path`, `http_cleartext_credentials`, `indicator_match`) have no tunable
-threshold at all - they are pattern and indicator driven - so their editor offers only the
-enable/disable switch and says so.
-
-### 2.8 Suricata rules
-
-Subtitle: *signature-based detections evaluated against this capture's indexed fields*.
-
-**Header actions**, left to right:
-
-| Button | Call | Notes |
-|---|---|---|
-| **Import bundled** | `POST /api/suricata/rules/seed` | Imports the rule sets vendored under `backend/rules/`. Reports how many were new and how many refreshed, and from how many files. |
-| **Upload .rules** | `POST /api/suricata/rules/import?enabled=true` | A multiple-file picker (`accept=".rules,.txt"`). The panel keeps only names ending `.rules` and shows a notice naming the rest; the API itself also accepts `.txt` and `.rule`, at most 25 files per request and 16 MiB per file. Upload progress is reported as a percentage bar. |
-| **Run on capture** | `POST /api/analyses/{id}/suricata/run` | Disabled until an analysis is selected. The endpoint requires that analysis to be `completed`. |
-
-**Stats strip** (from `GET /api/suricata/rules/stats`): total rules, rules enabled, rules
-`evaluable` by the matcher, rules `skipped by the matcher` (in the warning colour, with a
-tooltip naming the reasons — flowbits, thresholds, raw payload buffers, undissected
-protocols), rules **not at defaults** (amber, shown only when the count is non-zero), four
-severity count badges, and up to four sources as `source (N)` joined by `|`.
-
-Measured in this library: **1,615 rules** from **286** `.rules` files, all enabled, **1,115
-evaluable** and **500 skipped by the matcher**, **0 not at defaults**; sources
-`bundled:daffainfo` (1,150), `bundled:oisf` (448) and `bundled:local` (17).
-
-**Not at defaults** is one API field, not a UI guess: `GET /api/suricata/rules` and
-`GET /api/suricata/rules/stats` report `modified` (and, per rule, `restorable` and `differs`),
-computed by comparing the stored row with the definition in the vendored rule tree — the text,
-the `rev`, and the enabled flag. A rule whose vendored file was corrected in
-`backend/rules/local/` is compared against the **local** file, so the 17 corrected rules sit at
-their defaults rather than showing as edited.
-
-When at least one rule is not at its default, an amber strip appears above the toolbar: *N
-rule(s) are not running their vendored default - their text, revision or enabled state differs
-from the file under the bundled rule tree. They are tinted below; Restore puts one back.*
-
-**Engine note**, from `GET /api/suricata/config`: *Engine: `apackets-native-matcher` — Rules
-are matched against TShark-extracted fields. The Suricata binary is not required and is not
-used. Patterns are matched against TShark-extracted fields (URI, host, method, headers,
-bodies, DNS name, TLS SNI); rules that need raw packet payloads are skipped rather than
-approximated.*
-
-**Run summary**, drawn after a run completes: how many rules matched, against which capture,
-in how long, how many findings that produced, how many rules were evaluated and how many of
-those were packet-scope versus HTTP-scope, the four severity counts for this run, and an
-**Open findings** button.
-
-**Toolbar**: a search box (*search message, sid or rule text…*, matching `msg`, `raw` or the
-`sid` as text), a severity select, an enabled-state select (`enabled + disabled`,
-`enabled only`, `disabled only`), a support select (`all rules`, `evaluable by the matcher`,
-`skipped by the matcher`), a source select built from the stats (only when at least one
-source exists), and a **Refresh** button.
-
-**The rule table** is sorted by severity with high first (`sort=severity&order=asc`) and
-paged at 25, 50, 100 or 250 rows.
-
-| Column | Content |
-|---|---|
-| SID | The rule's signature id. |
-| Severity | A badge, labelled. |
-| Proto | The rule's protocol. |
-| Action | Usually `alert`. |
-| Message | The `msg`, truncated to 420 px with the full text in the tooltip. A warning `skipped` chip appears on rules the matcher cannot evaluate (its tooltip lists the unsupported options), a `field match` chip appears on rules matched against extracted fields rather than raw payload bytes, and an amber `modified` chip appears on a rule that is not at its vendored default — its tooltip names what moved (`text`, `revision`, `disabled`) and says whether a default exists to restore. Such a row is also tinted amber. |
-| Category | The rule's category, truncated to 170 px; `-` when absent. |
-| Source | `bundled:daffainfo`, `bundled:oisf`, `upload:<file>` or `manual`, truncated to 150 px. |
-| Hits | How many findings for the currently selected analysis carry `rule_id = 'suricata:<sid>'`. Shows `-` when no analysis is selected and `0` when one is selected but the rule never matched. |
-| State | A button that toggles the rule between enabled and disabled. Disabled rows are drawn at 60% opacity. |
-| Actions | **Edit** (opens the rule text editor), **Restore** and **Delete** (opens a confirmation dialog). **Restore** is enabled only for a modified rule that has a vendored default; it issues `POST /api/suricata/rules/{sid}/restore`, which rewrites the row from the bundled file — text, `msg`, severity, options, source and category — and re-enables it. Uploaded and hand-written rules have no default, so their Restore button is disabled with a tooltip saying so. |
-
-**The rule editor** is a modal with the rule text verbatim in a monospace textarea, a
-character count, and a note: *The rule is stored verbatim. The sid must stay `<sid>` — a rule
-cannot be moved to another sid. Saving re-parses the signature and recalculates what the
-matcher can evaluate.* **Save rule** stays disabled until the text actually differs from
-what was loaded. Editing recalculates `supported`, so a rule can become skippable — or become
-evaluable — by an edit.
-
-**The delete dialog** names the rule's `msg` and says: *Imported `<timestamp>` from
-`<source>`. Deleting removes the rule and its stored text; findings already produced by it
-stay in the analysis.* That last clause is exact: the rule row is removed, the findings
-already in `findings` are not.
-
-**Matcher scope** panel, below the table. Read-only, from `GET /api/suricata/config`:
-
-| Row | Content |
-|---|---|
-| HOME_NET | The configured address ranges. Seven by default: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `127.0.0.0/8`, `169.254.0.0/16`, `fc00::/7`, `fe80::/10`. |
-| Bundled rule files | `N file(s) in <backend/rules>`. |
-| Findings per rule | *at most `25` grouped findings per rule per capture* — the `max_findings_per_rule` default. |
-| Suricata binary | `not used - matches run in-process over TShark output`, because the engine reports a null binary. |
-| Unsupported options | *rules needing them are skipped and flagged in the table* — the `include_unsupported: false` default. |
-
-`PUT /api/suricata/config` exists and can change `home_net`, `max_findings_per_rule`
-(`1`–`1000`) and `include_unsupported`, but **this panel has no controls**, so those values
-can only be changed by calling the API directly.
-
-### 2.9 Local-only operation
+### 2.6 Local-only operation
 
 Four static statements, not data read from the backend: that capture files, decoded packets,
 extracted objects, hashes and findings never leave the machine and that the frontend talks
@@ -500,32 +294,18 @@ a command line.
 | Effective settings, Editable settings | `GET /api/settings`, `PUT /api/settings` | `backend/app/api/routes_settings.py` |
 | Users & Passwords discovery | `GET /api/settings`, `PUT /api/settings` (only `credential_scan_enabled` and `credential_protocols`) | `routes_settings.py`; the stage itself is `backend/app/services/credential_analyzer.py` |
 | Indicators | `GET /api/indicators`, `POST /api/indicators`, `DELETE /api/indicators/{id}` | `routes_settings.py` |
-| Detection rules table, stats strip, Hits column | `GET /api/detection/rules` (with optional `analysis_id`) | `backend/app/api/routes_detection.py` |
-| Enable/disable, tune or reset a detection rule | `PUT /api/detection/rules/{rule_id}` | `routes_detection.py` |
-| Re-run on capture (detection half) | `POST /api/analyses/{id}/findings/rescan`, then `POST /api/analyses/{id}/suricata/run` | `routes_findings.py`, `routes_suricata.py` |
-| Suricata rules table, stats strip | `GET /api/suricata/rules`, `GET /api/suricata/rules/stats` | `backend/app/api/routes_suricata.py` |
-| Matcher scope | `GET /api/suricata/config` | `routes_suricata.py` |
-| Import / upload / toggle / edit / delete a rule | `POST /api/suricata/rules/seed`, `POST /api/suricata/rules/import`, `PUT /api/suricata/rules/{sid}`, `DELETE /api/suricata/rules/{sid}` | `routes_suricata.py` |
-| Run on capture | `POST /api/analyses/{id}/suricata/run` | `routes_suricata.py` |
-| Hits column | part of `GET /api/suricata/rules`, with `analysis_id` set | `routes_suricata.py` |
 | Theme | *no API call at all* — `localStorage` and `frontend/src/theme/themes.ts` | — |
 
-The client wrappers are `settingsApi`, `detectionApi` and `suricataApi` in
-`frontend/src/services/api.ts`;
-`importSuricataRules` uses `XMLHttpRequest` rather than `fetch`, purely so a large rule file
-can report upload progress. The theme needs no endpoint: `ThemeProvider` holds it in React
-state, publishes CSS custom properties and mirrors the id into `localStorage`.
+The client wrapper is `settingsApi` in `frontend/src/services/api.ts`. The theme needs no
+endpoint: `ThemeProvider` holds it in React state, publishes CSS custom properties and mirrors
+the id into `localStorage`.
 
 Tables behind the page:
 
 | Table | Supplies |
 |---|---|
-| `settings` | The runtime overrides, under the keys `app_settings` (the five editable values), `credential_config` (`credential_scan_enabled`, `credential_protocols`) and `suricata_config` (HOME_NET, `max_findings_per_rule`, `include_unsupported`, per-variable overrides). All are read through `runtime_settings.load_overrides()`. |
+| `settings` | The runtime overrides, under the keys `app_settings` (the five editable values) and `credential_config` (`credential_scan_enabled`, `credential_protocols`). All are read through `runtime_settings.load_overrides()`. The rule and matcher configuration lives in the same table under its own keys and is documented in [Alert Settings](Alert-Settings.md). |
 | `indicators` | The whole indicator table: `type`, `value`, `note`, `created_at`, and `analysis_id` which is NULL for global rows. |
-| `suricata_rules` | Everything in the rules table and every figure in the stats strip: `sid`, `rev`, `action`, `protocol`, `msg`, `category`, `severity`, `options`, `unsupported`, `supported`, `approximate`, `enabled`, `source`, `raw`, `created_at`, `updated_at`. The `modified` / `restorable` / `differs` columns are **not** stored — they are computed per request by comparing the row with the vendored rule tree. |
-| `findings` | The Hits column only: a correlated subquery counting `rule_id = 'suricata:' \|\| sid` for the selected analysis, and a plain `GROUP BY rule_id` count for each built-in rule id. |
-| `detection_config` (a `settings` row) | Every detection rule's `enabled` flag and thresholds, read through `detection_engine.load_config()` and written by `PUT /api/detection/rules/{rule_id}`. |
-| `analyses` | Whether **Run on capture** is available, through the top bar's shared selection. |
 
 The effective settings view is assembled by `runtime_settings.effective()`, which resolves
 each editable key through `_int_value()` — clamp to the key's bound, fall back to the value
@@ -541,43 +321,21 @@ the indicator table has no drill-down.
 
 | Element | Opens |
 |---|---|
-| **Open findings** (in a Suricata run summary) | `/findings` |
-| **Run on capture** | Nothing — it evaluates rules against the selected capture and returns counts |
-| Import / upload / edit / delete / toggle / **Restore** a rule | Nothing — the table refreshes in place, and the notice names what changed |
-| **Detection rules** / **Suricata rules** tabs | Each other — the tab is written to the URL as `?rules=detection` or `?rules=suricata` |
 | **Save Users & Passwords settings** | Nothing — it writes the two credential keys and the panel reports the save in place |
-| Edit / toggle / **Restore defaults** on a detection rule | Nothing — the table refreshes in place, and the notice reports the regenerated *Fires when* sentence |
-| **Re-run on capture** (detection rules) | Nothing — it rewrites the selected analysis's findings and reports both engines' counts |
+| Anything on the surface-setting or theme panels | Nothing — the change applies in place |
 
-Three inbound links matter, because they are how this page is reached in practice:
+Two inbound links matter, because they are how this page is reached in practice:
 
-* `/settings?sid=<n>` opens the **Suricata rules** tab and seeds its search box with that
-  value, so the table opens filtered to that rule. The Findings workbench uses it: the *Suricata
-  rule behind this alert* panel has an **edit in settings** button that navigates to
-  `/settings?sid=<sid>`. The search is a
-  substring match over message, sid and rule text, so a sid whose digits also occur in another
-  rule's text pulls that rule into the list as well — the filter narrows the table, it does
-  not prove uniqueness.
-* `/settings?rule=<rule_id>` does the same for the **Detection rules** tab: it opens that tab
-  and seeds its search box with the id, so the table opens on the one rule. The Findings
-  workbench uses it the other way round: the *Detection rule behind this alert* panel, shown for
-  every finding whose `rule_id` is not a `suricata:<sid>`, has an **edit in settings** button
-  that navigates to `/settings?rule=<rule_id>`.
 * The [Users & Passwords](Credentials.md) page links here from its disabled-scan panel and from
   both of its empty states, because the switch this panel edits is the reason those states exist.
 * The sidebar's Settings item, which is present on every page.
 
-The capture selector in the top bar decides which analysis **Run on capture** and the Hits
-column apply to. With no capture selected the button is disabled and Hits reads `-`.
+The rule tables that were documented here have moved to
+[Alert Settings](Alert-Settings.md), including the two deep links the Findings workbench uses
+(`/alert-settings?sid=<n>` and `/alert-settings?rule=<rule_id>`).
 
 ## 5. Limits and honest caveats
 
-* **A tuned detection threshold does not change findings that already exist.** The numbers are
-  read by the detection stage when it runs, so an analysis keeps the findings its thresholds
-  produced until it is re-run — and the built-in engine clears every finding row for the
-  analysis when it runs, Suricata ones included, which is why **Re-run on capture** runs both
-  engines. The panel's explanation strip and the *Fires when* sentence in the finding view say
-  so rather than leaving it to be discovered.
 * **Only `max_upload_mb` really takes effect without a restart.** See §2.3. The other three
   numeric fields are saved and displayed as effective, while `object_extractor`,
   `http_analyzer` and `tshark` keep using the values `app.core.config.Settings` captured at
@@ -624,53 +382,9 @@ column apply to. With no capture selected the button is disabled and Hits reads 
 * **Indicator matching is capped.** `indicator_match` evaluates at most
   `MAX_FINDINGS_PER_RULE = 60` indicators per analysis, in `id` order, so on a long indicator
   list later rows are not evaluated at all and the findings give no hint of it.
-* **Rule evaluation runs over the index, not the wire.** The matcher reads TShark-extracted
-  fields, never raw payload bytes. **501 of the 1,615** rules stored in this library are
-  skipped by the matcher because they need options it cannot evaluate — raw payload buffers,
-  flowbits, thresholds, undissected protocols — and they are stored, listed and toggled like
-  any other. A rule being enabled does not mean it is being evaluated; the stats strip's
-  `evaluable` count is the honest number, and every skipped rule carries a `skipped` chip in
-  the table.
-* **Rules do not create packets.** A rule can only match what the dissectors already
-  recorded, so a signature that depends on a buffer APackets does not extract — a raw
-  payload, a flowbit, a threshold across a stream — is either skipped or matched on its
-  remaining options. `field match` chips mark the rules that were evaluated against fields
-  rather than payload.
-* **Re-running rules is idempotent; re-running the built-in engine is not, for Suricata
-  findings.** `suricata_engine.run_rules()` deletes only `rule_id LIKE 'suricata:%'` before
-  rewriting them, so **Run on capture** can be pressed repeatedly. But
-  `detection_engine.analyze()` — the rescan on the Findings page — deletes **every** finding
-  for the analysis, Suricata ones included. After a built-in rescan the Suricata findings are
-  gone until **Run on capture** is pressed again, and the Hits column will read `0` in the
-  meantime.
-* **Per-rule findings are capped twice, and neither cap is shown as a number.** A rule's
-  matches are grouped by a key — the endpoint pair for packet-scope rules, the host and URI
-  for HTTP-scope rules — and only the first `max_findings_per_rule` groups (default `25`)
-  become findings; a rule that exceeded that has the extras dropped and is counted in
-  `capped_rules`, which the run summary on screen does not display. Within one group, only
-  the first **10** hits are kept and the rest are folded into an `extra` counter on the first
-  hit. A rule that matched a thousand times can therefore be represented by twenty-five
-  findings that each stand for more than they show.
-* **Deleting a rule does not delete its findings.** The dialog says so, and it means the
-  findings table can contain alerts whose rule no longer exists anywhere in the interface —
-  only the raw `rule_id` string survives, on the Findings page.
-* **The Matcher scope panel is read-only even though the API is not.** HOME_NET,
-  `max_findings_per_rule` and `include_unsupported` can be changed only through
-  `PUT /api/suricata/config`. Until then, the by-default HOME_NET is the seven RFC1918,
-  loopback and link-local ranges — which is a configuration choice about the deployment, not
-  a measurement of the capture, and a capture from a different address plan will be matched
-  with the wrong inside/outside assumption.
-* **Nothing here validates the indicators or the rules against reality.** There is no
-  duplicate detection for indicators, no check that a rule file is a newer revision of the one
-  it duplicates, and no warning when two sources ship the same sid.
-* **Re-importing a rule set deliberately does not re-enable it.** `import_rules` upserts by
-  sid and leaves the `enabled` column of an existing row alone, so a rule an analyst disabled
-  stays disabled after **Import bundled** or after uploading the same file again. That is the
-  useful behaviour, and it also means a rule file cannot be used to switch a hundred disabled
-  rules back on: they have to be toggled one row at a time.
-* **The page works without a capture, but its Suricata half is partly inert.** With no
-  analysis selected, **Run on capture** is disabled and Hits reads `-`; the rules, stats and
-  matcher scope still load, because they are global.
+* **Nothing here validates the indicators against reality.** There is no duplicate detection for
+  indicators, no check that an indicator is still the entity it was collected from, and no
+  warning when two rows name the same value under different types.
 * **The Users & Passwords switch is a setting, not a purge.** Turning `credential_scan_enabled`
   off stops the stage in analyses started afterwards; it deletes no row that an earlier run wrote,
   and the [Users & Passwords](Credentials.md) page keeps listing those rows while reporting that
@@ -695,8 +409,8 @@ column apply to. With no capture selected the button is disabled and Hits reads 
 
 The upload limit and the retention flag this page edits are consumed by
 [PCAP-Files.md](PCAP-Files.md); the indicators feed the `indicator_match` rule documented in
-[Findings.md](Findings.md); and the Suricata rule set is the signature half of
-[Threat-Hunt.md](Threat-Hunt.md), whose detections are the behavioural half. The credential
+[Findings.md](Findings.md) and configured here; and the rules themselves - the signature half of
+[Threat-Hunt.md](Threat-Hunt.md) - are on [Alert Settings](Alert-Settings.md). The credential
 switch and protocol list this page edits are the subject of
 [Users & Passwords](Credentials.md) and specified in
 [`docs/CREDENTIALS.md`](../docs/CREDENTIALS.md). The environment

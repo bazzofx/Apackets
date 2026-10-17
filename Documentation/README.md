@@ -67,6 +67,7 @@ The headings below are the five headings the sidebar draws, in its order.
 |---|---|---|
 | PCAP Files | [PCAP-Files.md](PCAP-Files.md) | `/files` |
 | Settings | [Settings.md](Settings.md) | `/settings` |
+| Alert Settings | [Alert-Settings.md](Alert-Settings.md) | `/alert-settings` |
 
 **Threat Map** is the one section with a document per detection. Its section document
 is [Threat-Hunt.md](Threat-Hunt.md); the seventeen detections each have their own page

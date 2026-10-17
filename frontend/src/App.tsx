@@ -19,6 +19,7 @@ import InvestigatePage from '@/pages/InvestigatePage'
 import ProtocolSessionsPage from '@/pages/ProtocolSessionsPage'
 import ThreatHuntPage from '@/pages/ThreatHuntPage'
 import SettingsPage from '@/pages/SettingsPage'
+import AlertSettingsPage from '@/pages/AlertSettingsPage'
 
 function NotFoundPage() {
   return (
@@ -68,6 +69,7 @@ export function App() {
           <Route path="/threat-hunt" element={<ThreatHuntPage />} />
           <Route path="/investigate" element={<InvestigatePage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/alert-settings" element={<AlertSettingsPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

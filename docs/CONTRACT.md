@@ -761,6 +761,9 @@ verdict ("is malware", "attack confirmed").
 
 ### Editing the configuration
 
+These endpoints back the **Alert Settings** page (`/alert-settings`), which the sidebar lists
+beside Settings.
+
 The `detection_config` row is written only by `PUT /api/detection/rules/{rule_id}`
 (`backend/app/api/routes_detection.py`). The rule ids, the threshold keys and the type of
 each value all come from `detection_engine.RULES`, so the endpoint can only describe a knob
@@ -830,9 +833,11 @@ the Settings section's tab badges read.
 * `src/services/api.ts` exposes typed functions per endpoint and unwraps the
   error envelope into `ApiError { status, code, message, details }`.
 * Types in `src/types/index.ts` mirror §3/§6/§7 exactly.
-* Nav routes, in sidebar order: `/` dashboard, `/info`, `/conversations`, `/hosts`,
-  `/findings`, `/objects`, `/packets`, then the **Protocols** subsection `/http`,
-  `/dns`, `/tls`, then `/files` (PCAP Files) and `/settings`.
+* Nav routes, in sidebar order: `/` dashboard, `/info`, `/hosts`, `/conversations`,
+  `/packets`, `/findings`, `/threat-hunt`, `/investigate`, `/objects`, `/credentials`, then
+  the **Protocols** subsection `/http`, `/dns`, `/tls`, `/email`, `/ssh`, `/ftp`, `/voip`,
+  `/smb`, then the **Settings** subsection `/files` (PCAP Files), `/settings` and
+  `/alert-settings` (Alert Settings: the detection and Suricata rule tables, as two tabs).
 * Dark theme only. Palette (Tailwind theme extension):
   `bg` `#0b1120`, `surface` `#111a2e`, `surface2` `#16203a`, `border` `#22304d`,
   `accent` `#3b82f6`, `text` `#e2e8f0`, `muted` `#8296b4`,

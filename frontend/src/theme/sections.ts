@@ -39,6 +39,7 @@ import {
   Terminal,
   Settings as SettingsIcon,
   ShieldAlert,
+  SlidersHorizontal,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -310,6 +311,20 @@ export const SECTIONS = {
     hueVar: '--c-sev-informational',
     variant: 'split',
   },
+  alertSettings: {
+    id: 'alert-settings',
+    route: '/alert-settings',
+    group: 'Settings',
+    label: 'Alert Settings',
+    purpose:
+      'The rules that decide what a capture flags: the built-in heuristics with their thresholds, and the imported signatures - each showing whether it still runs what shipped.',
+    icon: SlidersHorizontal,
+    /* Every chart hue and every semantic token is already a section's accent, so a
+       sibling of Settings has to reuse one. Chart 6 belongs to Files and Objects,
+       which is two groups away in the sidebar, so the two never read as related. */
+    hueVar: '--c-chart-6',
+    variant: 'split',
+  },
   settings: {
     id: 'settings',
     route: '/settings',
@@ -347,6 +362,7 @@ export const SECTION_LIST: SectionIdentity[] = [
   SECTIONS.smb,
   SECTIONS.files,
   SECTIONS.settings,
+  SECTIONS.alertSettings,
 ]
 
 /** Look a section up by its route, e.g. `/dns`. */

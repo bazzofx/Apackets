@@ -342,10 +342,10 @@ export function FindingOverview({ context }: FindingOverviewProps) {
               <button
                 type="button"
                 className="btn px-1.5 py-0.5"
-                onClick={() => navigate(`/settings?sid=${rule.sid}`)}
-                title="Open the rule editor in Settings"
+                onClick={() => navigate(`/alert-settings?sid=${rule.sid}`)}
+                title="Open the rule editor in Alert Settings"
               >
-                edit in settings
+                edit in Alert Settings
               </button>
             </div>
           }
@@ -402,10 +402,12 @@ export function FindingOverview({ context }: FindingOverviewProps) {
               <button
                 type="button"
                 className="btn px-1.5 py-0.5"
-                onClick={() => navigate('/settings?rule=' + encodeURIComponent(detectionRule.rule_id))}
-                title="Open this rule in Settings to enable it or change its thresholds"
+                onClick={() =>
+                  navigate('/alert-settings?rule=' + encodeURIComponent(detectionRule.rule_id))
+                }
+                title="Open this rule in Alert Settings to enable it or change its thresholds"
               >
-                edit in settings
+                edit in Alert Settings
               </button>
             </div>
           }

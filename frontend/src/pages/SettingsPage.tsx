@@ -18,7 +18,6 @@ import LoadingState from '@/components/LoadingState'
 import MonoCell from '@/components/MonoCell'
 import Page from '@/components/Page'
 import Panel from '@/components/Panel'
-import AlertRulesSection from '@/components/AlertRulesSection'
 import ThemePanel from '@/components/ThemePanel'
 import Toolbar from '@/components/Toolbar'
 import { ScopeNote, SectionNote } from '@/components/protocols/ProtocolDetail'
@@ -790,8 +789,6 @@ function SettingsContent() {
           </div>
         )}
       </Panel>
-
-      <AlertRulesSection />
 
       <Panel
         title="Local-only operation"
