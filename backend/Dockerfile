@@ -1,4 +1,4 @@
-# APackets backend / API image.
+# ShinboShark backend / API image.
 #
 # TShark is a system dependency: it is installed here from the distribution and
 # is the only packet decoder used by the application. The service runs as an

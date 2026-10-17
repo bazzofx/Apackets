@@ -159,7 +159,7 @@ is listed but has no dot to open.
 
 **When the dataset is not installed** the world is still drawn, no dot is invented, and the map
 carries the reason the backend gave plus a **Build the location dataset** button. That button is
-the only thing in APackets that downloads anything: one public CC BY 4.0 file, about 4.4 MB,
+the only thing in ShinboShark that downloads anything: one public CC BY 4.0 file, about 4.4 MB,
 with no account and no API key, fetched by the backend when the reader asks and never at render
 time. No capture data is involved in the request.
 

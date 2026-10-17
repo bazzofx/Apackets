@@ -1,4 +1,4 @@
-# Runtime dependencies for the APackets backend.
+# Runtime dependencies for the ShinboShark backend.
 # Versions are pinned to what has actually been tested in this project.
 # TShark itself is a system dependency, not a Python package — see README.
 

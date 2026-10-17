@@ -1,4 +1,4 @@
-# APackets — Local PCAP Analyzer
+# ShinboShark — Local PCAP Analyzer
 
 A locally hosted web application for network traffic analysis and digital
 forensics. Upload a PCAP or PCAPNG capture, and inspect packets, conversations,
@@ -120,12 +120,20 @@ docker compose up --build
 
 Then open **<http://127.0.0.1:8080>**.
 
-Both containers publish only on loopback. Analysis data is kept in the
-`apackets-data` named volume.
+One image, one container: the API, TShark and the built interface are inside it, and
+FastAPI serves the interface on the same port. It publishes only on loopback, so the
+capture library never leaves this machine. Analysis data is kept in the
+`shinobishark-data` named volume.
 
-To keep captures in a directory you control instead, set
-`APACKETS_DATA_HOST` in `.env` and use the bind mount commented in
-`docker-compose.yml`.
+Without compose:
+
+```bash
+docker build -t shinobishark .
+docker run --rm -p 127.0.0.1:8080:8000 -v shinobishark-data:/data shinobishark
+```
+
+To keep captures in a directory you control instead, set `APACKETS_DATA_HOST` in `.env`
+and use the bind mount commented in `docker-compose.yml`.
 
 Stop and remove everything, including the stored analyses:
 
@@ -133,6 +141,10 @@ Stop and remove everything, including the stored analyses:
 docker compose down          # keep data
 docker compose down -v       # also delete the data volume
 ```
+
+The Dockerfile stage by stage, the one-worker rule, what the image deliberately does
+not contain (no Wireshark GUI, no bundled GeoIP) and how to verify a deployment are in
+[Documentation/Deployment.md](Documentation/Deployment.md).
 
 ---
 
@@ -268,7 +280,7 @@ states are never conflated.
 
 ## Suricata rule based detection
 
-APackets can evaluate Suricata rules. Two rule sets are vendored with the
+ShinboShark can evaluate Suricata rules. Two rule sets are vendored with the
 application and an analyst can upload more; matches become ordinary findings,
 alongside the ones the built-in rules produce.
 
@@ -302,7 +314,7 @@ Rules parse into `suricata_rules`, a table defined in `backend/app/db/schema.sql
 and keyed by SID. The verbatim rule text is stored, so a rule can be shown,
 edited and re-imported unchanged. Of the 1,615 vendored rules, **1,114 are
 evaluable** by the matcher and **501 are skipped** because they need engine
-features APackets cannot honour. A skipped rule is stored, listed and clearly
+features ShinboShark cannot honour. A skipped rule is stored, listed and clearly
 flagged in the UI; it is never partially matched.
 
 ### What is evaluated
@@ -331,7 +343,7 @@ A rule is skipped, and flagged as skipped in the UI, when it uses `flowbits`,
 `xbits`, `threshold`, `detection_filter`, `byte_test` / `byte_jump` /
 `byte_extract`, engine / app-layer / decode / stream events, content that has no
 buffer selector and needs raw packet payload bytes, PCRE-only flags, or a
-protocol APackets does not dissect (`smb`, `smtp`, `ike`, `mqtt`, `mdns`, `dnp3`,
+protocol ShinboShark does not dissect (`smb`, `smtp`, `ike`, `mqtt`, `mdns`, `dnp3`,
 `modbus`, `http2`, `pkthdr`).
 
 ### Findings and the pipeline

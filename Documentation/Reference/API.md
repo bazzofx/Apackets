@@ -1,6 +1,6 @@
 # Reference — the REST API
 
-A map of APackets' HTTP surface: which router module owns which prefix, the
+A map of ShinboShark's HTTP surface: which router module owns which prefix, the
 envelopes and conventions every endpoint shares, and where CSV and file exports
 live. The normative shapes are in [`docs/CONTRACT.md`](../../docs/CONTRACT.md) —
 this page summarises and links, it does not define.

@@ -52,7 +52,7 @@ license files. "Rule lines" counts lines matching
 
 ## Local corrections (not vendored)
 
-`local/` is **APackets' own rule layer**, not upstream data. It is excluded from
+`local/` is **ShinboShark's own rule layer**, not upstream data. It is excluded from
 the vendored counts above and carries no third-party licence.
 
 It exists so a defective vendored rule can be corrected without editing the

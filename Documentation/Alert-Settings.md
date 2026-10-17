@@ -418,7 +418,7 @@ the state of both families is visible from any page without opening this one.
 * **The count only knows about rules that exist.** A deleted signature has no row to report, so it
   is neither modified nor restorable; **Import bundled** brings it back as a new rule.
 * **Rule evaluation runs over the index, not the wire.** The matcher reads TShark-extracted
-  fields, never raw payload bytes: a signature that depends on a buffer APackets does not extract
+  fields, never raw payload bytes: a signature that depends on a buffer ShinboShark does not extract
   - a raw payload, a flowbit, a threshold across a stream - is either skipped outright or matched
   on its remaining options, and `field match` chips mark the rules evaluated against fields
   rather than payload. As shipped, **1,115 of the 1,615** rules are evaluable and **500** are

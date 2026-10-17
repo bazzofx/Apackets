@@ -1,4 +1,4 @@
-# APackets — Frozen Interface Contract
+# ShinboShark — Frozen Interface Contract
 
 This document is **normative**. Every module in this repository must conform to it.
 Do not change this file to match your code; change your code to match this file.

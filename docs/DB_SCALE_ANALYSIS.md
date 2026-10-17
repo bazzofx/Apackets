@@ -1,6 +1,6 @@
-# APackets database layer — what breaks at 1M packets
+# ShinboShark database layer — what breaks at 1M packets
 
-Analysis of the SQLite/schema/read-path/write-path layer at `C:\_deepSeekApps\APackets`.
+Analysis of the SQLite/schema/read-path/write-path layer at `C:\_deepSeekApps\ShinboShark`.
 **Nothing in the repository or in `data/apackets.db` was modified.** All write-side and
 large-scale measurements were taken on throwaway databases built under
 `%TEMP%\dsh-*/apackets_scale\`; the real database was opened read-only

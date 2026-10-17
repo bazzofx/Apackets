@@ -1,5 +1,5 @@
 /**
- * Typed fetch wrapper for the APackets API (docs/CONTRACT.md §2, §5).
+ * Typed fetch wrapper for the ShinboShark API (docs/CONTRACT.md §2, §5).
  *
  * - Base path `/api`; the origin is taken from `VITE_API_BASE` so a built
  *   bundle can be served directly by the FastAPI backend, and falls back to a
@@ -1058,7 +1058,7 @@ export const protocolsApi = {
  * The three calls the geographic view makes.
  *
  * `status` answers whether the location dataset is installed at all, `refresh` is the only
- * thing in APackets that downloads anything (a public CC BY 4.0 dataset, on an explicit
+ * thing in ShinboShark that downloads anything (a public CC BY 4.0 dataset, on an explicit
  * request, never at render time), and `geography` is the capture's own per-country totals.
  */
 export const geoApi = {

@@ -1,4 +1,4 @@
-# APackets local rule layer - corrections to the vendored daffainfo set.
+# ShinboShark local rule layer - corrections to the vendored daffainfo set.
 #
 # Origin of the corrected rule: backend/rules/daffainfo/http/web-attacks/
 # path-traversal.rules, SID 50500002, vendored verbatim from

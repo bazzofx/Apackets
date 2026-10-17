@@ -1,9 +1,9 @@
 # Getting Started
 
-Install APackets on one machine, run it, upload a first capture and know what the
+Install ShinboShark on one machine, run it, upload a first capture and know what the
 processing stages are doing while you wait.
 
-APackets is a **locally hosted** workbench: TShark dissects the capture on this
+ShinboShark is a **locally hosted** workbench: TShark dissects the capture on this
 host, the result is indexed into SQLite, and a React front end serves it over
 loopback. Nothing is uploaded anywhere and there is no telemetry — see
 [Architecture.md](Architecture.md) for why that holds.
@@ -55,7 +55,7 @@ docker compose up --build
 
 Then open **<http://127.0.0.1:8080>**. Both containers publish on loopback only
 (`127.0.0.1:8080:80` for the frontend, `127.0.0.1:8000:8000` for the backend), and
-analysis data lives in the `apackets-data` named volume mounted at `/data`.
+analysis data lives in the `shinobishark-data` named volume mounted at `/data`.
 
 ```bash
 docker compose down        # stop, keep the stored analyses

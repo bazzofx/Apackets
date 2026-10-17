@@ -1,6 +1,6 @@
-# APackets — documentation
+# ShinboShark — documentation
 
-APackets is a **locally hosted** PCAP/PCAPNG forensics workbench. It dissects a capture
+ShinboShark is a **locally hosted** PCAP/PCAPNG forensics workbench. It dissects a capture
 with TShark on this machine, indexes the result into SQLite, and serves a dark-themed
 analyst UI. No capture data leaves the host.
 
@@ -16,6 +16,7 @@ section, plus the machinery they all depend on.
 | [Getting-Started.md](Getting-Started.md) | Install, run, upload a first capture, and what to expect while it processes |
 | [Architecture.md](Architecture.md) | How a capture becomes a page: stages, storage, the local-only guarantee |
 | [Performance.md](Performance.md) | What loading and navigating actually cost, measured, and what was changed |
+| [Deployment.md](Deployment.md) | One image, one container, one port: the Dockerfile, the compose file and how to verify them |
 | [Reference/API.md](Reference/API.md) | The REST surface, and how it relates to the frozen contract |
 
 ## The application, section by section

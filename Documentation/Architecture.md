@@ -247,7 +247,7 @@ file:
 
 Consequences that show up in behaviour:
 
-* **Display filters are TShark's, not APackets'.** `POST /api/analyses/{id}/filter`
+* **Display filters are TShark's, not ShinboShark's.** `POST /api/analyses/{id}/filter`
   and the `filter` parameter on the packets list pass the expression straight to
   TShark (`-Y`), which is why a filter that compiles but matches nothing is
   reported as **0 results** while an unparsable one is `422 invalid_filter` with
@@ -431,7 +431,7 @@ the build holds to it:
 * **No threat-intelligence lookup, ever.** Detection is local and rule-based.
   The Suricata-compatible rule sets are vendored in `backend/rules/` and are never
   downloaded at runtime: rules arrive from that tree or from an analyst upload.
-  A rule that would need an engine feature APackets cannot honour is stored,
+  A rule that would need an engine feature ShinboShark cannot honour is stored,
   listed and flagged as skipped rather than approximated.
 * **Extracted files are never executed and never fetched.** Objects are written
   under `data/analyses/<id>/objects/`, and served only through the explicit

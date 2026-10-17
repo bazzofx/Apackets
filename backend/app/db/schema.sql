@@ -1,4 +1,4 @@
--- APackets analysis schema (frozen: see docs/CONTRACT.md §3)
+-- ShinboShark analysis schema (frozen: see docs/CONTRACT.md §3)
 -- All timestamps are Unix epoch seconds as REAL unless the column is *_text.
 
 PRAGMA foreign_keys = ON;
