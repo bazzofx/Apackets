@@ -129,6 +129,21 @@ the rows matching the current filter, in one request.
 **Viewport.** Zoom and pan are a viewport transform over one group, never a re-layout, so
 thickness still means bytes at any zoom and hit testing stays with the browser.
 
+**Free View — and why it starts off.** The diagram is a tall element in the middle of a page,
+so a canvas that takes the wheel makes the page impossible to scroll past: an aimed scroll
+at the table below lands inside a magnified band instead. The toolbar's right-hand end
+therefore carries **Enable Free View** (off by default, `aria-pressed`, hand icon):
+
+| Free View | Wheel over the diagram | Drag | Zoom buttons, arrows, +/− | Diagram cursor |
+|---|---|---|---|---|
+| **off** (default) | Scrolls the page | A press is a click — nothing pans | Disabled, each titled *Enable Free View to zoom the diagram* | default |
+| **on** | Zooms about the pointer | Pans the viewport | Live | grab / grabbing |
+
+Clicks select conversations in both states — what Free View governs is only the view. Turning
+it off returns the diagram to its fitted view first, so a reader cannot strand the diagram at a
+zoom they can no longer change. The switch also removes `touch-none` from the SVG, so on a
+touch screen the page can be scrolled past the diagram again.
+
 | Control | Effect |
 |---|---|
 | `+` / `−` | Zoom by ×1.25 / ÷1.25 about the centre; disabled at `FLOW_MAX_SCALE = 4` and `FLOW_MIN_SCALE = 0.4` |
@@ -529,6 +544,7 @@ Pages that link in:
 | [Dashboard](Dashboard.md) | `/conversations` — the section entry |
 | [Hosts](Hosts.md) host detail | `/conversations?ip=<address>` |
 | [Findings](Findings.md) **Follow conversation** | `/conversations?stream=tcp:<id>&tab=timeline` — the conversation, open on the Timeline tab |
+| The right-click menu's **Follow this conversation** (any row that knows its stream — a packet, a credential row) | `/conversations?ip=<address>&tab=timeline&stream=<transport>:<id>` — the same landing, plus the address filter so the surrounding list context is kept |
 | Threat Map pages | `/conversations?ip=<address>&tab=info`, the form the per-detection documents use |
 
 The alert chips do not link anywhere: they are counts. The findings themselves are read on

@@ -325,8 +325,9 @@ source or destination, a map node, a card on the Dashboard — answers a right c
 with the same actions: **Pivot `<ip>` to Hunt**, **Show Conversations with `<ip>`**,
 and the Wireshark pivot. When the element knows its conversation the pivot is labelled
 **Open conversation in Wireshark** and filters to that stream, and a further
-**Follow this conversation** item opens the same stream on the Conversations page; a
-packet row also offers **Copy frame number**. Three properties make that work without
+**Follow this conversation** item opens that stream on the Conversations **Timeline**
+tab (`?tab=timeline&stream=<transport>:<id>`, the same landing every follow link in the
+application uses); a packet row also offers **Copy frame number**. Three properties make that work without
 each component knowing the menu exists:
 
 * **It delegates from the document.** One `contextmenu` listener is installed on

@@ -83,11 +83,11 @@ export function huntUrl(ip: string): string {
 }
 
 /**
- * Where "Show Conversations with <ip>" goes.
- *
- * The stream is added when the element knew it, so the page can open that
- * conversation rather than only filtering the list to the address. The value is
- * the same `transport:stream_id` key the Conversations page already reads.
+ * Where "Show Conversations with <ip>" goes: the address filter, plus the stream
+ * when the element knew it so the page can preselect that conversation. The value
+ * is the same `transport:stream_id` key the Conversations page already reads, and
+ * no `tab` is set, so the page opens on its primary tab (the flow diagram) - this
+ * item answers "what does this address talk to", not "show me this exchange".
  */
 export function conversationsUrl(
   ip: string,
@@ -97,6 +97,31 @@ export function conversationsUrl(
   const base = `/conversations?ip=${encodeURIComponent(ip)}`
   if (streamId === null || streamId === undefined || !transport) return base
   return `${base}&stream=${encodeURIComponent(`${transport}:${streamId}`)}`
+}
+
+/**
+ * Where "Follow this conversation" goes: that exchange, on its own timeline.
+ *
+ * `tab=timeline` is the point of following one - the frames in order with the
+ * stream's reassembled bodies - rather than the flow diagram, which is where a
+ * reader arriving without a target should land. Every other follow link in the
+ * application (the Findings button, a Dashboard destination, a credential row)
+ * builds the same `?stream=<transport>:<id>&tab=timeline` form, so following a
+ * conversation always looks the same; the address is added here because the menu
+ * was opened on a specific row and the list behind it should agree.
+ */
+export function conversationTimelineUrl(
+  ip: string | null,
+  transport: string | null,
+  streamId: number | null,
+): string {
+  const query = new URLSearchParams()
+  if (ip !== null && ip !== '') query.set('ip', ip)
+  query.set('tab', 'timeline')
+  if (streamId !== null && streamId !== undefined && transport) {
+    query.set('stream', `${transport}:${streamId}`)
+  }
+  return `/conversations?${query.toString()}`
 }
 
 /**
@@ -393,7 +418,7 @@ export function IpMenuBody({
           type="button"
           role="menuitem"
           className="ip-menu-item"
-          title={`Open ${scope} on the Conversations page`}
+          title={`Open ${scope} on the Conversations timeline`}
           onClick={onFollow}
         >
           <Waypoints size={13} aria-hidden />
@@ -687,7 +712,7 @@ export function IpContextMenu() {
       onFollow={() => {
         if (!facts) return
         close()
-        navigate(conversationsUrl(facts.ip, facts.transport, facts.streamId))
+        navigate(conversationTimelineUrl(facts.ip, facts.transport, facts.streamId))
       }}
       onCopyFrame={() => {
         if (!facts || facts.frame === null) return

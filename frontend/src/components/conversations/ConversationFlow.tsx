@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Info, Layers, ShieldAlert, X } from 'lucide-react'
+import { ChevronDown, Hand, Info, Layers, ShieldAlert, X } from 'lucide-react'
 import EmptyState from '@/components/EmptyState'
 import Panel from '@/components/Panel'
 import { useThemeTokens } from '@/theme/ThemeProvider'
@@ -862,6 +862,18 @@ export function ConversationFlow({
   const [view, setView] = useState<FlowView>(() => initialView ?? flowFitView())
   const viewRef = useRef<FlowView>(view)
   const [dragging, setDragging] = useState(false)
+  /*
+   * Free view: whether the diagram swallows the wheel and the drag at all.
+   *
+   * Off by default, and that is the point: a diagram that zooms on every wheel
+   * event makes the page impossible to scroll past - the reader aiming for the
+   * table below ends up inside a magnified band instead. With it off the wheel
+   * scrolls the page and a drag selects nothing, while a click still opens the
+   * conversation; with it on the diagram behaves like a canvas (wheel to zoom,
+   * drag to pan, arrows and +/- to steer). Explicit zoom buttons follow the same
+   * switch so the two can never disagree about whether the view is editable.
+   */
+  const [freeView, setFreeView] = useState(false)
   const dragRef = useRef<PointerGesture | null>(null)
   /* A drag must not also select whatever was under the pointer when it ended. */
   const suppressClick = useRef(false)
@@ -934,6 +946,16 @@ export function ConversationFlow({
 
   const fit = useCallback(() => applyView(flowFitView()), [applyView])
 
+  /*
+   * Leaving Free View returns the diagram to its fitted view: with the wheel, the
+   * drag and the zoom buttons all disabled, a zoomed view would otherwise be a view
+   * the reader could not get out of.
+   */
+  const toggleFreeView = useCallback(() => {
+    if (freeView) fit()
+    setFreeView(!freeView)
+  }, [fit, freeView])
+
   /** 100% on screen: one plot unit per CSS pixel, whatever the panel width is. */
   const oneToOne = useCallback(() => {
     const svg = svgRef.current
@@ -967,6 +989,7 @@ export function ConversationFlow({
      the page as it zoomed. At either limit nothing is prevented, so the wheel
      scrolls the page normally instead of being swallowed. */
   useEffect(() => {
+    if (!freeView) return
     const svg = svgRef.current
     if (!svg) return
     const onWheel = (event: WheelEvent) => {
@@ -981,13 +1004,16 @@ export function ConversationFlow({
     }
     svg.addEventListener('wheel', onWheel, { passive: false })
     return () => svg.removeEventListener('wheel', onWheel)
-  }, [applyView, bounds, plotPoint, pointerToViewBox])
+  }, [applyView, bounds, freeView, plotPoint, pointerToViewBox])
 
   /* A press only records where it started. Pointer capture is deliberately NOT
      taken here: capturing on pointerdown makes the browser deliver the following
      click to the capture target (this SVG) instead of the node or band that was
      hit, which is exactly how a pan implementation silently kills every click. */
   const onPointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
+    /* With free view off a press is a click: no gesture is begun, so the shapes keep
+       receiving the click they were aimed at. */
+    if (!freeView) return
     if (event.pointerType === 'mouse' && event.button !== 0) return
     const box = pointerToViewBox(event.currentTarget, event.clientX, event.clientY)
     if (box === null) return
@@ -1032,6 +1058,7 @@ export function ConversationFlow({
   }
 
   const onKeyDown = (event: React.KeyboardEvent<SVGSVGElement>) => {
+    if (!freeView) return
     const step = 40
     const centre = { x: layout.width / 2, y: layout.plotHeight / 2 }
     const current = viewRef.current
@@ -1148,9 +1175,9 @@ export function ConversationFlow({
           type="button"
           className="btn px-2 py-1"
           aria-label="Zoom in"
-          title="Zoom in (+)"
+          title={freeView ? 'Zoom in (+)' : 'Enable Free View to zoom the diagram'}
           onClick={() => zoomTo(view.scale * 1.25)}
-          disabled={view.scale >= FLOW_MAX_SCALE}
+          disabled={!freeView || view.scale >= FLOW_MAX_SCALE}
         >
           +
         </button>
@@ -1158,9 +1185,9 @@ export function ConversationFlow({
           type="button"
           className="btn px-2 py-1"
           aria-label="Zoom out"
-          title="Zoom out (-)"
+          title={freeView ? 'Zoom out (-)' : 'Enable Free View to zoom the diagram'}
           onClick={() => zoomTo(view.scale / 1.25)}
-          disabled={view.scale <= FLOW_MIN_SCALE}
+          disabled={!freeView || view.scale <= FLOW_MIN_SCALE}
         >
           −
         </button>
@@ -1168,8 +1195,9 @@ export function ConversationFlow({
           type="button"
           className="btn px-2 py-1"
           aria-label="Fit diagram to view"
-          title="Fit the whole diagram (0)"
+          title={freeView ? 'Fit the whole diagram (0)' : 'Enable Free View to zoom the diagram'}
           onClick={fit}
+          disabled={!freeView}
         >
           Fit
         </button>
@@ -1177,8 +1205,9 @@ export function ConversationFlow({
           type="button"
           className="btn px-2 py-1"
           aria-label="Zoom to actual size"
-          title="100%: one diagram unit per screen pixel"
+          title={freeView ? '100%: one diagram unit per screen pixel' : 'Enable Free View to zoom the diagram'}
           onClick={oneToOne}
+          disabled={!freeView}
         >
           1:1
         </button>
@@ -1254,16 +1283,43 @@ export function ConversationFlow({
           </span>
         ) : null}
         <span className="ml-auto text-2xs text-faint">
-          drag to pan · wheel to zoom · arrows pan, +/− zoom, 0 fits
+          {freeView
+            ? 'drag to pan · wheel to zoom · arrows pan, +/− zoom, 0 fits'
+            : 'wheel scrolls the page · the diagram is fixed until you enable Free View'}
         </span>
+        {/* The switch for the whole canvas behaviour, at the right-hand end of the
+            toolbar where a view control is looked for. Off by default, so the wheel
+            scrolls the page instead of zooming a diagram the reader was passing. */}
+        <button
+          type="button"
+          className={'btn ml-1 px-2 py-1' + (freeView ? ' btn-primary' : '')}
+          aria-pressed={freeView}
+          aria-label="Enable Free View"
+          data-free-view={freeView ? 'on' : 'off'}
+          title={
+            freeView
+              ? 'Free View is on: the wheel zooms and a drag pans. Click to lock the diagram again.'
+              : 'Enable Free View: zoom with the wheel, pan by dragging. While it is off the wheel scrolls the page normally.'
+          }
+          onClick={toggleFreeView}
+        >
+          <Hand size={12} aria-hidden />
+          {freeView ? 'Free View on' : 'Enable Free View'}
+        </button>
       </div>
 
       <div className="relative">
         <svg
           ref={svgRef}
           viewBox={'0 0 ' + String(layout.width) + ' ' + String(FLOW_VIEW.height)}
+          /* `touch-none` and the grab cursor are Free View's: with it off a touch
+             drag must scroll the page, and the pointer must not advertise a pan that
+             will not happen. */
           className={
-            'max-h-[44rem] w-full touch-none ' + (dragging ? 'cursor-grabbing' : 'cursor-grab')
+            'max-h-[44rem] w-full' +
+            (freeView
+              ? ' touch-none ' + (dragging ? 'cursor-grabbing' : 'cursor-grab')
+              : ' cursor-default')
           }
           /* A fixed height letterboxed the 1200x520 viewBox: at wide panels the plot
              floated in the middle of the panel with dead margins either side, where a
@@ -1275,7 +1331,10 @@ export function ConversationFlow({
           aria-label={
             'Five column alluvial diagram of ' +
             String(graph.totals.conversations) +
-            ' conversations: source IP, source port, transport state, destination port and destination IP; band thickness is proportional to bytes. Drag to pan, wheel to zoom, arrow keys to pan, plus and minus to zoom, zero to fit.'
+            ' conversations: source IP, source port, transport state, destination port and destination IP; band thickness is proportional to bytes. ' +
+            (freeView
+              ? 'Free View is on: drag to pan, wheel to zoom, arrow keys to pan, plus and minus to zoom, zero to fit.'
+              : 'Free View is off, so the wheel scrolls the page and the diagram is fixed. Enable Free View to zoom and pan.')
           }
           onMouseLeave={() => setHover(null)}
           onPointerDown={onPointerDown}
