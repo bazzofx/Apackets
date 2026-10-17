@@ -157,6 +157,7 @@ export function PacketTable({
                    only on an address cell — opens the menu with this frame's
                    conversation already known. */
                 data-ip={packet.src_ip ?? undefined}
+                data-ip-peer={packet.dst_ip ?? undefined}
                 data-ip-transport={packet.transport ?? undefined}
                 data-ip-stream={streamId ?? undefined}
                 data-ip-port={packet.dst_port ?? undefined}
@@ -178,6 +179,7 @@ export function PacketTable({
                   <span
                     className="flex items-center"
                     data-ip={packet.src_ip ?? undefined}
+                    data-ip-peer={packet.dst_ip ?? undefined}
                     data-ip-transport={packet.transport ?? undefined}
                     data-ip-stream={streamId ?? undefined}
                     data-ip-port={packet.src_port ?? undefined}
@@ -200,6 +202,7 @@ export function PacketTable({
                   <span
                     className="flex items-center"
                     data-ip={packet.dst_ip ?? undefined}
+                    data-ip-peer={packet.src_ip ?? undefined}
                     data-ip-transport={packet.transport ?? undefined}
                     data-ip-stream={streamId ?? undefined}
                     data-ip-port={packet.dst_port ?? undefined}

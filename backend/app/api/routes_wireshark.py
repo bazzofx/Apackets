@@ -68,6 +68,7 @@ def post_wireshark(
         result = wireshark.open_capture(
             path,
             payload.ip,
+            peer=payload.peer_ip,
             transport=payload.transport,
             stream_id=payload.stream_id,
             port=payload.port,

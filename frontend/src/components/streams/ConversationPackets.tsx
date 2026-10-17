@@ -120,23 +120,56 @@ export function ConversationPackets({
             </tr>
           </thead>
           <tbody>
-            {items.map((packet) => (
+            {items.map((packet) => {
+              /* The conversation this frame belongs to, so the application-wide
+                 right-click menu can send the frame - or its whole conversation - to
+                 Wireshark from anywhere in the row, exactly as it does on the packet
+                 browser. Without this the row names nothing and the menu opens inert. */
+              const streamId =
+                packet.transport === 'tcp'
+                  ? (packet.tcp_stream ?? null)
+                  : (packet.udp_stream ?? null)
+              return (
               <tr
                 key={packet.number}
                 className={clsx('', onOpenPacket && 'cursor-pointer')}
                 onClick={onOpenPacket ? () => onOpenPacket(packet.number) : undefined}
                 title={onOpenPacket ? 'Open this packet in the packet browser' : undefined}
+                data-ip={packet.src_ip ?? undefined}
+                data-ip-peer={packet.dst_ip ?? undefined}
+                data-ip-transport={packet.transport ?? undefined}
+                data-ip-stream={streamId ?? undefined}
+                data-ip-port={packet.dst_port ?? undefined}
+                data-frame={packet.number}
               >
                 <td className="text-right tabular-nums">{formatNumber(packet.number)}</td>
                 <td>{formatTimestamp(packet.time_epoch)}</td>
                 <td>
-                  <MonoCell maxWidth={190}>{packet.src_ip}</MonoCell>
+                  <span
+                    className="flex items-center"
+                    data-ip={packet.src_ip ?? undefined}
+                    data-ip-peer={packet.dst_ip ?? undefined}
+                    data-ip-transport={packet.transport ?? undefined}
+                    data-ip-stream={streamId ?? undefined}
+                    data-ip-port={packet.src_port ?? undefined}
+                  >
+                    <MonoCell maxWidth={190}>{packet.src_ip}</MonoCell>
+                  </span>
                 </td>
                 <td className="text-right tabular-nums">
                   {packet.src_port === null ? <span className="text-faint">—</span> : formatNumber(packet.src_port)}
                 </td>
                 <td>
-                  <MonoCell maxWidth={190}>{packet.dst_ip}</MonoCell>
+                  <span
+                    className="flex items-center"
+                    data-ip={packet.dst_ip ?? undefined}
+                    data-ip-peer={packet.src_ip ?? undefined}
+                    data-ip-transport={packet.transport ?? undefined}
+                    data-ip-stream={streamId ?? undefined}
+                    data-ip-port={packet.dst_port ?? undefined}
+                  >
+                    <MonoCell maxWidth={190}>{packet.dst_ip}</MonoCell>
+                  </span>
                 </td>
                 <td className="text-right tabular-nums">
                   {packet.dst_port === null ? <span className="text-faint">—</span> : formatNumber(packet.dst_port)}
@@ -153,7 +186,8 @@ export function ConversationPackets({
                   </MonoCell>
                 </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>

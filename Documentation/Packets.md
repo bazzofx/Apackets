@@ -200,7 +200,7 @@ the destination while a right click on the protocol column still acts on the fra
 | **Pivot <address> to Hunt** | Opens the address's profile on [Hunt](Investigate.md). |
 | **Show Conversations with <address>** | Opens [Conversations](Conversations.md) filtered to the address, with this conversation preselected when the frame knows it. It lands on the section's primary tab (the flow diagram), because the question is "what does this address talk to". |
 | **Follow this conversation** | Opens that stream on the Conversations **Timeline** tab (`?ip=<address>&tab=timeline&stream=<transport>:<id>`) — the same landing the Findings page's **Follow conversation** builds. Shown only when the frame knows its conversation. |
-| **Open conversation in Wireshark** | `POST /api/analyses/{id}/wireshark` with the address, the transport and the stream id; the backend composes `ip.addr == <address> && tcp.stream == <id>` and starts the GUI on that filter. The item is labelled **Pivot to Wireshark** when the frame has no conversation id, and then it opens every frame of the address. |
+| **Open conversation in Wireshark** | `POST /api/analyses/{id}/wireshark` with the address, its peer, the transport and the stream id; the backend composes `ip.src == <address> && ip.dst == <peer> && tcp.stream == <id>` — a direction, not every frame of the address — and starts the GUI on that filter. The item is labelled **Pivot to Wireshark** when the frame has no conversation id, and then it opens every frame of the address. |
 | **Copy frame number** | Copies the frame number to the clipboard and confirms it in the menu. Shown only for a packet row. |
 
 For **TCP** the filter is exact — `tcp.stream` is the number this application stored.

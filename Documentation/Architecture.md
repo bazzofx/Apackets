@@ -276,12 +276,20 @@ capture in Wireshark, filtered. That means starting a program the operator will
 keep using after the request that started it ends, so the door is built as
 narrowly as one can be:
 
-* **The client never sends a filter.** It sends an address and, at most, which of
-  that address's conversations is meant (`transport`, `stream_id`, `port`). The
-  display filter is composed in `backend/app/services/wireshark.py` from a
-  canonicalised address and integers, so no request can reach a command line as
-  filter syntax. A body field the model does not declare — a `filter` string,
-  say — is ignored by Pydantic and never reaches the process.
+* **The client never sends a filter.** It sends an address and, at most, the other
+  end of the conversation (`peer_ip`) and which of that address's conversations is
+  meant (`transport`, `stream_id`, `port`). The display filter is composed in
+  `backend/app/services/wireshark.py` from canonicalised addresses and integers, so
+  no request can reach a command line as filter syntax. A body field the model does
+  not declare — a `filter` string, say — is ignored by Pydantic and never reaches
+  the process.
+* **A conversation is a direction, not an address.** With a peer the filter is
+  `ip.src == <address> && ip.dst == <peer>`: the endpoint the analyst acted on is the
+  source, so the window opens on the side of the exchange they were reading. It is
+  deliberately one way — the reply direction is one edit away in the window, and
+  choosing it for them would be the tool guessing. An address on its own (a host row,
+  a map node, an address in prose) keeps `ip.addr == <address>`, because there is no
+  second end to name.
 * **The capture path comes from the analysis row**, resolved by the same
   `capture_path` dependency every other capture-reading route uses, so no request
   can name a file.

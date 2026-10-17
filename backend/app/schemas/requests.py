@@ -64,6 +64,14 @@ class WiresharkRequest(BaseModel):
     """
 
     ip: str = Field(..., min_length=1, max_length=64, description="The address to open on")
+    peer_ip: str | None = Field(
+        default=None,
+        max_length=64,
+        description=(
+            "The other end of the conversation. With `ip` the filter becomes"
+            " `ip.src == ip && ip.dst == peer_ip` - a direction, not an address"
+        ),
+    )
     transport: str | None = Field(default=None, max_length=16, description="e.g. tcp")
     stream_id: int | None = Field(default=None, ge=0, description="The conversation's stream id")
     port: int | None = Field(default=None, ge=0, le=65535, description="Used when no stream applies")

@@ -259,7 +259,13 @@ both the Info tab and the Flow tab — one renderer, never a second one.
   A/B naming follows `endpoint_a`, and a note under the grid says so.
 * **Packets in this conversation** — the first `PACKET_PREVIEW_LIMIT = 50` indexed frames of
   that stream in frame order, with a subtitle giving the total and pointing at the packet
-  browser for the rest. Clicking a row opens that frame on the [Packets](Packets.md) page.
+  browser for the rest. Clicking a row opens that frame on the [Packets](Packets.md) page;
+  **right-clicking anywhere in the row** opens the application-wide address menu with that
+  frame's conversation attached, so **Open conversation in Wireshark** works from here
+  (`ip.src == <source> && ip.dst == <destination> && tcp.stream == <id>`), alongside Hunt,
+  Show Conversations, Follow this conversation and Copy frame number. The row carries the
+  two endpoints, the transport and the stream id, exactly as a row of the packet browser
+  does — a row that names nothing would open that menu greyed out.
 * **Follow stream** — §2.6.
 
 ### 2.6 The stream viewer
@@ -524,7 +530,7 @@ data.
 | Node click | `?node=<node id>`, and `?expand=<subnet>` for a group with more than one address; the conversations behind it are listed under the diagram, and the largest one opens in the pane below |
 | Selection panel row | `?stream=<transport>:<id>` for that conversation |
 | **Open in packet browser** (detail pane, timeline, UDP note) | `/packets?mode=basic&stream_id=<id>` — see below |
-| **Follow in Wireshark** (detail pane) | The Wireshark GUI on this machine, on the same capture, filtered to this conversation — it stays inside the application's local-only boundary, because the capture never leaves the host |
+| **Follow in Wireshark** (detail pane) | The Wireshark GUI on this machine, on the same capture, filtered to this conversation: `ip.src == <this end> && ip.dst == <the other end>`, plus `tcp.stream == <id>` for TCP. The address the analyst acted on is the source, so the window opens on the side of the exchange they were reading; the reply direction is one edit away in Wireshark. It stays inside the application's local-only boundary, because the capture never leaves the host |
 | Frame link on the Timeline tab, and a row of **Packets in this conversation** | `/packets?mode=basic&stream_id=<id>&sel=<frame>` |
 | The Info table's empty state, with no filter active | `/packets` — the packet browser unfiltered |
 | The Timeline tab with nothing selected | The Info tab, so a conversation can be chosen |

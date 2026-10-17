@@ -233,6 +233,7 @@ export function ConversationTable({
                   <span
                     className="flex items-center"
                     data-ip={flowAddress(conversation, 'a')}
+                    data-ip-peer={flowAddress(conversation, 'b')}
                     data-ip-transport={conversation.transport}
                     data-ip-stream={conversation.stream_id}
                     data-ip-port={flowPort(conversation, 'a') ?? undefined}
@@ -245,6 +246,7 @@ export function ConversationTable({
                   <span
                     className="flex items-center"
                     data-ip={flowAddress(conversation, 'b')}
+                    data-ip-peer={flowAddress(conversation, 'a')}
                     data-ip-transport={conversation.transport}
                     data-ip-stream={conversation.stream_id}
                     data-ip-port={flowPort(conversation, 'b') ?? undefined}

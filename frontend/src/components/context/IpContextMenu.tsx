@@ -75,6 +75,14 @@ export interface IpTargetFacts {
   port: number | null
   /** The frame number, when the click landed inside a packet row. */
   frame: number | null
+  /**
+   * The other end of the conversation, when the element knows both.
+   *
+   * With a peer the Wireshark pivot composes `ip.src == <ip> && ip.dst == <peer>` —
+   * a direction rather than every frame the address touches, which is what an
+   * analyst looking at one side of an exchange actually means.
+   */
+  peer: string | null
 }
 
 /** Where "Pivot <ip> to Hunt" goes: the profile page's documented parameters. */
@@ -144,12 +152,16 @@ export function ipFactsFrom(element: Element | null): IpTargetFacts | null {
   const frameHolder = (element as Element | null)?.closest?.('[data-frame]') ?? null
   const parsedFrame =
     frameHolder === null ? null : Number.parseInt(frameHolder.getAttribute('data-frame') ?? '', 10)
+  /* The peer is read from the same holder as the address: an element that knows
+     both ends of a conversation declares both, so the filter can name a direction. */
+  const peer = holder.getAttribute('data-ip-peer')
   return {
     ip: ip.trim(),
     transport: holder.getAttribute('data-ip-transport'),
     streamId: parsedStream !== null && Number.isFinite(parsedStream) ? parsedStream : null,
     port: parsedPort !== null && Number.isFinite(parsedPort) ? parsedPort : null,
     frame: parsedFrame !== null && Number.isFinite(parsedFrame) ? parsedFrame : null,
+    peer: peer === null || peer.trim() === '' ? null : peer.trim(),
   }
 }
 
@@ -286,7 +298,9 @@ export function factsFromPoint(x: number, y: number): IpTargetFacts | null {
   const caret = textNodeAt(x, y)
   if (caret) {
     const token = ipAtOffset(caret.node.data, caret.offset)
-    if (token) return { ip: token.ip, transport: null, streamId: null, port: token.port, frame: null }
+    if (token) {
+      return { ip: token.ip, transport: null, streamId: null, port: token.port, frame: null, peer: null }
+    }
   }
 
   let element = document.elementFromPoint?.(x, y) ?? null
@@ -295,7 +309,14 @@ export function factsFromPoint(x: number, y: number): IpTargetFacts | null {
     if (text !== '' && text.length <= 64) {
       const tokens = ipTokens(text)
       if (tokens.length === 1) {
-        return { ip: tokens[0].ip, transport: null, streamId: null, port: tokens[0].port, frame: null }
+        return {
+          ip: tokens[0].ip,
+          transport: null,
+          streamId: null,
+          port: tokens[0].port,
+          frame: null,
+          peer: null,
+        }
       }
     }
     element = element.parentElement
@@ -436,7 +457,9 @@ export function IpMenuBody({
           inert
             ? inertTitle
             : available
-              ? `Open this capture in Wireshark, filtered to ${scope ?? ip}`
+              ? facts !== null && facts.peer !== null
+                ? `Open this capture in Wireshark, filtered to ${ip} → ${facts.peer}${scope ? ' (' + scope + ')' : ''}`
+                : `Open this capture in Wireshark, filtered to ${scope ?? ip}`
               : (unavailableReason ?? 'Checking whether Wireshark is installed…')
         }
         onClick={onWireshark}
@@ -679,6 +702,7 @@ export function IpContextMenu() {
     mutationFn: (facts: IpTargetFacts) =>
       wiresharkApi.launch(analysisId as string, {
         ip: facts.ip,
+        peer_ip: facts.peer,
         transport: facts.transport,
         stream_id: facts.streamId,
         port: facts.port,

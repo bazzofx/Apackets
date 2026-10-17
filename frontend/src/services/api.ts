@@ -1100,7 +1100,14 @@ export const wiresharkApi = {
     request<WiresharkAvailability>(`/analyses/${analysisId}/wireshark`),
   launch: (
     analysisId: string,
-    payload: { ip: string; transport?: string | null; stream_id?: number | null; port?: number | null },
+    payload: {
+      ip: string
+      /** The other end of the conversation; with `ip` the filter becomes a direction. */
+      peer_ip?: string | null
+      transport?: string | null
+      stream_id?: number | null
+      port?: number | null
+    },
   ) =>
     request<WiresharkLaunchResult>(`/analyses/${analysisId}/wireshark`, {
       method: 'POST',

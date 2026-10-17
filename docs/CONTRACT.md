@@ -719,7 +719,8 @@ when not derivable.
 Fields are `null` when absent. `src_port`/`dst_port` are `null` for non-TCP/UDP.
 `tcp_stream`/`udp_stream` are the conversation ids of `conversations(transport, stream_id)`,
 so a row can name the conversation it belongs to without a second request; the right-click
-menu uses them to open that conversation in Wireshark (`tcp.stream == N`) or in this
+menu uses them to open that conversation in Wireshark - `ip.src == <this end> && ip.dst ==
+<the other end>`, plus `tcp.stream == N` - or in this
 application (`/conversations?stream=tcp:N`).
 
 **Detail** = summary plus:

@@ -185,20 +185,37 @@ def _address(value: str) -> str:
 def build_filter(
     ip: str,
     *,
+    peer: str | None = None,
     transport: str | None = None,
     stream_id: int | None = None,
     port: int | None = None,
 ) -> str:
-    """The display filter for one address, or for one of its conversations.
+    """The display filter for one address, one direction, or one conversation.
 
-    An address alone selects every frame it appears in. Adding the conversation
-    narrows it: ``tcp.stream == N`` for TCP, because that number is the one this
-    application stored, and an address/port pair for anything else. The returned
-    string contains only characters produced here — a canonical address, a
-    validated transport and integers.
+    Three shapes, in order of how much the caller knows:
+
+    * an address alone selects every frame it appears in — ``ip.addr == A``;
+    * with a peer it becomes a *direction*: ``ip.src == A && ip.dst == B``. This is
+      what a conversation gives, and it is the honest filter for one: the analyst
+      right-clicked the side they were looking at, and the reply traffic belongs to
+      the same exchange;
+    * the conversation narrows it further: ``tcp.stream == N`` for TCP, because that
+      number is the one this application stored, and a port for anything else.
+
+    The returned string contains only characters produced here — canonical
+    addresses, a validated transport and integers.
     """
     address = _address(ip)
-    parts = [f"ip.addr == {address}"]
+    if peer is not None:
+        # A direction, not the address: the endpoint the analyst acted on is the
+        # source and the other end is the destination, so the window opens on the
+        # side of the exchange they were reading. It is deliberately one way - a
+        # display filter is editable in Wireshark, and `|| ip.src == B && ip.dst ==
+        # A` is the analyst's own decision to make, not one this endpoint takes for
+        # them. Both addresses are canonicalised, so nothing arrives as it was typed.
+        parts = [f"ip.src == {address} && ip.dst == {_address(peer)}"]
+    else:
+        parts = [f"ip.addr == {address}"]
 
     if stream_id is not None:
         if not isinstance(stream_id, int) or stream_id < 0:
@@ -249,6 +266,7 @@ def open_capture(
     capture: Path,
     ip: str,
     *,
+    peer: str | None = None,
     transport: str | None = None,
     stream_id: int | None = None,
     port: int | None = None,
@@ -269,7 +287,9 @@ def open_capture(
     if not capture.is_file():
         raise WiresharkError("the capture is no longer on disk, so there is nothing to open")
 
-    display_filter = build_filter(ip, transport=transport, stream_id=stream_id, port=port)
+    display_filter = build_filter(
+        ip, peer=peer, transport=transport, stream_id=stream_id, port=port
+    )
     argv = _argv(binary, capture, display_filter, read_filter=read_filter)
 
     # DETACHED_PROCESS keeps the GUI alive after the request that started it, and

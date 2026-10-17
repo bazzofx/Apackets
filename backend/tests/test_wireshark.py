@@ -24,6 +24,8 @@ from app.services import tshark, wireshark
 
 ANALYSIS_ID = "a1b2c3d4e5f60718293a4b5c6d7e8f90"
 PUBLIC_IP = "150.171.109.217"
+#: The other end of a conversation: a conversation is a direction, so a filter test needs two.
+OTHER_IP = "44.203.10.190"
 
 #: Scratch files live inside the repository, never in the OS temp directory: the
 #: test process is not always allowed to write there, and a test that cannot
@@ -166,6 +168,29 @@ def test_anything_that_is_not_an_address_is_refused_before_a_filter_exists(value
     with pytest.raises(wireshark.WiresharkError):
         wireshark.build_filter(value)
 
+
+
+
+def test_a_conversation_is_a_direction_not_an_address():
+    """The endpoint the analyst acted on is the source, the other end the destination."""
+    assert wireshark.build_filter(PUBLIC_IP, peer=OTHER_IP) == (
+        f"ip.src == {PUBLIC_IP} && ip.dst == {OTHER_IP}"
+    )
+
+
+def test_a_directed_conversation_still_narrows_to_its_stream():
+    display = wireshark.build_filter(PUBLIC_IP, peer=OTHER_IP, transport="tcp", stream_id=7)
+    assert display == f"ip.src == {PUBLIC_IP} && ip.dst == {OTHER_IP} && tcp.stream == 7"
+
+
+def test_a_peer_that_is_not_an_address_is_refused():
+    with pytest.raises(wireshark.WiresharkError):
+        wireshark.build_filter(PUBLIC_IP, peer="8.8.8.8 && tcp.port == 80")
+
+
+def test_the_peer_is_canonicalised_like_the_address():
+    display = wireshark.build_filter("::ffff:8.8.8.8", peer="  1.1.1.1 ")
+    assert display == "ip.src == 8.8.8.8 && ip.dst == 1.1.1.1"
 
 def test_the_filter_carries_only_what_this_module_produced():
     display = wireshark.build_filter("::ffff:150.171.109.217", transport="tcp", stream_id=12)
@@ -383,6 +408,18 @@ def test_the_post_carries_the_conversation_into_the_filter(client, make_analysis
     assert response.status_code == 200
     assert response.json()["filter"] == f"ip.addr == {PUBLIC_IP} && tcp.stream == 30"
 
+
+def test_the_post_turns_a_conversation_into_a_directed_filter(client, make_analysis, spawn, installed):
+    """The endpoint the analyst acted on is the source; the other end is the destination."""
+    analysis = make_analysis()
+    response = client.post(
+        f"/api/analyses/{analysis['id']}/wireshark",
+        json={"ip": PUBLIC_IP, "peer_ip": OTHER_IP, "transport": "tcp", "stream_id": 30},
+    )
+    assert response.status_code == 200
+    assert response.json()["filter"] == (
+        f"ip.src == {PUBLIC_IP} && ip.dst == {OTHER_IP} && tcp.stream == 30"
+    )
 
 def test_the_post_never_accepts_a_filter_from_the_client(client, make_analysis, spawn, installed):
     """A field the model does not declare cannot reach the command line."""
