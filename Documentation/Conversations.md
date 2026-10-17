@@ -220,9 +220,25 @@ traffic produces, and offers the packet browser instead.
 both the Info tab and the Flow tab — one renderer, never a second one.
 
 * **Header** — `Conversation <conv_id>`, the two endpoints, an **Open in packet browser**
-  button and a **Close** button. When the selected conversation is not on the page currently
-  loaded, the header says the summary below is limited and that the panes are addressed by
-  `transport stream <id>` directly.
+  button, a **Follow in Wireshark** button and a **Close** button. When the selected conversation
+  is not on the page currently loaded, the header says the summary below is limited and that the
+  panes are addressed by `transport stream <id>` directly.
+* **Follow in Wireshark** — opens the retained capture in the Wireshark GUI with this
+  conversation filtered, which is the one thing this page cannot do for itself: everything else
+  here is a read of the index or of TShark's reassembly, and this hands the operator the real
+  dissector on the real frames. It sends the backend *structured facts* — the A side's address,
+  the transport, the stream id and that side's port — and the backend composes the filter, so no
+  request can put filter syntax on a command line. For a TCP conversation that filter is
+  `ip.addr == <A> && tcp.stream == <id>`, because `tcp.stream` is TShark's own number and the
+  index stores that same number; UDP has no comparable field, so a UDP conversation is filtered
+  by address and the A side's port pair instead. The result line under the header prints the
+  filter that was actually used, since the client never sees it any other way.
+  The button is **disabled with its reason in the tooltip** rather than hidden when the pivot is
+  impossible: Wireshark not installed (the tooltip quotes the backend's own reason), a row whose
+  address is unknown, or a selected conversation that is not in the page currently loaded — the
+  address is required, so a conversation known only by `transport stream <id>` cannot be
+  filtered. Whether the GUI appears on the desktop is between the operator and their window
+  manager; a successful response means the process started.
 * **Summary** — a three-column grid: both endpoints, stream id, packets and bytes in each
   direction and in total, start, end, duration, transport, protocols seen and TCP state. The
   A/B naming follows `endpoint_a`, and a note under the grid says so.
@@ -493,6 +509,7 @@ data.
 | Node click | `?node=<node id>`, and `?expand=<subnet>` for a group with more than one address; the conversations behind it are listed under the diagram, and the largest one opens in the pane below |
 | Selection panel row | `?stream=<transport>:<id>` for that conversation |
 | **Open in packet browser** (detail pane, timeline, UDP note) | `/packets?mode=basic&stream_id=<id>` — see below |
+| **Follow in Wireshark** (detail pane) | The Wireshark GUI on this machine, on the same capture, filtered to this conversation — it stays inside the application's local-only boundary, because the capture never leaves the host |
 | Frame link on the Timeline tab, and a row of **Packets in this conversation** | `/packets?mode=basic&stream_id=<id>&sel=<frame>` |
 | The Info table's empty state, with no filter active | `/packets` — the packet browser unfiltered |
 | The Timeline tab with nothing selected | The Info tab, so a conversation can be chosen |

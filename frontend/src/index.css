@@ -1437,18 +1437,14 @@
 
   /* The country flag in the host inventory.
    *
-   * A fixed box with the image fitted into it, because the flag files come in
+   * A fixed width with the image's own height, because the flag files come in
    * whatever sizes their authors chose: without this the rows would jitter and
-   * one flag would tower over its neighbours. The hairline border keeps a white
-   * flag (Japan, Poland) visible against the panel. */
+   * one flag would tower over its neighbours. */
   .host-flag {
     flex-shrink: 0;
-    width: 1rem;
-    height: 0.6875rem;
+    width: 1.3rem !important;
+    height: auto !important;
     object-fit: cover;
-    border: 1px solid rgb(var(--c-border2) / 0.8);
-    border-radius: 1px;
-    background-color: rgb(var(--c-surface2));
   }
 
   /* The local-machine icon is a picture of a computer rather than a flag, so it
