@@ -50,6 +50,28 @@ license files. "Rule lines" counts lines matching
   `http-events.rules`, `stream-events.rules`, `tls-events.rules`, etc.), with
   SIDs in the `22xxxxx` range.
 
+## Local corrections (not vendored)
+
+`local/` is **APackets' own rule layer**, not upstream data. It is excluded from
+the vendored counts above and carries no third-party licence.
+
+It exists so a defective vendored rule can be corrected without editing the
+vendored file: a correction is written under the **same SID**, and the importer's
+upsert makes it supersede the vendored text at seed time. The vendored files
+therefore remain byte-identical to the commits recorded above, and the counts in
+this document stay true.
+
+| Added | File | SIDs | Rule lines | Supersedes |
+| --- | --- | --- | ---: | --- |
+| 2026-10-11 | `local/linux-structures.rules` | 50200001–50200016 | 16 | `daffainfo/http/web-attacks/linux-structures.rules` |
+| 2026-10-11 | `local/path-traversal.rules` | 50500002 | 1 | `daffainfo/http/web-attacks/path-traversal.rules` |
+
+With the local layer present, one seed imports **286 files / 1,632 rule lines**
+into **1,615 distinct SIDs** — the same SID inventory as the vendored set alone,
+because every local rule replaces a vendored rule rather than adding one. The
+audit behind these corrections, the packet-level evidence and the before/after
+test results are in `RULE-AUDIT.md`.
+
 ## Licensing notes
 
 - The two rule sets carry **different, incompatible-in-detail licenses**

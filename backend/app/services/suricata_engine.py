@@ -356,70 +356,123 @@ def _within_range(value: int | None, check: dict[str, Any] | None) -> bool:
     return value == int(check.get("value", -1))
 
 
-def _find_bytes(hay: bytes, needle: bytes) -> bool:
-    return needle in hay
+def _bytes_equal(candidate: bytes, needle: bytes, nocase: bool) -> bool:
+    """Re-check bytes that are about to be displayed against the condition's needle."""
+    if len(candidate) != len(needle):
+        return False
+    if nocase:
+        return candidate.lower() == needle.lower()
+    return candidate == needle
 
 
-def _find_text(
-    hay: str,
-    needle: str,
+def _find_offset(
+    haystack: bytes,
+    needle: bytes,
     *,
     nocase: bool,
     startswith: bool,
     endswith: bool,
-    offset: int | None,
-    depth: int | None,
-) -> bool:
-    if nocase:
-        hay = hay.lower()
-        needle = needle.lower()
-    low = offset or 0
-    if low:
-        if low >= len(hay):
-            return False
-        hay = hay[low:]
-    if depth is not None and depth >= 0 and len(hay) > depth:
-        hay = hay[:depth]
+) -> int | None:
+    """The byte offset of ``needle`` in ``haystack``, or ``None``.
+
+    ``nocase`` folds through ``bytes.lower()`` — Suricata's ASCII-only case
+    folding. The anchors are resolved here instead of by trimming the buffer, so
+    the offset a record carries is always an offset in the buffer itself.
+    """
+    if not needle or len(haystack) < len(needle):
+        return None
     if startswith:
-        return hay.startswith(needle)
+        return 0 if _bytes_equal(haystack[: len(needle)], needle, nocase) else None
     if endswith:
-        return hay.endswith(needle)
-    return needle in hay
+        last = len(haystack) - len(needle)
+        return last if _bytes_equal(haystack[last:], needle, nocase) else None
+    found = haystack.lower().find(needle.lower()) if nocase else haystack.find(needle)
+    return found if found >= 0 else None
 
 
-def _content_matches(option: dict[str, Any], buffers: dict[str, str]) -> tuple[bool, str]:
-    """Return (matched, excerpt)."""
+def matched_evidence(option: dict[str, Any], buffers: dict[str, str]) -> dict[str, Any] | None:
+    """The exact bytes that satisfied one ``content`` condition, from its own buffer.
+
+    ``None`` means the condition was not satisfied — either the bytes are not
+    there, or the buffer does not exist for this packet/transaction at all. No
+    other field is ever substituted for a missing buffer: a match must be reported
+    from the buffer the rule named, or not at all.
+
+    Otherwise one record, which is what the finding stores and the interface shows:
+
+    ==================  =======================================================
+    ``buffer``          the buffer inspected, e.g. ``http.request_body``
+    ``offset``          byte offset of the match **within that buffer**
+    ``matched``         the bytes found there, re-read from the buffer
+    ``matched_text``    those bytes as text, for display
+    ``matched_hex``     those bytes in hex, so the encoding is verifiable
+    ``encoding``        ``hex`` (``|3A|``) or ``text``, as the rule wrote it
+    ``excerpt``         the buffer around the match — never a URI or a header
+    ``evidence_error``  set instead when the matched bytes could not be confirmed
+    ==================  =======================================================
+    """
     buffer_name = str(option.get("buffer") or "")
     haystack = buffers.get(buffer_name)
     if haystack is None:
-        # The buffer does not exist for this packet/transaction at all.
-        return False, ""
-    negated = bool(option.get("negated"))
-    raw_bytes = option.get("bytes")
-    if raw_bytes:
+        return None
+
+    raw_hex = option.get("bytes")
+    if raw_hex:
         try:
-            needle_b = bytes.fromhex(str(raw_bytes))
-        except ValueError:
-            return False, ""
-        hit = _find_bytes(haystack.encode("latin-1", "ignore"), needle_b)
+            needle = bytes.fromhex(str(raw_hex))
+        except ValueError:  # pragma: no cover - validated at import time
+            return None
+        encoding = "hex"
     else:
-        needle = str(option.get("value") or "")
-        if not needle:
-            return False, ""
-        hit = _find_text(
-            haystack,
-            needle,
-            nocase=bool(option.get("nocase")),
-            startswith=bool(option.get("startswith")),
-            endswith=bool(option.get("endswith")),
-            offset=option.get("offset"),
-            depth=option.get("depth"),
+        needle = str(option.get("value") or "").encode("utf-8")
+        encoding = "text"
+    if not needle:
+        return None
+
+    # Suricata's offset/depth window applies to the buffer being inspected, and
+    # offsets are reported against that same buffer, so the window is a view of
+    # it and `start` is added back to the answer.
+    data = haystack.encode("utf-8")
+    start = max(0, int(option.get("offset") or 0))
+    window = data[start:]
+    depth = option.get("depth")
+    if depth is not None and int(depth) >= 0:
+        window = window[: int(depth)]
+
+    nocase = bool(option.get("nocase"))
+    index = _find_offset(
+        window,
+        needle,
+        nocase=nocase,
+        startswith=bool(option.get("startswith")),
+        endswith=bool(option.get("endswith")),
+    )
+    if index is None:
+        return None
+
+    offset = start + index
+    matched = data[offset: offset + len(needle)]
+    record: dict[str, Any] = {
+        "buffer": buffer_name or "(fields)",
+        "offset": offset,
+        "length": len(needle),
+        "encoding": encoding,
+        "matched": matched,
+        "matched_text": matched.decode("utf-8", "replace"),
+        "matched_hex": matched.hex(),
+        "excerpt": "",
+    }
+    # The bytes that are about to be displayed are verified against the condition
+    # they supposedly satisfied, so a match can never be reported with bytes that
+    # do not satisfy the rule, or with bytes from another field.
+    if not _bytes_equal(matched, needle, nocase):
+        record["evidence_error"] = (
+            f"the bytes at offset {offset} of {record['buffer']} do not satisfy the "
+            "content condition"
         )
-    if negated:
-        return (not hit), ""
-    if not hit:
-        return False, ""
-    return True, _excerpt(haystack)
+        return record
+    record["excerpt"] = _excerpt_at(data, offset, len(needle))
+    return record
 
 
 def _excerpt(value: str) -> str:
@@ -427,21 +480,104 @@ def _excerpt(value: str) -> str:
     return text[:EXCERPT]
 
 
-def _regex_matches(option: dict[str, Any], buffers: dict[str, str]) -> tuple[bool, str]:
+def _excerpt_at(data: bytes, offset: int, length: int, limit: int = EXCERPT) -> str:
+    """``limit`` characters of the buffer a match came from, centred on that match."""
+    head = max(0, (limit - length) // 2)
+    span = data[max(0, offset - head): offset + length + head]
+    return _excerpt(span.decode("utf-8", "replace"))
+
+
+def _content_matches(option: dict[str, Any], buffers: dict[str, str]) -> dict[str, Any] | None:
+    """One ``content`` condition: its evidence record, or ``None`` when it fails."""
+    buffer_name = str(option.get("buffer") or "")
+    if buffers.get(buffer_name) is None:
+        # The buffer does not exist for this packet/transaction at all. Suricata
+        # cannot match a buffer that is not there, negated content included.
+        return None
+    if option.get("negated"):
+        if matched_evidence(option, buffers) is not None:
+            return None
+        # Absence is what satisfied the condition, so there are no matched bytes
+        # to show; the record says so rather than borrowing a neighbouring field.
+        return {
+            "buffer": buffer_name or "(fields)",
+            "negated": True,
+            "offset": None,
+            "length": 0,
+            "encoding": "negated",
+            "matched": b"",
+            "matched_text": "",
+            "matched_hex": "",
+            "excerpt": "",
+        }
+    return matched_evidence(option, buffers)
+
+
+def matched_regex_evidence(option: dict[str, Any], buffers: dict[str, str]) -> dict[str, Any] | None:
+    """The match a ``pcre`` option found, with its own buffer, bytes and offset."""
     buffer_name = str(option.get("buffer") or "")
     haystack = buffers.get(buffer_name)
     if haystack is None:
-        return False, ""
+        return None
     try:
         compiled = re.compile(str(option.get("pattern") or ""), int(option.get("flags") or 0))
     except re.error:  # pragma: no cover - validated at import time
-        return False, ""
-    hit = compiled.search(haystack) is not None
-    if option.get("negated"):
-        return (not hit), ""
-    if not hit:
-        return False, ""
-    return True, _excerpt(haystack)
+        return None
+    found = compiled.search(haystack)
+    if found is None:
+        return None
+
+    # The buffer is bytes on the wire; the pattern ran over its text, so the
+    # offset is converted to the byte offset of the same match.
+    data = haystack.encode("utf-8")
+    offset = len(haystack[: found.start()].encode("utf-8"))
+    matched = haystack[found.start(): found.end()].encode("utf-8")
+    record: dict[str, Any] = {
+        "buffer": buffer_name or "(fields)",
+        "offset": offset,
+        "length": len(matched),
+        "encoding": "pcre",
+        "matched": matched,
+        "matched_text": matched.decode("utf-8", "replace"),
+        "matched_hex": matched.hex(),
+        "excerpt": _excerpt_at(data, offset, len(matched)),
+    }
+    # A pattern with a lookbehind or an anchor cannot be re-checked in isolation,
+    # so a failure here is reported as an extraction error rather than papered over.
+    if matched and compiled.match(record["matched_text"]) is None:
+        record["evidence_error"] = (
+            f"the bytes at offset {offset} of {record['buffer']} could not be "
+            "re-checked against the pattern"
+        )
+    return record
+
+
+def _persisted(record: dict[str, Any]) -> dict[str, Any]:
+    """The record as it is stored: ``evidence`` is JSON, so raw bytes are dropped.
+
+    ``matched_hex`` and ``matched_text`` carry the same bytes in a form JSON can
+    hold, so nothing is lost by dropping the ``bytes`` object.
+    """
+    return {key: value for key, value in record.items() if key != "matched"}
+
+
+def _evidence_fields(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """The hit's own view of its evidence: the buffers, and the first match.
+
+    Every field here is taken from the record of a condition that was satisfied,
+    so the excerpt the interface shows and the buffer it names are the same
+    buffer that the rule inspected.
+    """
+    first = records[0]
+    return {
+        "fields": [record["buffer"] for record in records],
+        "buffer": first["buffer"],
+        "offset": first.get("offset"),
+        "matched": first.get("matched_text") or "",
+        "matched_hex": first.get("matched_hex") or "",
+        "excerpt": first.get("excerpt") or "",
+        "conditions": [_persisted(record) for record in records],
+    }
 
 
 def _parse_flags(raw: Any) -> int:
@@ -532,8 +668,13 @@ def _address_pair_matches(rule: CompiledRule, context: dict[str, Any]) -> bool:
     )
 
 
-def evaluate_rule(rule: CompiledRule, context: dict[str, Any], buffers: dict[str, str]) -> list[str] | None:
-    """Return the matched buffer names, or None when the rule does not match."""
+def evaluate_rule(rule: CompiledRule, context: dict[str, Any], buffers: dict[str, str]) -> list[dict[str, Any]] | None:
+    """Return one evidence record per satisfied condition, or None when no match.
+
+    Each record names the buffer that condition inspected and carries the bytes
+    and offset found in it, so a finding can only ever show evidence from the
+    buffer that actually satisfied the rule.
+    """
     if not _protocol_matches(rule.protocol, context):
         return None
     if not _address_pair_matches(rule, context):
@@ -557,17 +698,17 @@ def evaluate_rule(rule: CompiledRule, context: dict[str, Any], buffers: dict[str
     if rule.ttl and not _within_range(context.get("ttl"), rule.ttl):
         return None
 
-    matched: list[str] = []
+    matched: list[dict[str, Any]] = []
     for option in rule.contents:
-        hit, _ = _content_matches(option, buffers)
-        if not hit:
+        record = _content_matches(option, buffers)
+        if record is None:
             return None
-        matched.append(str(option.get("buffer") or "(fields)"))
+        matched.append(record)
     for option in rule.regexes:
-        hit, _ = _regex_matches(option, buffers)
-        if not hit:
+        record = matched_regex_evidence(option, buffers)
+        if record is None:
             return None
-        matched.append(str(option.get("buffer") or "(fields)"))
+        matched.append(record)
     return matched
 
 
@@ -887,8 +1028,8 @@ def run_rules(analysis_id: str, ctx: Any = None) -> dict[str, Any]:
             context = _packet_context(row)
             buffers = packet_buffers(row)
             for rule in _packet_candidates(packet_buckets, context):
-                fields = evaluate_rule(rule, context, buffers)
-                if fields is None:
+                records = evaluate_rule(rule, context, buffers)
+                if records is None:
                     continue
                 key = (
                     f"{context['src_ip']}:{context['src_port']}->"
@@ -908,10 +1049,11 @@ def run_rules(analysis_id: str, ctx: Any = None) -> dict[str, Any]:
                         "host": context.get("http_host"),
                         "uri": context.get("http_uri"),
                         "dns_query": context.get("dns_query"),
-                        "fields": fields,
                         "where": f"{context['src_ip']}:{context['src_port']} -> "
                         f"{context['dst_ip']}:{context['dst_port']}",
-                        "excerpt": _excerpt(str(buffers.get("") or buffers.get(fields[0] if fields else "") or "")),
+                        # §evidence: the excerpt comes from the buffer that matched,
+                        # never from the default "everything we can see" buffer.
+                        **_evidence_fields(records),
                     },
                 )
 
@@ -925,8 +1067,8 @@ def run_rules(analysis_id: str, ctx: Any = None) -> dict[str, Any]:
             context = _http_context(row)
             buffers = http_buffers(row)
             for rule in _packet_candidates(http_buckets, context):
-                fields = evaluate_rule(rule, context, buffers)
-                if fields is None:
+                records = evaluate_rule(rule, context, buffers)
+                if records is None:
                     continue
                 key = (
                     f"{context['src_ip']}->{context['dst_ip']} "
@@ -946,12 +1088,12 @@ def run_rules(analysis_id: str, ctx: Any = None) -> dict[str, Any]:
                         "dst_port": context["dst_port"],
                         "host": context.get("http_host"),
                         "uri": context.get("http_uri"),
-                        "fields": fields,
                         "where": f"{context['src_ip']} -> {context['dst_ip']}"
                         + (f" ({context['http_host']})" if context.get("http_host") else ""),
-                        "excerpt": _excerpt(
-                            str(buffers.get("http.uri") or buffers.get("") or "")
-                        ),
+                        # §evidence: a body rule shows body bytes. This used to
+                        # prefer `http.uri`, which displayed the URI as the matched
+                        # evidence for a request-body rule.
+                        **_evidence_fields(records),
                     },
                 )
 
@@ -1003,6 +1145,8 @@ __all__ = [
     "evaluate_rule",
     "http_buffers",
     "load_rules",
+    "matched_evidence",
+    "matched_regex_evidence",
     "packet_buffers",
     "run_rules",
 ]

@@ -1,0 +1,58 @@
+# APackets local rule layer - corrections to the vendored daffainfo set.
+#
+# Origin of the corrected rule: backend/rules/daffainfo/http/web-attacks/
+# path-traversal.rules, SID 50500002, vendored verbatim from
+# daffainfo/suricata-rules @23bfba7e688fdf5fadd8e378f070dae843e14263.
+#
+# Vendored text:
+#   alert http any any -> any any (msg:"Possible Path Traversal attack, repeated
+#     dot-dot-backslash sequence"; content:"..|5C|"; http_uri;
+#     pcre:"/(?:\\.\\){2,}/U"; classtype:web-application-attack;
+#     sid:50500002; rev:1;)
+#
+# DEFECT (demonstrated, see backend/rules/RULE-AUDIT.md): the rule could not
+# alert on its own target - "GET /..\..\..\windows\win.ini" produced no
+# SID 50500002 finding - for three independent reasons:
+#
+#   1. The pcre mode "U" (URL-decode the inspected buffer) is not implemented by
+#      this matcher. A rule carrying it is stored with supported = 0 and reported
+#      as skipped, so this rule was never evaluated at all.
+#   2. The pattern never compiled. Taking the pattern out of its quoted option
+#      collapses the two-character sequence backslash-backslash into a single
+#      backslash, which here removed the escape guarding the group's closing
+#      bracket: the bytes handed to the regex engine became hex
+#      28 3f 3a 5c 2e 5c 2e 5c 29 7b 32 2c 7d, i.e. the group's ")" is escaped and
+#      never closed. Python's re rejected it with "missing ), unterminated
+#      subpattern at position 0". A pcre that does not compile raised no error
+#      and matched nothing - a silent false negative.
+#   3. The buffer this matcher holds carries TShark's escaped field text:
+#      TShark writes one backslash on the wire as two in "-T fields" output (the
+#      runner passes -E separator/occurrence but not -E escape), so the indexed
+#      request target for a single-backslash URI is "..\\..\\", not "..\..\".
+#      A pattern requiring exactly one backslash between the ".." pairs can
+#      therefore never match an indexed URI.
+#
+# CORRECTION, and why each part is safe:
+#   * The backslash is written as the hex escape \x5c, which is identical in
+#     PCRE and in Python's engine and survives the unquoting step. (Reason 2.)
+#   * The separator accepts one OR two backslashes. The one-backslash form is
+#     the wire form and is what Suricata itself inspects, so nothing is lost
+#     there; the two-backslash form is how this matcher's indexed buffer spells
+#     the same bytes, so the rule finally matches its own target here. (Reason 3.)
+#   * The unimplementable U mode is dropped. (Reason 1.) The rule's own
+#     "content:\"..|5C|\"; http_uri" already required a literal backslash in
+#     the request target, so the U mode could only have helped a mixed
+#     literal/percent-encoded form - and that form is covered by the sibling
+#     rules 50500004/50500005, which match "..%2f" and "..%5c" directly.
+#
+# Detection objective, SID and classtype are unchanged; "rev" was raised to 2
+# because the detection logic changed.
+#
+# Verified: GET /..\..\..\windows\win.ini now alerts (it did not before);
+# GET /a..\b/c.txt, which has a single "..\" and is not a repeated traversal,
+# stays silent, as does GET /a/../b.txt.
+#
+# NOTE: the vendored file is third-party data and is deliberately left
+# unmodified - see README.md, "Adding your own rules".
+
+alert http any any -> any any (msg:"Possible Path Traversal attack, repeated dot-dot-backslash sequence"; content:"..|5C|"; http_uri; pcre:"/(?:\.\.\x5c{1,2}){2,}/"; classtype:web-application-attack; sid:50500002; rev:2;)

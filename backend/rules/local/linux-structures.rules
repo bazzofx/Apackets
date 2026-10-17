@@ -1,0 +1,55 @@
+# APackets local rule layer - corrections to the vendored daffainfo set.
+#
+# Origin of the corrected rules: backend/rules/daffainfo/http/web-attacks/
+# linux-structures.rules (SIDs 50200001-50200016), vendored verbatim from
+# daffainfo/suricata-rules @23bfba7e688fdf5fadd8e378f070dae843e14263.
+#
+# DEFECT (demonstrated, see backend/rules/RULE-AUDIT.md): every rule in that
+# family paired its fast-pattern content with the unanchored regex
+# "/(\/|%2F)<dir>/i", which has no right-hand boundary. A directory name was
+# therefore satisfied by the first four letters of an unrelated path element, and
+# ordinary traffic alerted as "attempted-recon":
+#
+#   GET /assets/Owner/arm/ProcessMAU.txt   -> 50200005 "Attempt to access /proc*"
+#   GET /etcetera/notes.txt                -> 50200003 "Attempt to access /etc*"
+#   GET /development/index.html            -> 50200004 "Attempt to access /dev*"
+#   GET /bootstrap.min.css                 -> 50200010 "Attempt to access /boot*"
+#   GET /library/app.js                    -> 50200011 "Attempt to access /lib*"
+#   GET /homepage.html                     -> 50200009 "Attempt to access /home*"
+#   15 of the 16 rules reproduced on known-benign captures; the 16th, 50200016,
+#   could not, because of the anchoring defect described next.
+#
+# An additional defect in SID 50200016: its pcre was anchored with "^", unlike
+# its 15 siblings, so it never fired at all - "GET /root/.ssh/id_rsa" produced no
+# alert.
+#
+# CORRECTION: the directory name must be a complete path element. The negative
+# lookahead (?!\w|[.~-]) rejects a following name character, so "/proc/" and
+# "/proc" still match while "/ProcessMAU.txt" and "/etcetera" do not. The
+# leading separator alternation and the "%2f" form were kept unchanged.
+#
+# These rules carry the SAME SIDs as the vendored originals on purpose: the rule
+# importer upserts by SID, so this file supersedes them (source becomes
+# "bundled:local") without breaking the upstream provenance record, and a later
+# re-seed cannot reinstate the defective text. "rev" was raised to 2 because the
+# detection logic changed.
+#
+# NOTE: the vendored files are third-party data and are deliberately left
+# unmodified - see README.md, "Adding your own rules".
+
+alert http any any -> any any (msg:"Attempt to access /bin*"; content:"bin"; nocase; pcre:"/(?:\/|%2f)bin(?![\w.~-])/i"; classtype:attempted-recon; sid:50200001; rev:2;)
+alert http any any -> any any (msg:"Attempt to access /sbin*"; content:"sbin"; nocase; pcre:"/(?:\/|%2f)sbin(?![\w.~-])/i"; classtype:attempted-recon; sid:50200002; rev:2;)
+alert http any any -> any any (msg:"Attempt to access /etc*"; content:"etc"; nocase; pcre:"/(?:\/|%2f)etc(?![\w.~-])/i"; classtype:attempted-recon; sid:50200003; rev:2;)
+alert http any any -> any any (msg:"Attempt to access /dev*"; content:"dev"; nocase; pcre:"/(?:\/|%2f)dev(?![\w.~-])/i"; classtype:attempted-recon; sid:50200004; rev:2;)
+alert http any any -> any any (msg:"Attempt to access /proc*"; content:"proc"; nocase; pcre:"/(?:\/|%2f)proc(?![\w.~-])/i"; classtype:attempted-recon; sid:50200005; rev:2;)
+alert http any any -> any any (msg:"Attempt to access /var*"; content:"var"; nocase; pcre:"/(?:\/|%2f)var(?![\w.~-])/i"; classtype:attempted-recon; sid:50200006; rev:2;)
+alert http any any -> any any (msg:"Attempt to access /tmp*"; content:"tmp"; nocase; pcre:"/(?:\/|%2f)tmp(?![\w.~-])/i"; classtype:attempted-recon; sid:50200007; rev:2;)
+alert http any any -> any any (msg:"Attempt to access /usr*"; content:"usr"; nocase; pcre:"/(?:\/|%2f)usr(?![\w.~-])/i"; classtype:attempted-recon; sid:50200008; rev:2;)
+alert http any any -> any any (msg:"Attempt to access /home*"; content:"home"; nocase; pcre:"/(?:\/|%2f)home(?![\w.~-])/i"; classtype:attempted-recon; sid:50200009; rev:2;)
+alert http any any -> any any (msg:"Attempt to access /boot*"; content:"boot"; nocase; pcre:"/(?:\/|%2f)boot(?![\w.~-])/i"; classtype:attempted-recon; sid:50200010; rev:2;)
+alert http any any -> any any (msg:"Attempt to access /lib*"; content:"lib"; nocase; pcre:"/(?:\/|%2f)lib(?![\w.~-])/i"; classtype:attempted-recon; sid:50200011; rev:2;)
+alert http any any -> any any (msg:"Attempt to access /opt*"; content:"opt"; nocase; pcre:"/(?:\/|%2f)opt(?![\w.~-])/i"; classtype:attempted-recon; sid:50200012; rev:2;)
+alert http any any -> any any (msg:"Attempt to access /mnt*"; content:"mnt"; nocase; pcre:"/(?:\/|%2f)mnt(?![\w.~-])/i"; classtype:attempted-recon; sid:50200013; rev:2;)
+alert http any any -> any any (msg:"Attempt to access /media*"; content:"media"; nocase; pcre:"/(?:\/|%2f)media(?![\w.~-])/i"; classtype:attempted-recon; sid:50200014; rev:2;)
+alert http any any -> any any (msg:"Attempt to access /srv*"; content:"srv"; nocase; pcre:"/(?:\/|%2f)srv(?![\w.~-])/i"; classtype:attempted-recon; sid:50200015; rev:2;)
+alert http any any -> any any (msg:"Attempt to access /root*"; content:"root"; nocase; pcre:"/(?:\/|%2f)root(?![\w.~-])/i"; classtype:attempted-recon; sid:50200016; rev:2;)

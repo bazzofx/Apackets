@@ -159,8 +159,12 @@ The panels appear in exactly this order, top to bottom:
 3. **Matched evidence** — drawn **only when `evidence.matches` is non-empty**, and it is the
    panel that carries the **Follow conversation** button. A table of Packet, Where, Buffers,
    Excerpt: the frame number (a button that opens `/packets?sel=<frame>`), the
-   `src:port -> dst:port` (or `src -> dst (host)`) description, the buffers the rule matched on,
-   and a 120-character excerpt.
+   `src:port -> dst:port` (or `src -> dst (host)`) description, the buffer(s) the rule matched
+   in, and a 120-character excerpt **taken from that same buffer, centred on the match**, with
+   the match's byte offset in it shown muted after it (`@12`). The cell's tooltip states the
+   buffer, the offset, the matched bytes, their hex, and — when the backend could not confirm
+   them — the evidence-extraction error. The excerpt is never drawn from another field: a rule
+   that inspects the request body shows request-body bytes, not the URI.
 4. A **Rules** divider — a labelled rule, not a panel.
 5. **Suricata rule behind this alert** — drawn **only for a `suricata:<sid>` finding whose sid
    is still present in `suricata_rules`**. Subtitle: `sid <sid> rev <rev> · <source> ·
@@ -333,6 +337,28 @@ Matches are grouped per rule and per key: `src:port->dst:port` for packet scope,
 `max_findings_per_rule` findings (the Suricata configuration's value, default 25). A run first
 deletes only this analysis's `suricata:%` rows and then inserts the new ones.
 
+**A match is reported from the buffer the rule named, or not at all.** Each satisfied condition
+returns a record naming the buffer it inspected, the byte offset of the match in that buffer,
+and the matched bytes read back out of it (`matched_evidence`); the interface draws that record's
+own buffer, offset and excerpt. There is no fallback to the URI, to a header, or to the joined
+default buffer, and a buffer that does not exist for a transaction cannot satisfy a condition —
+negated content included. The bytes are re-checked against the condition before the finding is
+written, so a match cannot be recorded with bytes the buffer does not contain; when that check
+cannot be made the record carries `evidence_error` instead of a borrowed excerpt.
+
+**Mixed literal-and-hex content is one needle.** Suricata writes `content:"javascript|3A|"` to
+mean the eleven bytes `javascript:`, and the parser now returns exactly that from
+`decode_content`. It used to return only the escaped part, so the rule's needle was a bare `:`
+and it matched any request body containing a colon at all — or, for `content:"..|5C|"`, a bare
+backslash in any URI. **338 of the 1,615 bundled rules** mix literal text with a hex escape, and
+every one of them was matching a *substring* of what it names, so the bug could only ever produce
+false positives, never miss a real one. A rule that is pure hex (`content:"|3A|"`) was never
+affected. Because the engine matches the **parsed options stored per rule**, a corrected parser
+reaches stored rules through a re-import: `POST /api/suricata/rules/seed` (or *Import bundled
+rules* on the Settings page) refreshes `options` for every existing sid while preserving each
+rule's enabled/disabled state. Findings already stored for an analysis keep the evidence they
+were written with until that analysis's Suricata stage is re-run, which the Findings page offers.
+
 ### 4.3 What a rule's `reason` and `evidence` contain
 
 `reason` is prose that states what was observed and what the threshold was; it never asserts a
@@ -354,7 +380,20 @@ verdict. Its shape depends on the producer:
 
 A Suricata finding's `matches` array holds up to 10 entries; each has `packet`,
 `response_packet`, `time_epoch`, `src_ip`, `dst_ip`, `src_port`, `dst_port`, `host`, `uri`,
-`fields` (the buffers that matched), `where` and a 120-character `excerpt`. Hits beyond the
+`fields` (the buffers that matched), `where`, a 120-character `excerpt`, plus the evidence
+triple that ties the excerpt to the buffer the rule inspected:
+
+| Field | Meaning |
+|---|---|
+| `buffer` | The buffer the first satisfied condition inspected, e.g. `http.request_body` |
+| `offset` | The byte offset of the match **in that buffer** (`null` for a negated condition) |
+| `matched` / `matched_hex` | The matched bytes, as text and in hex |
+| `conditions` | One record per satisfied condition: `buffer`, `offset`, `length`, `encoding` (`text`, `hex`, `pcre` or `negated`), `matched_text`, `matched_hex`, `excerpt`, and `evidence_error` when the bytes could not be confirmed |
+
+Every one of those values is read back out of the buffer that satisfied the condition, so a
+finding cannot show evidence from a buffer the rule never named: there is no fallback to the
+URI, to a header, or to the assembled "everything we can see" buffer. A buffer that does not
+exist for a transaction cannot satisfy a condition, negated content included. Hits beyond the
 per-key limit are counted in an `extra` field on the first entry that neither the page nor the
 `reason` renders, so `match_count` is capped at 10 in practice. `entities` is built from the
 matched rows: addresses, hostnames (HTTP host or DNS query name), ports and URIs.
@@ -373,6 +412,28 @@ and 36 informational. Both high findings are sid 51000006, *"Possible JNDI Injec
 The two medium findings in that capture come from the built-in engine: one `dns_nxdomain_burst`
 (client `10.4.10.132`, 6 recorded frames) and one `outbound_volume`. The other 36 are
 `rare_destination_port`, all informational.
+
+Measured example — **sid 50100017**, *"Possible XSS attack, js protocol in request body"*
+(`content:"javascript|3A|"; nocase; http_client_body;`). This is the rule whose evidence was
+wrong: the stored needle was the escaped byte `:` alone, and the excerpt shown for it was the
+request **URI**, so the rule appeared to fire on URIs and its evidence named a buffer the rule
+never inspected. Both are fixed, and the numbers below are from the live database:
+
+| | Before | After |
+|---|---|---|
+| Match needle | `3a` (a bare colon) | `6a6176617363726970743a` (`javascript:`) |
+| Findings in `sf19us-MTA-lab-09.pcap`… | 26 across 2 analyses, every one matching a stray colon in a binary or XML body | 0 — no request body in those captures holds `javascript:` |
+| Evidence shown | the URI (`/dav/`, `/v/g7mokeaio77&4a0fd…`) | the body, at the match's byte offset, in a record naming `http.request_body` |
+
+The live capture the fix is verified against is `xss-evidence.pcap` (analysis
+`8fa9b57320434ac2a472fd23dd11de9a`), which holds 11 frames and two transactions written for this
+rule: `POST /search?q=javascript:alert(1)` with the body `q=clean&page=2` — the payload in the
+URI only — and `POST /submit` with the body
+`comment=<a href="javascript:alert(1)">go</a>&x=1`. The API serves exactly **one** finding for
+the rule, on the `/submit` transaction, with `buffer` `http.request_body`, `offset` `17`,
+`matched` `javascript:`, and an `excerpt` that is that body from byte 0 — the trap in the URI
+produces nothing. `backend/tests/test_suricata_rules.py` covers the same two cases, plus a
+header holding `javascript:` and a body holding only a colon, against the rule text verbatim.
 
 ### 4.4 How a finding is tied to a conversation
 

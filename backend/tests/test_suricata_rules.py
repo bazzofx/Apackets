@@ -9,8 +9,12 @@ refusing to half-match a rule whose options cannot be honoured.
 
 from __future__ import annotations
 
+import json
+import time
+
 import pytest
 
+from app.db import database as db
 from app.services import suricata_engine, suricata_rules as sr
 
 # Sticky-buffer spelling: the buffer selects the content that follows it.
@@ -212,7 +216,9 @@ def test_engine_matches_the_http_uri_buffer(fresh_db) -> None:  # noqa: ARG001
     buffers = {"http.uri": "/admin/login.php", "": "GET /admin/login.php"}
     matched = suricata_engine.evaluate_rule(rules[0], _context(), buffers)
     assert matched is not None
-    assert "http.uri" in matched
+    assert [record["buffer"] for record in matched] == ["http.uri"]
+    assert matched[0]["matched_text"] == "/admin"
+    assert matched[0]["offset"] == 0
 
     # A different URI must not match...
     assert suricata_engine.evaluate_rule(rules[0], _context(), {"http.uri": "/index.html"}) is None
@@ -243,6 +249,218 @@ def test_engine_matches_dns_query_buffer(fresh_db) -> None:  # noqa: ARG001
         )
         is None
     )
+
+
+# --------------------------------------------------------------------------
+# evidence: the bytes that satisfied the condition, from their own buffer
+# --------------------------------------------------------------------------
+
+# The real rule, verbatim from
+# backend/rules/daffainfo/http/web-attacks/cross-site-scripting.rules. Its
+# required inspection buffer is the HTTP client request body (`http_client_body`,
+# which the engine resolves to `http.request_body`), not the URI and not a header.
+XSS_BODY_RULE = (
+    'alert http any any -> any any (msg:"Possible XSS attack, js protocol in '
+    'request body"; content:"javascript|3A|"; nocase; http_client_body; '
+    "classtype:web-application-attack; sid:50100017; rev:1;)"
+)
+
+URI_ONLY_REQUEST = {
+    "uri": "/search?q=javascript:alert(1)",
+    "full_uri": "http://example.test/search?q=javascript:alert(1)",
+    "method": "POST",
+    "host": "example.test",
+    "request_headers": '{"Host": "example.test", "X-Debug": "javascript:alert(1)"}',
+    "request_body": "q=hello+world&page=2",
+}
+
+
+def _http_row(**overrides):
+    """One `http_transactions` row, as `http_buffers` reads it."""
+    row = {
+        "id": 1,
+        "time_epoch": 1_700_000_000.0,
+        "client_ip": "10.0.0.5",
+        "client_port": 51000,
+        "server_ip": "93.184.216.34",
+        "server_port": 80,
+        "method": "POST",
+        "host": "example.test",
+        "uri": "/submit",
+        "full_uri": "http://example.test/submit",
+        "version": "HTTP/1.1",
+        "status_code": 200,
+        "user_agent": "Mozilla/5.0",
+        "referer": None,
+        "request_headers": '{"Host": "example.test"}',
+        "response_headers": '{"Content-Type": "text/html"}',
+        "request_body": None,
+        "response_body": None,
+        "request_packet": 10,
+        "response_packet": 12,
+    }
+    row.update(overrides)
+    return row
+
+
+def _xss_rule(fresh_db):  # noqa: ARG001 - fresh_db empties the tables first
+    sr.import_rules([sr.parse_rule(XSS_BODY_RULE)], source="test")
+    rules, _ = suricata_engine.load_rules()
+    assert [rule.sid for rule in rules] == [50100017]
+    return rules[0]
+
+
+def test_a_uri_cannot_satisfy_a_request_body_rule(fresh_db) -> None:  # noqa: ARG001
+    """The regression: URI and header carry `javascript:`, the body does not.
+
+    SID 50100017 inspects `http_client_body`, so nothing in the request line or
+    the headers can satisfy it. A finding here would be evidence taken from a
+    buffer the rule never named.
+    """
+    rule = _xss_rule(fresh_db)
+    buffers = suricata_engine.http_buffers(_http_row(**URI_ONLY_REQUEST))
+
+    # The trap is present in the buffers the rule must not use...
+    assert "javascript:" in buffers["http.uri"]
+    assert "javascript:" in buffers["http.request_header"]
+    assert "javascript:" in buffers[""]
+    assert "javascript:" not in buffers["http.request_body"]
+
+    assert suricata_engine.evaluate_rule(rule, _context(), buffers) is None
+
+
+def test_a_header_cannot_satisfy_a_request_body_rule(fresh_db) -> None:  # noqa: ARG001
+    rule = _xss_rule(fresh_db)
+    buffers = suricata_engine.http_buffers(
+        _http_row(request_headers='{"X-Debug": "javascript:alert(1)"}', request_body=None)
+    )
+    assert "http.request_body" not in buffers
+    assert suricata_engine.evaluate_rule(rule, _context(), buffers) is None
+
+
+def test_a_body_match_records_the_body_buffer_its_bytes_and_its_offset(fresh_db) -> None:  # noqa: ARG001
+    """The positive case: the body carries `javascript:`, so the body is evidence."""
+    rule = _xss_rule(fresh_db)
+    body = "comment=ok&redirect=javascript:alert(document.cookie)&x=1"
+    buffers = suricata_engine.http_buffers(
+        _http_row(uri="/submit?q=clean", full_uri="http://example.test/submit?q=clean", request_body=body)
+    )
+
+    records = suricata_engine.evaluate_rule(rule, _context(), buffers)
+    assert records is not None
+    record = records[0]
+
+    assert record["buffer"] == "http.request_body"
+    assert record["encoding"] == "hex"          # the rule writes `|3A|`
+    assert record["matched"] == b"javascript:"
+    assert record["matched_text"] == "javascript:"
+    assert record["matched_hex"] == "6a6176617363726970743a"
+    assert record["offset"] == body.encode().index(b"javascript:")
+    assert "evidence_error" not in record
+
+    # The displayed excerpt is the body around the match, and the URI is nowhere
+    # in it - the field that used to be shown for this rule.
+    assert "redirect=" in record["excerpt"]
+    assert "/submit" not in record["excerpt"]
+
+
+def test_the_matched_bytes_are_the_buffers_own_bytes_not_the_rule_text(fresh_db) -> None:  # noqa: ARG001
+    """`nocase` matches in either case; the evidence keeps the buffer's spelling."""
+    rule = _xss_rule(fresh_db)
+    body = "x=<a href='JaVaScRiPt:alert(1)'>go</a>"
+    buffers = suricata_engine.http_buffers(_http_row(request_body=body))
+
+    record = suricata_engine.evaluate_rule(rule, _context(), buffers)[0]
+    assert record["matched"] == b"JaVaScRiPt:"
+    assert record["matched_text"] == "JaVaScRiPt:"
+    assert record["matched_hex"] == b"JaVaScRiPt:".hex()
+    # The rule wrote `javascript|3A|`; the evidence is what the buffer holds.
+    assert record["matched"] != b"javascript:"
+
+
+def test_a_hit_carries_its_buffer_bytes_and_offset_for_the_interface(fresh_db) -> None:  # noqa: ARG001
+    """The hit the findings table stores: one record, self-describing."""
+    rule = _xss_rule(fresh_db)
+    body = "next=javascript:alert(1)"
+    buffers = suricata_engine.http_buffers(_http_row(request_body=body))
+    records = suricata_engine.evaluate_rule(rule, _context(), buffers)
+
+    hit = {"packet": 10, **suricata_engine._evidence_fields(records)}
+    assert hit["fields"] == ["http.request_body"]
+    assert hit["buffer"] == "http.request_body"
+    assert hit["offset"] == body.index("javascript:")
+    assert hit["matched"] == "javascript:"
+    assert hit["matched_hex"] == "6a6176617363726970743a"
+    assert hit["excerpt"] == body
+    assert hit["conditions"][0]["buffer"] == "http.request_body"
+    # JSON is how the finding is stored, so every field has to survive it.
+    assert json.loads(json.dumps(hit))["matched"] == "javascript:"
+
+
+def test_api_evidence_for_a_body_rule_comes_from_the_body(client) -> None:
+    """End to end: what the interface shows is the body the rule inspected."""
+    client.post("/api/suricata/rules", json={"raw": XSS_BODY_RULE})
+    analysis_id = "5" * 32
+    now = time.time()
+    with db.get_conn() as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO analyses (
+                id, original_filename, stored_path, file_size, file_type, status,
+                progress, stage, packet_count, created_at, updated_at
+            ) VALUES (?, 'xss.pcap', 'xss.pcap', 0, 'pcap', 'completed', 100,
+                      'completed', 0, ?, ?)
+            """,
+            (analysis_id, now, now),
+        )
+        # Row 1: the URI and a header carry the payload; the body does not.
+        conn.execute(
+            """
+            INSERT INTO http_transactions (
+                analysis_id, time_epoch, stream_id, client_ip, client_port,
+                server_ip, server_port, method, host, uri, full_uri, content_type,
+                request_headers, request_body, request_packet, response_packet
+            ) VALUES (?, ?, 1, '10.0.0.5', 51000, '93.184.216.34', 80, 'POST',
+                      'example.test', ?, ?, 'text/html', ?, ?, 10, 12)
+            """,
+            (
+                analysis_id, now, URI_ONLY_REQUEST["uri"], URI_ONLY_REQUEST["full_uri"],
+                URI_ONLY_REQUEST["request_headers"], URI_ONLY_REQUEST["request_body"],
+            ),
+        )
+        # Row 2: the same payload inside the request body.
+        conn.execute(
+            """
+            INSERT INTO http_transactions (
+                analysis_id, time_epoch, stream_id, client_ip, client_port,
+                server_ip, server_port, method, host, uri, full_uri, content_type,
+                request_headers, request_body, request_packet, response_packet
+            ) VALUES (?, ?, 2, '10.0.0.5', 51001, '93.184.216.34', 80, 'POST',
+                      'example.test', '/submit?q=clean', 'http://example.test/submit?q=clean',
+                      'text/html', '{"Host": "example.test"}', ?, 20, 22)
+            """,
+            (analysis_id, now, "comment=javascript:alert(1)"),
+        )
+
+    run = client.post(f"/api/analyses/{analysis_id}/suricata/run")
+    assert run.status_code == 200, run.text
+
+    alerts = client.get(f"/api/analyses/{analysis_id}/suricata/alerts")
+    assert alerts.status_code == 200, alerts.text
+    items = alerts.json()["items"]
+    # Only the body row matched: the URI-only request produced no finding at all.
+    assert [item["evidence"]["suricata_sid"] for item in items] == [50100017]
+
+    evidence = items[0]["evidence"]
+    match = evidence["matches"][0]
+    assert evidence["buffers"] == ["http.request_body"]
+    assert match["fields"] == ["http.request_body"]
+    assert match["buffer"] == "http.request_body"
+    assert match["matched"] == "javascript:"
+    assert match["offset"] == len(b"comment=")
+    assert match["excerpt"].startswith("comment=javascript:")
+    assert "q=javascript" not in match["excerpt"]
+    assert match["packet"] == 20
 
 
 # --------------------------------------------------------------------------

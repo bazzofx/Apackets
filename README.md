@@ -344,6 +344,11 @@ matches with packet numbers, and states the evaluation basis. Findings are
 grouped per rule and per peer pair / URI, capped at 25 grouped findings per rule
 per capture (configurable).
 
+Every match carries the buffer it was found in, the byte offset of the match in
+that buffer, and the matched bytes read back out of it — the excerpt the interface
+shows is drawn from that same buffer, never from the URI, a header or any other
+field. See `Documentation/Findings.md` §4.2 and §4.3.
+
 Analysis runs an optional `suricata` stage after `detection`, in the 97-99%
 progress band. Rules can also be re-run on demand for an existing analysis.
 

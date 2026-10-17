@@ -25,6 +25,27 @@ export interface FindingOverviewProps {
   context: FindingContext
 }
 
+/**
+ * What the match evidence cell shows, and where it came from.
+ *
+ * The backend records one evidence record per satisfied condition, naming the
+ * buffer the rule inspected (`http.request_body`, `http.uri`, …), the byte offset
+ * of the match in that buffer, and the matched bytes themselves. The excerpt drawn
+ * beside it is the same buffer around that offset, so the tooltip spells the link
+ * out instead of leaving it implicit.
+ */
+function evidenceTooltip(match: Record<string, unknown>): string {
+  const parts: string[] = []
+  if (match.buffer) parts.push(`matched in ${String(match.buffer)}`)
+  if (typeof match.offset === 'number') parts.push(`at byte ${String(match.offset)}`)
+  if (match.matched) parts.push(`bytes: ${String(match.matched)}`)
+  if (match.matched_hex) parts.push(`hex: ${String(match.matched_hex)}`)
+  if (match.evidence_error) parts.push(`evidence error: ${String(match.evidence_error)}`)
+  const note = parts.length > 0 ? `${parts.join(', ')}. The excerpt is drawn from that buffer.` : ''
+  const excerpt = match.excerpt ? String(match.excerpt) : ''
+  return [note, excerpt].filter(Boolean).join(' ')
+}
+
 /** One end of the alert: its address, the ports it used, and what it is. */
 function EndpointCard({
   endpoint,
@@ -279,9 +300,19 @@ export function FindingOverview({ context }: FindingOverviewProps) {
                       </MonoCell>
                     </td>
                     <td>
-                      <MonoCell maxWidth={420} title={String(match.excerpt ?? '')}>
-                        {match.excerpt ? String(match.excerpt) : null}
-                      </MonoCell>
+                      <div className="flex items-baseline gap-1">
+                        <MonoCell maxWidth={420} title={evidenceTooltip(match)}>
+                          {match.excerpt ? String(match.excerpt) : null}
+                        </MonoCell>
+                        {/* The offset is the match's position in the buffer named
+                            in the previous column — the same buffer the excerpt
+                            above was taken from. */}
+                        {typeof match.offset === 'number' ? (
+                          <span className="text-2xs text-faint" title="Byte offset of the match in that buffer">
+                            @{String(match.offset)}
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -369,7 +369,10 @@ def decode_content(value: str) -> tuple[str, bytes | None]:
     """Decode a content value, honouring ``|41 42|`` hex escapes.
 
     Returns ``(text, raw_bytes)``; ``raw_bytes`` is ``None`` when no hex escape
-    is present.
+    is present. ``raw_bytes`` is the content **in full and in order** — the literal
+    characters *and* the escaped bytes — because it is the needle a matcher has to
+    look for. Joining only the escaped part made ``content:"javascript|3A|"`` into
+    ``b":"``, so the rule matched any buffer holding a colon.
     """
     if "|" not in value:
         return value, None
@@ -391,8 +394,9 @@ def decode_content(value: str) -> tuple[str, bytes | None]:
             position = match.end()
             continue
         char = value[position]
-        if has_binary:
-            binary.extend(char.encode("latin-1", "ignore"))
+        # Every literal character belongs to the byte form too, wherever it sits
+        # relative to the first escape.
+        binary.extend(char.encode("latin-1", "ignore"))
         text.append(char)
         position += 1
     if has_binary:
