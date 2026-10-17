@@ -2191,6 +2191,8 @@ export interface BaselineSummary {
     capture_hosts: number
     baseline_hosts: number
     shared_hosts: number
+    /** Shared addresses that are local — the only ones that make two captures comparable. */
+    shared_private_hosts: number
     shared_dns_names: number
     shared_peers: number
   }

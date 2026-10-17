@@ -18,6 +18,7 @@ import FindingsPage from '@/pages/FindingsPage'
 import InvestigatePage from '@/pages/InvestigatePage'
 import ProtocolSessionsPage from '@/pages/ProtocolSessionsPage'
 import ThreatHuntPage from '@/pages/ThreatHuntPage'
+import BaselineCheckPage from '@/pages/BaselineCheckPage'
 import SettingsPage from '@/pages/SettingsPage'
 import AlertSettingsPage from '@/pages/AlertSettingsPage'
 
@@ -67,6 +68,7 @@ export function App() {
           <Route path="/findings" element={<FindingsPage />} />
           <Route path="/findings/:findingId" element={<FindingsPage />} />
           <Route path="/threat-hunt" element={<ThreatHuntPage />} />
+          <Route path="/baseline-check" element={<BaselineCheckPage />} />
           <Route path="/investigate" element={<InvestigatePage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/alert-settings" element={<AlertSettingsPage />} />

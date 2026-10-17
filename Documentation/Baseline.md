@@ -183,10 +183,18 @@ frame count and what the mode currently does, or — when nothing is set — exp
 ticking a completed capture makes every later analysis comparable. The panel subtitle gains
 ` · baseline mode on` while the mode is active.
 
+### Where the difference is read — [Baseline Check](Baseline-Check.md) (`/baseline-check`)
+
+A page of its own, under **Investigate** in the sidebar: the same comparison as counts and
+capped samples, one panel per novelty kind, with every entity linking into [Hunt](Investigate.md)
+or [Packets](Packets.md). The top bar's chip opens it. It draws no findings and writes
+nothing — it is the report behind the seven rules, so a reader can see *what* is novel
+without first looking at *what fired*. Its own document is [Baseline-Check.md](Baseline-Check.md).
+
 ### Where the mode is visible — the top bar, on every page
 
 While `active` is true, the top bar shows a warning-coloured chip reading
-**Baseline mode : enabled** (13 px), linking to `/files`, with a tooltip naming the
+**Baseline mode : enabled** (13 px), linking to `/baseline-check`, with a tooltip naming the
 reference capture. It is deliberately on every page and not only on the two that configure
 it: a global comparison that changes what the Findings page contains must be visible from
 the Findings page. When the mode is off the chip is absent rather than greyed out — an

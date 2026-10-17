@@ -242,6 +242,17 @@ export function AppLayout() {
       title: 'The brief’s detections, computed over this capture’s indexed tables',
     },
     {
+      to: '/baseline-check',
+      label: 'Baseline Check',
+      icon: Scale,
+      badge: baseline.data?.active ? 'on' : undefined,
+      badgeTone: 'warn',
+      title:
+        baseline.data?.active && baseline.data.baseline
+          ? 'What this capture holds that ' + baseline.data.baseline.original_filename + ' never did'
+          : 'What this capture holds that the baseline network never did - pick a baseline on PCAP Files',
+    },
+    {
       to: '/investigate',
       label: 'Hunt',
       icon: ScanSearch,
@@ -376,12 +387,12 @@ export function AppLayout() {
           <div className="flex shrink-0 items-center gap-2">
             {baseline.data?.active ? (
               <Link
-                to="/files"
+                to="/baseline-check"
                 className="chip border-warn/60 bg-warn/15 text-warn hover:border-warn"
                 title={
                   'Baseline mode is enabled: every analysis is compared against ' +
                   (baseline.data.baseline?.original_filename ?? 'the baseline capture') +
-                  '. Click to change or switch it off.'
+                  '. Click to see what the current capture adds to it.'
                 }
               >
                 <Scale size={12} aria-hidden />

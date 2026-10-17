@@ -891,8 +891,9 @@ the Settings section's tab badges read.
   error envelope into `ApiError { status, code, message, details }`.
 * Types in `src/types/index.ts` mirror §3/§6/§7 exactly.
 * Nav routes, in sidebar order: `/` dashboard, `/info`, `/hosts`, `/conversations`,
-  `/packets`, `/findings`, `/threat-hunt`, `/investigate`, `/objects`, `/credentials`, then
-  the **Protocols** subsection `/http`, `/dns`, `/tls`, `/email`, `/ssh`, `/ftp`, `/voip`,
+  `/packets`, `/findings`, `/threat-hunt`, `/baseline-check`, `/investigate`, `/objects`,
+  `/credentials`, then the
+  **Protocols** subsection `/http`, `/dns`, `/tls`, `/email`, `/ssh`, `/ftp`, `/voip`,
   `/smb`, then the **Settings** subsection `/files` (PCAP Files), `/settings` and
   `/alert-settings` (Alert Settings: the detection and Suricata rule tables, as two tabs).
 * Dark theme only. Palette (Tailwind theme extension):

@@ -44,6 +44,7 @@ The headings below are the five headings the sidebar draws, in its order.
 | Section | Document | Route |
 |---|---|---|
 | Threat Map | [Threat-Hunt.md](Threat-Hunt.md) | `/threat-hunt` |
+| Baseline Check | [Baseline-Check.md](Baseline-Check.md) | `/baseline-check` |
 | Hunt | [Investigate.md](Investigate.md) | `/investigate` |
 | Files and Objects | [Files-and-Objects.md](Files-and-Objects.md) | `/objects` |
 | Users & Passwords | [Credentials.md](Credentials.md) | `/credentials` |
@@ -73,10 +74,11 @@ The headings below are the five headings the sidebar draws, in its order.
 is [Threat-Hunt.md](Threat-Hunt.md); the seventeen detections each have their own page
 under [ThreatHunter/](ThreatHunter/ThreatHunter.md), starting with the overview.
 
-**Baseline** has no page of its own, because it is not a place: it is the global reference
-network, chosen from the Baseline column on [PCAP Files](PCAP-Files.md) (`/files`), shown
-in the top bar of every page, and reported on [Findings](Findings.md) as findings. It is
-documented in [Baseline.md](Baseline.md), and its API and rule text are
+**Baseline** is one global reference network: chosen from the Baseline column on
+[PCAP Files](PCAP-Files.md) (`/files`), shown in the top bar of every page, read as a
+difference on [Baseline Check](Baseline-Check.md) (`/baseline-check`), and recorded on
+[Findings](Findings.md) by seven `baseline_*` rules. The configuration, comparison and
+rules are documented in [Baseline.md](Baseline.md); its API and rule text are
 [`docs/CONTRACT.md`](../docs/CONTRACT.md) §8.
 
 **Hunt** ([Investigate.md](Investigate.md)) is the one section that reads one entity

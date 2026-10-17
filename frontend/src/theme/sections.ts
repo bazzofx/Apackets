@@ -33,6 +33,7 @@ import {
   PhoneCall,
   Radar,
   Search,
+  Scale,
   Server,
   ScanSearch,
   Share2,
@@ -155,6 +156,21 @@ export const SECTIONS = {
     icon: Radar,
     hueVar: '--c-sev-medium',
     variant: 'console',
+  },
+  baselineCheck: {
+    id: 'baseline-check',
+    route: '/baseline-check',
+    group: 'Investigate',
+    label: 'Baseline Check',
+    purpose:
+      'What this capture holds that the baseline network never did — new addresses, destinations, services, names and TLS fingerprints, with the overlap they were measured against.',
+    icon: Scale,
+    /* Every chart hue and semantic token is already a section's accent, so this reuses
+       chart 8 from Info: two groups away in the sidebar, so the two never read as
+       related. It tints only the headline, the eyebrow, the active nav entry and a
+       card's hairline — never a row. */
+    hueVar: '--c-chart-8',
+    variant: 'ledger',
   },
   investigate: {
     id: 'investigate',
@@ -349,6 +365,7 @@ export const SECTION_LIST: SectionIdentity[] = [
   SECTIONS.packets,
   SECTIONS.findings,
   SECTIONS.threatHunt,
+  SECTIONS.baselineCheck,
   SECTIONS.investigate,
   SECTIONS.objects,
   SECTIONS.credentials,
