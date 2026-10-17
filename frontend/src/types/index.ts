@@ -2138,8 +2138,62 @@ export interface GeographyResponse {
     countries: number
     unknown: number
     local: number
-    /** True when `COUNTRY_CAP` cut the country list. */
+    /** True when COUNTRY_CAP cut the country list. */
     countries_truncated?: boolean
   }
   note: string
+}
+
+/* ------------------------------------------------------------------ */
+/* The baseline network (one global reference capture)                  */
+/* ------------------------------------------------------------------ */
+
+/** What the baseline is, whether baseline mode is on, and what it holds. */
+export interface BaselineStatus {
+  configured: boolean
+  /** The mode switch; true only while a baseline is also configured. */
+  enabled: boolean
+  /** Configured AND the mode is on AND the baseline capture is usable. */
+  active: boolean
+  reason: string | null
+  label?: string | null
+  created_at?: number | null
+  baseline: {
+    analysis_id: string
+    original_filename: string
+    status: string
+    packet_count: number
+    created_at: number | null
+  } | null
+  counts: Record<string, number> | null
+}
+
+/** One capture diffed against the baseline: counts and samples, never full sets. */
+export interface BaselineSummary {
+  active: boolean
+  reason?: string
+  comparable?: boolean
+  baseline?: {
+    analysis_id: string
+    filename: string | null
+    label: string | null
+    packets: number
+    counts: Record<string, number>
+    created_at: number | null
+  }
+  capture?: {
+    analysis_id: string
+    filename: string | null
+    packets: number
+    counts: Record<string, number>
+  }
+  overlap?: {
+    capture_hosts: number
+    baseline_hosts: number
+    shared_hosts: number
+    shared_dns_names: number
+    shared_peers: number
+  }
+  novel_counts?: Record<string, number>
+  novel?: Record<string, string[]>
 }

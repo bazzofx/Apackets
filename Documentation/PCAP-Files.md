@@ -1,8 +1,9 @@
 # PCAP Files
 
 The capture library (`/files`): upload a PCAP or PCAPNG, watch it being processed, make
-one analysis the active capture, cancel one that is still running, or delete one along
-with everything derived from it.
+one analysis the active capture, mark one capture as the global
+[baseline network](Baseline.md), cancel one that is still running, or delete one along with
+everything derived from it.
 
 The component is `frontend/src/pages/PcapFilesPage.tsx`. Unlike the other data pages it is
 **not** wrapped in `AnalysisGuard`: it is the page that has to work when no capture is
@@ -60,6 +61,7 @@ because no analysis row exists until the request completes.
 | Column | Content |
 |---|---|
 | File | `original_filename`, truncated to 260 px with the full name in the tooltip, plus an accent `active` chip on the capture currently selected in the top bar. |
+| Baseline | A checkbox that makes this capture the one [baseline network](Baseline.md) every other analysis is compared against. Enabled only for a `completed` analysis; ticking one moves the baseline rather than adding a second, and unticking the ticked one clears it. The chosen row also carries a `baseline` chip whose tooltip distinguishes "compared against" from "selected but baseline mode is off". See §2.5. |
 | Size | `file_size` — the stored upload's size in bytes, rendered as a byte size. |
 | Status | A `StatusChip` (`pending`, `processing`, `completed`, `failed`, `cancelled`). Below it, while the analysis is pending or processing: a progress bar, the stage string (or `waiting` when the stage is null) and the percent. Below that, when the row carries an error, the error text truncated to 40 characters with the full text in the tooltip. When the analysis is not in flight and the latest job has a status, a faint `job <status>` line. |
 | Packets | `packet_count` — the frames indexed, which for a running analysis is the count so far. |
@@ -73,7 +75,9 @@ The progress percentage is normalised in the browser: a `progress` value of 1 or
 multiplied by 100, anything larger is used as-is.
 
 Panel subtitle: *analysis in progress — refreshing every 2 seconds* while any analysis in
-the list is pending or processing, and `<N> captures` otherwise. The header action is a
+the list is pending or processing, and `<N> captures` otherwise — with ` · baseline mode on`
+appended while [baseline mode](Baseline.md) is active. The header actions are a **Baseline
+mode** checkbox (with an `on`/`off` chip, disabled until a baseline has been chosen) and a
 **Refresh** button that reloads the list.
 
 When the list is empty the panel says *No captures have been uploaded yet. Drop a file
@@ -97,7 +101,40 @@ re-upload the capture to analyse it again.*
 If the deleted analysis was the active one, the selection is cleared (and the top bar falls
 back to the newest remaining capture); if it was not, the selection is untouched.
 
-### 2.4 The closing note
+### 2.4 The baseline strip
+
+Between the panel header and the table, one line explains the global comparison:
+
+* **When a baseline is set** — *Baseline network: `<file>` (`<N>` frames). Every analysis
+  is compared against it…* or, with the mode off, *Baseline mode is off, so nothing is
+  compared until you switch it on.* Both variants end with the sentence that matters:
+  *Changing the baseline does not rewrite findings already stored — re-run the rules on an
+  analysis to recompute them.*
+* **When none is set** — *No baseline network is set. Tick a completed capture in the
+  Baseline column and every later analysis will be compared against it — new addresses,
+  destinations, services, names and TLS fingerprints become findings.*
+
+The strip is informational: it holds no control. The comparison it describes is
+[Baseline.md](Baseline.md).
+
+### 2.5 Choosing the baseline
+
+One baseline exists for the whole application, so the column is a radio group drawn as
+checkboxes:
+
+| Situation | What happens |
+|---|---|
+| Tick an unticked `completed` row | `PUT /api/baseline` with `{"analysis_id": <id>, "enabled": true}`. Any previous baseline is replaced **and** baseline mode is switched on, in one call. |
+| Tick a row that is not `completed` | Nothing — the checkbox is disabled, and its tooltip says *A baseline must be a completed analysis*. |
+| Untick the ticked row | `PUT /api/baseline` with `{"analysis_id": null}`: the baseline is cleared and the mode forced off. |
+| Tick a second row | The first row's chip disappears; the baseline moved. |
+
+The request is rejected by the backend, not only by the disabled checkbox: an id that does
+not exist is `400 analysis_not_found`, one that has not finished `400
+analysis_not_ready` (the status is in `details`), and one that indexed no packets `400
+analysis_empty`. A toast reports the resulting state, or the cleared baseline.
+
+### 2.6 The closing note
 
 A single line under the table: *Analyses run locally through TShark. Deleting an analysis
 removes its derived rows and the stored capture from `data/analyses/<id>/`.*
@@ -110,6 +147,8 @@ removes its derived rows and the stored capture from `data/analyses/<id>/`.*
 | Upload | `POST /api/analyses`, multipart, via `uploadAnalysis` (XHR, not `fetch`) | `routes_analyses.py` → `upload_analysis()` |
 | Cancel | `POST /api/analyses/{id}/cancel` | `routes_analyses.py` → `cancel_analysis()` |
 | Delete | `DELETE /api/analyses/{id}?confirm=true` | `routes_analyses.py` → `delete_analysis()` |
+| Read the baseline state | `GET /api/baseline` | `routes_baseline.py` → `baseline.status()` |
+| Choose / clear / switch the baseline | `PUT /api/baseline` | `routes_baseline.py` → `baseline.save_config()` |
 
 The client wrappers are in `frontend/src/services/api.ts`: `analysesApi.list`, `uploadAnalysis`,
 `analysesApi.cancel`, `analysesApi.remove`, plus `isAllowedCaptureFile` and
@@ -220,6 +259,8 @@ currently 24,440,832 bytes (≈ 23.3 MiB) and the `data/` tree is `analyses` 9,3
 |---|---|
 | **Open** on a completed row | `/` — the capture becomes active and the Dashboard opens |
 | **Delete** → **Delete permanently** | Nothing navigational; the row disappears and the selection is cleared when it was the active one |
+| The **Baseline** checkbox | Nothing navigational; it changes global state described in [Baseline.md](Baseline.md) |
+| The top bar's **Baseline mode : enabled** chip (present on every page while the mode is on) | `/files`, to this page |
 | The top bar's Upload button (present on every page) | `/files` |
 | `AnalysisGuard`'s empty state, on every gated page | `/files` |
 
@@ -285,6 +326,11 @@ page's rescan rewrites this capture's `findings` rows.
 * **This page says nothing about what is inside a capture.** No packet counts beyond
   `packet_count`, no findings, no hosts, no size on the wire. Those are the other pages, and
   they need the capture to be `completed` and active.
+* **Deleting the baseline capture silently ends every comparison.** The pointer is not
+  cleaned up: `GET /api/baseline` starts reporting `configured: false` with the reason *the
+  capture this baseline pointed at has been deleted*, baseline mode reads off, and no rule
+  fires until a new reference is chosen. Nothing on this page warns you before the delete.
+  See [Baseline.md](Baseline.md) §8.
 * **The library in `data/` holds 22 analysis rows, not 21.** Counted directly: nine rows
   from the `sf19us-MTA-lab` set — seven distinct files, with `lab-02` and `lab-12` present
   twice under separate ids — plus `SpaceX_111025.pcapng`, `nmap_sn_livehosts.pcapng` and
@@ -296,6 +342,8 @@ page's rescan rewrites this capture's `findings` rows.
 
 ## 6. Related
 
+Marking a capture as the reference for every other analysis — the Baseline column's
+checkbox, the mode switch and what the comparison reports — is [Baseline.md](Baseline.md).
 The pipeline stages that run after an upload and the storage layout they write into are
 documented in [Architecture.md](Architecture.md); the settings that govern upload size,
 object size and retention are on [Settings.md](Settings.md), and the rules that decide how

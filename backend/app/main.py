@@ -44,6 +44,7 @@ ROUTER_SPECS: tuple[tuple[str, str], ...] = (
     ("app.api.routes_objects", "router"),
     ("app.api.routes_credentials", "router"),
     ("app.api.routes_suricata", "router"),
+    ("app.api.routes_baseline", "router"),
     ("app.api.routes_threat_hunt", "router"),
     ("app.api.routes_profile", "router"),
     ("app.api.routes_wireshark", "router"),

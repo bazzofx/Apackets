@@ -39,11 +39,12 @@ from collections import Counter, deque
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import parse_qsl, unquote, urlsplit
 
 from app.core.logging import get_logger
 from app.db import database as db
+from app.services import baseline
 
 log = get_logger("apackets.detection")
 
@@ -2071,6 +2072,21 @@ def _rule_indicator_match(analysis_id: str, params: dict[str, Any]) -> list[dict
 # registry
 # ==========================================================================
 
+def _rule_baseline(kind: str) -> Callable[[str, dict[str, Any]], list[dict[str, Any]]]:
+    """One baseline rule's runner: the logic lives in app.services.baseline.
+
+    A factory rather than seven near-identical functions, and a thin one: the rule
+    catalogue below stays a list of definitions, and the comparison is implemented
+    once.
+    """
+
+    def run(analysis_id: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+        return baseline.rule_items(kind, analysis_id, params)
+
+    run.__name__ = "baseline_" + kind
+    return run
+
+
 RULES: dict[str, RuleSpec] = {
     spec.rule_id: spec
     for spec in (
@@ -2228,6 +2244,130 @@ RULES: dict[str, RuleSpec] = {
             threshold="traffic matching an analyst-supplied indicator (ip, domain, port, ja3, ja4, ua, sha256)",
             defaults={"enabled": True},
             run=_rule_indicator_match,
+        ),
+        # ------------------------------------------------------------------
+        # baseline rules
+        #
+        # These seven compare the capture with the network described by the capture
+        # chosen as the baseline (app.services.baseline). They are ordinary rules - a
+        # severity, a switch, a finding on the Findings page - which is the point: a
+        # novelty result is triaged exactly like any other lead.
+        #
+        # All of them return nothing unless baseline mode is on and a baseline is
+        # configured, and all of them except baseline_no_overlap return nothing when
+        # the capture shares no address with the baseline.
+        # ------------------------------------------------------------------
+        RuleSpec(
+            rule_id="baseline_new_host",
+            title="Private address not present in the baseline network",
+            severity="high",
+            description=(
+                "A private address appears in this capture that the baseline capture never "
+                "contained. That is the shape of a device, a virtual machine or an interface "
+                "that was not on the network when the baseline was taken, which is worth "
+                "explaining before anything else is read into it: a DHCP renewal, a new "
+                "printer or a lab machine produce the same result."
+            ),
+            threshold="a private address that does not occur in the baseline capture",
+            defaults={"enabled": True},
+            run=_rule_baseline("new_host"),
+            notes=(
+                "Only fires while baseline mode is on, and only when the two captures share "
+                "at least one address - otherwise the comparison is meaningless and "
+                "baseline_no_overlap says so instead."
+            ),
+        ),
+        RuleSpec(
+            rule_id="baseline_new_destination",
+            title="Destination not present in the baseline network",
+            severity="medium",
+            description=(
+                "An internal host sent traffic to an address outside the private ranges that "
+                "the baseline capture never recorded, for any host. New external destinations "
+                "are routine - CDN edges, telemetry, updates - and are reported so the pattern "
+                "is visible next to the host that produced it, not as a judgement about it."
+            ),
+            threshold=(
+                "a source/destination pair absent from the baseline, where the destination is "
+                "not a private address"
+            ),
+            defaults={"enabled": True},
+            run=_rule_baseline("new_destination"),
+        ),
+        RuleSpec(
+            rule_id="baseline_new_service",
+            title="Service not present in the baseline network",
+            severity="medium",
+            description=(
+                "Traffic was sent to a private host on an address/port/transport triple the "
+                "baseline never contained. A listener that was not there when the baseline was "
+                "taken is either a service that was added or a host that moved; both are worth "
+                "knowing, and neither is a conclusion on its own."
+            ),
+            threshold=(
+                "a private host/port/transport triple absent from the baseline capture"
+            ),
+            defaults={"enabled": True},
+            run=_rule_baseline("new_service"),
+        ),
+        RuleSpec(
+            rule_id="baseline_new_dns",
+            title="Queried name not present in the baseline network",
+            severity="low",
+            description=(
+                "A client resolved a name that does not occur anywhere in the baseline capture. "
+                "New names are the most routine novelty there is - a new application, a renewed "
+                "CDN endpoint, a software update - so this is reported at low severity, grouped "
+                "per client, to be read as context rather than as a signal."
+            ),
+            threshold="a queried name the baseline capture never contains",
+            defaults={"enabled": True},
+            run=_rule_baseline("new_dns"),
+        ),
+        RuleSpec(
+            rule_id="baseline_new_sni",
+            title="TLS server name not present in the baseline network",
+            severity="low",
+            description=(
+                "A TLS handshake named a server that the baseline capture never saw. The name is "
+                "what the client asked for; whether the session was legitimate depends on the "
+                "certificate and the surrounding traffic, which this rule does not judge."
+            ),
+            threshold="a TLS server name the baseline capture never contains",
+            defaults={"enabled": True},
+            run=_rule_baseline("new_sni"),
+        ),
+        RuleSpec(
+            rule_id="baseline_new_ja3",
+            title="TLS client fingerprint not present in the baseline network",
+            severity="medium",
+            description=(
+                "A JA3 fingerprint appears that the baseline capture never recorded. A "
+                "fingerprint identifies the client software's TLS settings, so a new one means a "
+                "program that was not talking when the baseline was taken - as often a new "
+                "browser build as anything else."
+            ),
+            threshold="a client JA3 fingerprint the baseline capture never contains",
+            defaults={"enabled": True},
+            run=_rule_baseline("new_ja3"),
+        ),
+        RuleSpec(
+            rule_id="baseline_no_overlap",
+            title="Capture shares no address with the baseline network",
+            severity="medium",
+            description=(
+                "This capture and the baseline have no address in common, so every novelty rule "
+                "stays silent and this finding says why. A capture from a different network is "
+                "not a capture full of anomalies, and reporting one as the other would be the "
+                "worst thing a baseline could do."
+            ),
+            threshold="a capture that shares no address with the baseline capture",
+            defaults={"enabled": True},
+            run=_rule_baseline("no_overlap"),
+            notes=(
+                "The only baseline rule that is meant to fire on a capture that has nothing to "
+                "do with the baseline: it replaces the novelty rules rather than joining them."
+            ),
         ),
     )
 }
@@ -2590,6 +2730,7 @@ __all__ = [
     "SENSITIVE_FIELDS",
     "SUSPICIOUS_PATTERNS",
     "analyze",
+    "baseline",
     "default_config",
     "describe_deviation",
     "finding_id",

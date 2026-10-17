@@ -82,6 +82,8 @@ import type {
   TlsListResponse,
   TlsSession,
   Transport,
+  BaselineStatus,
+  BaselineSummary,
   WiresharkAvailability,
   WiresharkLaunchResult,
 } from '@/types'
@@ -1071,6 +1073,25 @@ export const geoApi = {
  * conversations is meant — never a display filter: the backend composes that, so
  * no request from here can put syntax on a command line.
  */
+/* ------------------------------------------------------------------ */
+/* The baseline network                                                */
+/* ------------------------------------------------------------------ */
+
+export const baselineApi = {
+  /** What the baseline is, whether baseline mode is on, and what it holds. */
+  status: () => request<BaselineStatus>('/baseline'),
+
+  /** Choose the baseline capture (or null to clear it) and/or switch the mode. */
+  update: (payload: { analysis_id?: string | null; enabled?: boolean; label?: string | null }) =>
+    request<BaselineStatus>('/baseline', { method: 'PUT', json: payload }),
+
+  clear: () => request<BaselineStatus>('/baseline', { method: 'DELETE' }),
+
+  /** One capture diffed against the baseline: counts and samples. */
+  compare: (analysisId: string) =>
+    request<BaselineSummary>(`/analyses/${analysisId}/baseline`),
+}
+
 export const wiresharkApi = {
   status: (analysisId: string) =>
     request<WiresharkAvailability>(`/analyses/${analysisId}/wireshark`),

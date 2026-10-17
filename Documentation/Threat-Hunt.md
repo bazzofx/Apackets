@@ -26,7 +26,11 @@ numbers measured from this analysis's own index, and puts the evidence one click
 away.
 
 It is a **triage surface, not a detection engine**: it raises no findings, writes
-nothing to the database and changes nothing about the analysis. Everything it
+nothing to the database and changes nothing about the analysis. The detections that do
+raise findings are the built-in rules run at the end of the pipeline and on **Re-run
+rules** ([Findings.md](Findings.md)) — including the seven
+[baseline rules](Baseline.md), which are the one family that measures this capture
+against another one. Everything it
 shows is an aggregate over rows that already exist — `packets`, `conversations`,
 `dns_queries`, `http_transactions`, `tls_sessions`, `hosts`, `findings` and
 `objects`. Because it reads the index and never the capture, it is fast, it keeps

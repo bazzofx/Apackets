@@ -19,6 +19,7 @@ import {
   Package,
   Radar,
   RefreshCw,
+  Scale,
   ScanSearch,
   Search,
   Server,
@@ -33,7 +34,7 @@ import {
 } from 'lucide-react'
 import StatusChip from '@/components/StatusChip'
 import { useAnalysis, useHealth } from '@/hooks/useAnalysis'
-import { detectionApi, findingsApi, suricataApi } from '@/services/api'
+import { baselineApi, detectionApi, findingsApi, suricataApi } from '@/services/api'
 import { sectionForRoute } from '@/theme/sections'
 import { formatNumber } from '@/utils/format'
 
@@ -189,6 +190,15 @@ export function AppLayout() {
     staleTime: 10_000,
     refetchOnWindowFocus: true,
   })
+  /* Baseline mode, read here so the indicator is on every page rather than only on
+     the one that sets it. Same query key as PCAP Files, so the two cannot disagree. */
+  const baseline = useQuery({
+    queryKey: ['baseline'],
+    queryFn: () => baselineApi.status(),
+    staleTime: 10_000,
+    refetchOnWindowFocus: true,
+  })
+
   const modifiedRules =
     (detectionRules.data?.items ?? []).filter((rule) => rule.modified).length +
     (suricataStats.data?.modified ?? 0)
@@ -364,6 +374,22 @@ export function AppLayout() {
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
+            {baseline.data?.active ? (
+              <Link
+                to="/files"
+                className="chip border-warn/60 bg-warn/15 text-warn hover:border-warn"
+                title={
+                  'Baseline mode is enabled: every analysis is compared against ' +
+                  (baseline.data.baseline?.original_filename ?? 'the baseline capture') +
+                  '. Click to change or switch it off.'
+                }
+              >
+                <Scale size={12} aria-hidden />
+                {/* Exactly 13px, whatever the 2xs token is set to: this indicator has
+                    to be readable at a glance from any page. */}
+                <span className="text-[13px] leading-none">Baseline mode : enabled</span>
+              </Link>
+            ) : null}
             <AnalysisPicker />
             <button
               type="button"

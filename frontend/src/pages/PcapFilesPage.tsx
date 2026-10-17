@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import {
   AlertTriangle,
@@ -8,6 +8,7 @@ import {
   FolderOpen,
   Play,
   RefreshCw,
+  Scale,
   Trash2,
   Upload,
   X,
@@ -23,6 +24,7 @@ import { useAnalysis } from '@/hooks/useAnalysis'
 import {
   ALLOWED_CAPTURE_EXTENSIONS,
   analysesApi,
+  baselineApi,
   isAllowedCaptureFile,
   uploadAnalysis,
   type UploadProgress,
@@ -137,6 +139,40 @@ export function PcapFilesPage() {
     mutationFn: (id: string) => analysesApi.cancel(id),
     onSuccess: () => refresh(),
   })
+
+  /* The baseline: one global capture every later analysis is compared against.
+     Selecting a row here is the whole control surface - the checkbox says which
+     capture describes the network, and baseline mode says whether that comparison
+     is in force. Both live behind /api/baseline so the top bar and this table
+     always agree about it. */
+  const queryClient = useQueryClient()
+  const baseline = useQuery({
+    queryKey: ['baseline'],
+    queryFn: () => baselineApi.status(),
+    staleTime: 10_000,
+  })
+  const invalidateBaseline = () => {
+    void queryClient.invalidateQueries({ queryKey: ['baseline'] })
+    void queryClient.invalidateQueries({ queryKey: ['findings'] })
+    void queryClient.invalidateQueries({ queryKey: ['findings-counts'] })
+  }
+  const setBaseline = useMutation({
+    mutationFn: (payload: { analysis_id?: string | null; enabled?: boolean }) =>
+      baselineApi.update(payload),
+    onSuccess: (status) => {
+      setNotice(
+        status.baseline
+          ? 'Baseline network: ' +
+            status.baseline.original_filename +
+            (status.active
+              ? ' - baseline mode is on, so new analyses are compared against it.'
+              : ' - baseline mode is off.')
+          : 'Baseline cleared. Baseline mode is off.',
+      )
+      invalidateBaseline()
+    },
+  })
+  const baselineId = baseline.data?.baseline?.analysis_id ?? null
 
   const startUpload = useCallback(
     async (file: File) => {
@@ -305,16 +341,72 @@ export function PcapFilesPage() {
         subtitle={
           hasActive
             ? 'analysis in progress — refreshing every 2 seconds'
-            : `${analyses.length} capture${analyses.length === 1 ? '' : 's'}`
+            : `${analyses.length} capture${analyses.length === 1 ? '' : 's'}` +
+              (baseline.data?.active ? ' · baseline mode on' : '')
         }
         flush
         actions={
-          <button type="button" className="btn" onClick={refresh} title="Reload the list">
-            <RefreshCw size={13} aria-hidden />
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <label
+              className="flex items-center gap-1.5 text-2xs text-muted"
+              title={
+                baseline.data?.baseline
+                  ? 'Compare every analysis against ' +
+                    baseline.data.baseline.original_filename
+                  : 'Choose a capture in the Baseline column first'
+              }
+            >
+              <input
+                type="checkbox"
+                checked={Boolean(baseline.data?.enabled)}
+                disabled={!baseline.data?.baseline || setBaseline.isPending}
+                onChange={(event) =>
+                  setBaseline.mutate({ enabled: event.target.checked })
+                }
+              />
+              Baseline mode
+              <span
+                className={clsx(
+                  'chip',
+                  baseline.data?.active
+                    ? 'border-warn/60 bg-warn/15 text-warn'
+                    : 'border-border2 bg-surface2 text-faint',
+                )}
+              >
+                {baseline.data?.active ? 'on' : 'off'}
+              </span>
+            </label>
+            <button type="button" className="btn" onClick={refresh} title="Reload the list">
+              <RefreshCw size={13} aria-hidden />
+              Refresh
+            </button>
+          </div>
         }
       >
+        {baseline.data?.configured ? (
+          <div className="flex items-start gap-2 border-b border-border px-3 py-2 text-2xs text-muted">
+            <Scale size={13} className="mt-0.5 shrink-0 text-warn" aria-hidden />
+            <span className="flex-1">
+              Baseline network: <span className="mono">{baseline.data.baseline?.original_filename}</span>
+              {' '}({formatNumber(baseline.data.baseline?.packet_count ?? 0)} frames).{' '}
+              {baseline.data.active
+                ? 'Every analysis is compared against it: entities this capture never contained are reported as findings.'
+                : 'Baseline mode is off, so nothing is compared until you switch it on.'}{' '}
+              Changing the baseline does not rewrite findings already stored - re-run the rules on an
+              analysis to recompute them.
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-start gap-2 border-b border-border px-3 py-2 text-2xs text-faint">
+            <Scale size={13} className="mt-0.5 shrink-0" aria-hidden />
+            <span className="flex-1">
+              No baseline network is set. Tick a completed capture in the Baseline column and every
+              later analysis will be compared against it - new addresses, destinations, services,
+              names and TLS fingerprints become findings.
+            </span>
+          </div>
+        )}
+
         {isLoading ? (
           <LoadingState label="Loading analyses…" rows={4} />
         ) : analyses.length === 0 ? (
@@ -327,6 +419,7 @@ export function PcapFilesPage() {
               <thead>
                 <tr>
                   <th>File</th>
+                  <th title="The one capture that describes the network">Baseline</th>
                   <th className="text-right">Size</th>
                   <th>Status</th>
                   <th className="text-right">Packets</th>
@@ -357,6 +450,48 @@ export function PcapFilesPage() {
                           {analysis.id === analysisId ? (
                             <span className="chip border-accent/50 bg-accent/15 text-accent2">
                               active
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="checkbox"
+                            checked={baselineId === analysis.id}
+                            disabled={analysis.status !== 'completed' || setBaseline.isPending}
+                            onChange={(event) => {
+                              if (event.target.checked) {
+                                setBaseline.mutate({
+                                  analysis_id: analysis.id,
+                                  enabled: true,
+                                })
+                              } else {
+                                setBaseline.mutate({ analysis_id: null })
+                              }
+                            }}
+                            title={
+                              analysis.status !== 'completed'
+                                ? 'A baseline must be a completed analysis'
+                                : baselineId === analysis.id
+                                  ? 'Stop using this capture as the baseline network'
+                                  : 'Use this capture as the baseline network every new analysis is compared against'
+                            }
+                            aria-label={
+                              'Use ' + analysis.original_filename + ' as the baseline network'
+                            }
+                          />
+                          {baselineId === analysis.id ? (
+                            <span
+                              className="chip border-warn/60 bg-warn/15 text-warn"
+                              title={
+                                baseline.data?.active
+                                  ? 'Every analysis is compared against this capture'
+                                  : 'Selected as the baseline, but baseline mode is off'
+                              }
+                            >
+                              <Scale size={10} aria-hidden />
+                              baseline
                             </span>
                           ) : null}
                         </div>

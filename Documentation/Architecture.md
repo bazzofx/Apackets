@@ -465,6 +465,7 @@ security model and the known limitations.
 | Built-in detection rules and their thresholds | `backend/app/services/detection_engine.py` |
 | The native Suricata-compatible matcher | `backend/app/services/suricata_engine.py`, `suricata_rules.py` |
 | The seventeen Threat Map indicators | `backend/app/services/threat_hunt.py` (see [Threat-Hunt.md](Threat-Hunt.md)) |
+| The global baseline network: profile, comparison, and the seven `baseline_*` rules | `backend/app/services/baseline.py` (see [Baseline.md](Baseline.md)) |
 | Path safety, hashing and the on-disk layout | `backend/app/services/storage.py` |
 | The REST surface | `backend/app/api/*.py` (see [Reference/API.md](Reference/API.md)) |
 | The theme tokens and palettes | `frontend/src/theme/themes.ts`, `ThemeProvider.tsx` |

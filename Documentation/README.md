@@ -73,6 +73,12 @@ The headings below are the five headings the sidebar draws, in its order.
 is [Threat-Hunt.md](Threat-Hunt.md); the seventeen detections each have their own page
 under [ThreatHunter/](ThreatHunter/ThreatHunter.md), starting with the overview.
 
+**Baseline** has no page of its own, because it is not a place: it is the global reference
+network, chosen from the Baseline column on [PCAP Files](PCAP-Files.md) (`/files`), shown
+in the top bar of every page, and reported on [Findings](Findings.md) as findings. It is
+documented in [Baseline.md](Baseline.md), and its API and rule text are
+[`docs/CONTRACT.md`](../docs/CONTRACT.md) §8.
+
 **Hunt** ([Investigate.md](Investigate.md)) is the one section that reads one entity
 rather than the whole capture: it is documented against its own normative
 contract, [`docs/ENTITY_PROFILE.md`](../docs/ENTITY_PROFILE.md).

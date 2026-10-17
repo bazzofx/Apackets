@@ -753,6 +753,13 @@ from the `settings` table under key `detection_config` (JSON), with defaults:
 | `rare_destination_port` | informational | dst port seen once across the capture, outside a known-common list |
 | `repeated_failed_connections` | medium | ≥10 TCP SYN with no SYN/ACK per destination |
 | `indicator_match` | high | traffic matches an analyst-supplied indicator |
+| `baseline_new_host` | high | a private address this capture holds that the baseline never did (capped at 40 findings) |
+| `baseline_new_destination` | medium | a global-unicast destination a source reached that the baseline never did, one finding per source (cap 40) |
+| `baseline_new_service` | medium | a private host answering on a port/transport the baseline never held, one finding per host (cap 40) |
+| `baseline_new_dns` | low | a client resolving names the baseline never queried, one finding per client (cap 40; at most 200 novel names are resolved back to their clients) |
+| `baseline_new_sni` | low | a TLS server name absent from the baseline (cap 40) |
+| `baseline_new_ja3` | medium | a TLS client fingerprint absent from the baseline (cap 40) |
+| `baseline_no_overlap` | medium | exactly one finding explaining that the two captures share no private address, so the six novelty rules stay silent |
 
 Every finding must include a human-readable `reason` stating the observed numbers
 and the threshold, and `recommendation` with concrete next steps.
@@ -798,8 +805,56 @@ finding row).
 `GET /api/analyses/{id}/findings/{finding_id}/context` reports the rule behind a built-in
 finding as `detection_rule` (the counterpart of `rule` for `suricata:<sid>` findings), so the
 interface can name what fired and link to its editor instead of asking the analyst to guess
-which of the ten rules produced the alert.
+which of the built-in rules produced the alert.
 
+### The baseline network
+
+Seven of the rules above (`baseline_*`) compare a capture against **one global reference
+capture** instead of against the capture itself. The reference is chosen from [PCAP Files](../Documentation/PCAP-Files.md)
+and documented in [Baseline.md](../Documentation/Baseline.md); the contract is:
+
+* **Storage.** One row in `settings` under key `baseline_config`, JSON:
+  `{"analysis_id": str|null, "enabled": bool, "label": str|null, "created_at": number|null}`.
+  `enabled` is forced to `false` whenever `analysis_id` is null. No schema change: the
+  `settings` table is the intended home for configuration.
+* **Eligibility.** Only an analysis that is `completed` with `packet_count > 0` may be a
+  baseline. Refusing is deliberate: a baseline that cannot be compared against would make
+  every comparison silently empty.
+* **Profile.** Both captures are reduced to seven sets — `hosts`, `peers` (ordered
+  source|destination pairs), `services` (`dst_ip|port|transport` on `dst_port < 49152`, and for
+  TCP only frames whose `tcp_flags_raw` is exactly 2 — SYN), `dns_names`, `http_hosts`,
+  `sni` and `ja3`. Names are lower-cased. Novelty is the set difference.
+* **Comparability.** Novelty is computed **only** when the two captures share at least one
+  private address (`comparable`). Sharing a public resolver or a CDN edge is not the same
+  network, and treating it as one would report an entire foreign network as new. When the
+  captures do not overlap, the six novelty rules return nothing and `baseline_no_overlap` returns
+  exactly one finding stating the overlap it measured.
+* **Honesty of the envelope.** `compare()` reports `active: false` with a `reason` — never an
+  empty novelty list — when there is no baseline, when baseline mode is off, when the
+  capture *is* the baseline, or when the baseline recorded no addresses. Every finding's
+  `reason` names the reference (label, else file name), its frame count, how many addresses
+  it recorded and how many of this capture's it shares; `evidence` repeats that as
+  `baseline` / `capture` / `overlap` / `novel_kind` / `novel_count` / `sample`.
+  The language stays investigative: novelty is reported, intent is not.
+* **Staleness.** A baseline change is a pointer change. Findings already stored keep the
+  reference they ran with until the analysis is re-run
+  (`POST /api/analyses/{id}/findings/rescan`). The rules read only the index, so a rescan
+  does not need the capture file.
+* **Caps.** 40 findings per rule, 40 samples per evidence list, 10 frame numbers per
+  finding, and four memoised profiles and comparisons per process (dropped on every
+  configuration write).
+
+Endpoints (`backend/app/api/routes_baseline.py`):
+
+| Method and path | Body | Returns |
+|---|---|---|
+| `GET /api/baseline` | — | `configured`, `enabled`, `active`, `reason`, `label`, `created_at`, `baseline` (id, filename, status, packet_count, created_at) and `counts` per profile kind. |
+| `PUT /api/baseline` | `analysis_id`?, `enabled`?, `label`? — merged over the current configuration | the same shape as `GET`. |
+| `DELETE /api/baseline` | — | the same shape, with `configured: false`. |
+| `GET /api/analyses/{analysis_id}/baseline` | — | `active`, `comparable`, `baseline`, `capture`, `overlap`, `novel_counts` and the capped `novel` lists. Applies the readiness gate. |
+
+Errors on `PUT`: `400 analysis_not_found` (unknown id), `400 analysis_not_ready` (status in
+  `details`), `400 analysis_empty` (no packets indexed).
 ### "Not at its default", and restoring
 
 Both rule families report the same two things, because an analyst needs to know when a

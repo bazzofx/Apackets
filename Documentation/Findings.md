@@ -562,6 +562,20 @@ and nothing else. Specifically:
 The page then invalidates the findings list, the rule catalogue, the finding context, the
 findings counts and the dashboard summary, so everything visible re-reads.
 
+**Re-run rules is also how a baseline change reaches this page.** The seven
+[baseline rules](Baseline.md) compare the capture against whatever reference was configured
+*when they ran*, and they write ordinary `findings` rows, so:
+
+* changing the baseline (or switching baseline mode on) does **not** touch findings that
+  are already stored — the old rows keep the reference they were measured with, named in
+  their own `reason` text;
+* a rescan recomputes them against the current baseline, and with baseline mode off the
+  seven rules produce nothing at all, so their rows disappear;
+* a rescan never needs the capture file and never re-uploads anything — the profile it
+  compares is read from the index (`packets`, `dns_queries`, `http_transactions`,
+  `tls_sessions`), which is exactly why it can run on a capture whose upload has been
+  purged.
+
 ## 5. Links into the rest of the app
 
 | Element | Opens |
@@ -588,10 +602,17 @@ findings counts and the dashboard summary, so everything visible re-reads.
   pagination, so on a capture with more than 500 findings the list holds only the first 500 in
   backend order (severity, then rule id, then id) — the panel header still shows the true
   filtered total, and the footer says "500 of N".
-* **The rule dropdown only lists built-in rules.** `GET /findings/rules` enumerates the ten
+* **The rule dropdown only lists built-in rules.** `GET /findings/rules` enumerates the
+  seventeen
   built-in rules, so `suricata:<sid>` never appears in it and cannot be selected; the only way to
   isolate IDS matches on this page is the **Suricata only** checkbox, which filters the rows that
   were already loaded — so it can never reveal a Suricata match beyond the 500-row list.
+* **Baseline findings describe a relationship, not this capture alone.** A finding from
+  one of the seven [baseline rules](Baseline.md) is a statement about *two* captures, and
+  the row cannot be understood without the reference it names. Change the baseline and the
+  stored rows still cite the old one; delete the baseline capture and they keep citing a
+  file that no longer exists, until the rules are re-run. This page shows the finding, not
+  the comparison behind it — `GET /api/analyses/{id}/baseline` does that.
 * **Severity chip counts ignore the other filters.** They are a `GROUP BY severity` over the
   whole analysis, so with a search or rule filter active they describe a different set from the
   list, and the `all` chip is the sum of the four rather than the row count.
