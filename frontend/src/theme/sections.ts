@@ -317,7 +317,7 @@ export const SECTIONS = {
     group: 'Settings',
     label: 'Alert Settings',
     purpose:
-      'The rules that decide what a capture flags: the built-in heuristics with their thresholds, and the imported signatures - each showing whether it still runs what shipped.',
+      'What decides what a capture flags: the built-in heuristics and their thresholds, the imported signatures, the credential stage they read, and the indicators they match - each showing whether it is still what shipped.',
     icon: SlidersHorizontal,
     /* Every chart hue and every semantic token is already a section's accent, so a
        sibling of Settings has to reuse one. Chart 6 belongs to Files and Objects,
@@ -331,7 +331,7 @@ export const SECTIONS = {
     group: 'Settings',
     label: 'Settings',
     purpose:
-      'The configuration in force, the limits you can change at runtime, indicators, Suricata rules and themes.',
+      'The configuration in force, the limits you can change at runtime, and the four colour themes.',
     icon: SettingsIcon,
     hueVar: '--c-accent2',
     variant: 'split',

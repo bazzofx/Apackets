@@ -762,7 +762,9 @@ verdict ("is malware", "attack confirmed").
 ### Editing the configuration
 
 These endpoints back the **Alert Settings** page (`/alert-settings`), which the sidebar lists
-beside Settings.
+beside Settings. That page also hosts the credential stage's switch (`PUT /api/settings` with
+`credential_scan_enabled` / `credential_protocols`) and the indicator list (`/api/indicators`) as
+its third and fourth tabs.
 
 The `detection_config` row is written only by `PUT /api/detection/rules/{rule_id}`
 (`backend/app/api/routes_detection.py`). The rule ids, the threshold keys and the type of

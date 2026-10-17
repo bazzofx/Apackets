@@ -534,7 +534,7 @@ function ViewToggle({ view, onChange }: { view: View; onChange: (view: View) => 
         <button
           key={option}
           type="button"
-          className={clsx('btn px-2 py-1', view === option && 'btn-primary')}
+          className={clsx('btn btn-tab', view === option && 'btn-primary')}
           onClick={() => onChange(option)}
           title={
             option === 'sessions'

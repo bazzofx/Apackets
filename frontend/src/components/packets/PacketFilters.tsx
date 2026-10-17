@@ -555,7 +555,7 @@ export function PacketFilterBar({
         <span className="flex items-center gap-1" role="group" aria-label="Filter mode">
           <button
             type="button"
-            className={clsx('btn px-2 py-1', !advanced && 'btn-primary')}
+            className={clsx('btn btn-tab', !advanced && 'btn-primary')}
             onClick={() => onChange({ mode: 'basic' })}
             title="Filter with the typed fields (indexed SQL predicates)"
             aria-pressed={!advanced}
@@ -565,7 +565,7 @@ export function PacketFilterBar({
           </button>
           <button
             type="button"
-            className={clsx('btn px-2 py-1', advanced && 'btn-primary')}
+            className={clsx('btn btn-tab', advanced && 'btn-primary')}
             onClick={() => onChange({ mode: 'advanced' })}
             title="Filter with raw Wireshark display-filter syntax"
             aria-pressed={advanced}

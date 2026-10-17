@@ -1,12 +1,12 @@
 # Settings
 
 The configuration page (`/settings`): what the backend is actually running with, the handful of
-values an analyst may change, the **Users & Passwords** discovery switch and its protocol
-selection, the indicators the detection engine matches against, and the four colour themes.
+values an analyst may change, and the four colour themes.
 
-The rule tables that used to live here - the built-in detection rules and the imported Suricata
-signatures - are now their own page, [Alert Settings](Alert-Settings.md) (`/alert-settings`), with
-its own sidebar entry. This document covers what remains.
+Everything to do with detection that used to live here - the built-in rules, the imported
+signatures, the Users & Passwords discovery switch and the indicator list - is now its own page,
+[Alert Settings](Alert-Settings.md) (`/alert-settings`), with its own sidebar entry. This document
+covers what remains: the installation's own configuration.
 
 The component is `frontend/src/pages/SettingsPage.tsx`, with
 `frontend/src/components/ThemePanel.tsx` as its large piece. Like
@@ -17,15 +17,14 @@ with no capture selected.
 
 ## 1. What it is for
 
-It answers three questions an analyst has to be able to answer before trusting a figure
-elsewhere in the application: *what is this build configured to do?*, *what does the
-detector treat as suspicious?*, and *which threshold am I looking at?* It is also the only
-place where configuration can be changed without editing files, and the only place where
-analyst-supplied indicators are entered.
+It answers the question an analyst has to be able to answer before trusting a figure elsewhere
+in the application: *what is this build configured to do?* It is also the only place where an
+installation setting can be changed without editing files. What the detector treats as
+suspicious, and what it is told to watch for, are on [Alert Settings](Alert-Settings.md).
 
 ## 2. What is on the screen
 
-Six panels, in this order.
+Four panels, in this order.
 
 ### 2.1 Theme
 
@@ -180,103 +179,7 @@ means setting `APACKETS_MAX_OBJECT_BYTES`, `APACKETS_BODY_PREVIEW_BYTES` or
 mechanism documented in [Getting-Started.md](Getting-Started.md). See §5 for the rest of the
 start-up-only settings.
 
-### 2.4 Users & Passwords discovery
-
-Panel title *Users & Passwords discovery* — the visible name matches the sidebar entry, which is
-the [Users & Passwords](Credentials.md) page. Subtitle: *the cleartext credential stage's own
-switch and protocol selection (docs/CREDENTIALS.md §7)*. A **Save Users & Passwords settings**
-button sits in the panel header and is enabled only while the block differs from what the settings
-payload currently holds.
-
-| Control | Setting | Default | Meaning |
-|---|---|---|---|
-| *search new analyses for cleartext credentials* (checkbox) | `credential_scan_enabled` | checked | With it off, the pipeline **skips the stage** and writes no rows at all |
-| Protocol checkboxes: HTTP, FTP, SMTP, POP3 and IMAP | `credential_protocols` | all five | Which protocols' locations the scanner reads. An empty selection means **none**, not "all" |
-
-Both live in the `settings` table under `credential_config` and are saved through the same
-`PUT /api/settings` the Editable settings panel uses, but in **their own request**: the save
-sends only the two credential keys, so editing one block can never submit the other's fields.
-What the controls show is read from `GET /api/settings` on every render, and an unsaved edit
-is held beside it — so the block draws the real configuration on the first frame, and a change
-that is toggled back by hand leaves the form clean again (the save button is enabled only while
-the edit differs from the payload). An unsaved change is labelled *Unsaved change — the pipeline
-keeps using the settings below until Save Users & Passwords settings is pressed*, and a successful
-save writes the response's settings view into the page's settings query and reads *Saved at
-`YYYY-MM-DD HH:MM:SS.mmm` — applied to analyses started after the save; what was already found is
-untouched*.
-
-If the settings API returns neither `credential_scan_enabled` nor `credential_protocols`, the
-panel says so instead of drawing the controls: showing the contract's defaults would describe
-the contract rather than this installation. When exactly one of the two keys is missing, the
-other is shown and the missing one falls back to its documented default. The list of protocol
-checkboxes is `credential_protocols_available` from the same payload — the protocols this backend
-will accept — falling back to the contract's five when the payload does not carry it, so the
-block cannot offer a protocol the server would reject.
-
-Directly under the panel, the block's explanation is a **collapsed help card**
-(`ScopeNote`, the same component the protocol pages and the Users & Passwords page use), titled
-*What switching Users & Passwords discovery off does, and does not do*. It states that the switch
-governs future analyses, that the protocol selection narrows where the scanner looks, and
-three things it is not: **nothing is deleted** (the rows an earlier run found stay in the
-analysis and stay readable on the [Users & Passwords](Credentials.md) page, which reports the
-setting's state beside them so the two cannot be confused), it cannot read anything encrypted
-— not with the scan on — and it is not a new capture pass, because the scanner reads the rows
-the other analysers already stored.
-
-### 2.5 Indicators
-
-Subtitle: *analyst-supplied indicators matched by the indicator_match rule (global scope)*,
-with the total indicator count as a chip in the header.
-
-The entry row is a toolbar of four controls:
-
-| Control | Notes |
-|---|---|
-| Type select | `ip`, `domain`, `port`, `ja3`, `ja4`, `ua`, `sha256` — in that order. |
-| Value input | Placeholder changes with the type: `10.0.0.9`, `c2.example.net`, `4444`, a full `771,4865-4866-4867,0-23-65281-10-11,29-23-24,0` JA3 string, a `t13d1516h2_8daaf6152771_b186095e22b6` JA4 string, `Mozilla/5.0 (compatible; suspicious-agent)`, or a 64-character SHA-256. |
-| Note input | *note (optional, shown in the finding)* |
-| Add indicator | Sends the indicator; disabled while the request is in flight. |
-
-Validation happens in two places. The browser refuses an empty value (*An indicator needs a
-value.*), a `port` that is not an integer between `1` and `65535`, and an `ip` containing a
-space. The server enforces the same type list, a non-empty value, and a port between `0` and
-`65535` — so a port of `0` is refused by the page but would be accepted by the API.
-
-The indicator table:
-
-| Column | Content |
-|---|---|
-| Type | An accent chip with the type as stored (lower-cased). |
-| Value | Truncated to 360 px, full value in the tooltip. |
-| Note | Clamped to a fixed width and truncated, with the full note in the tooltip; `—` when absent. |
-| Scope | The row's `analysis_id`, or the word `global` when it is null. |
-| Added | `created_at` as `YYYY-MM-DD HH:MM:SS.mmm`. |
-| Actions | **Delete**, which removes the row with no confirmation. |
-
-There is no edit: an indicator is added and deleted, never amended. When the table is empty
-the panel reads *No indicators defined. Indicators you add here are matched against every
-analysis.*
-
-Where indicators are consumed: the built-in detection engine's rule 10, `indicator_match`,
-reads `WHERE analysis_id IS NULL OR analysis_id = ?` — every global indicator plus the ones
-scoped to the capture being analysed — caps the loop at
-`MAX_FINDINGS_PER_RULE = 60` indicators per analysis, and skips any row whose type is not in
-`{"ip", "domain", "port", "ja3", "ja4", "ua", "sha256"}`. Each match becomes a finding whose
-reason text names the indicator's id, scope, type and value, and whose evidence carries the
-indicator's note, the table it matched in, the number of matching rows and the earliest
-match's timestamp.
-
-Measured on the library in `data/`: **6 indicators** — three global (`ip 192.168.1.50`,
-`ip 203.0.113.250`, a `sha256`) and three scoped to the fixture analysis
-`detect_verify.pcap` (`port 8443`, `domain nope3.example.com`, `ua sqlmap/1.7`).
-
-Important: `GET /api/indicators` is called with no `analysis_id`, which returns **every** row
-in the table. The three analysis-scoped indicators therefore appear in this list labelled
-with their analysis id, even though `indicator_match` will never apply them to any other
-capture. There is no control on this page to choose the scope, so anything added here is
-always global.
-
-### 2.6 Local-only operation
+### 2.4 Local-only operation
 
 Four static statements, not data read from the backend: that capture files, decoded packets,
 extracted objects, hashes and findings never leave the machine and that the frontend talks
@@ -292,8 +195,6 @@ a command line.
 | Panel | Call | Route module |
 |---|---|---|
 | Effective settings, Editable settings | `GET /api/settings`, `PUT /api/settings` | `backend/app/api/routes_settings.py` |
-| Users & Passwords discovery | `GET /api/settings`, `PUT /api/settings` (only `credential_scan_enabled` and `credential_protocols`) | `routes_settings.py`; the stage itself is `backend/app/services/credential_analyzer.py` |
-| Indicators | `GET /api/indicators`, `POST /api/indicators`, `DELETE /api/indicators/{id}` | `routes_settings.py` |
 | Theme | *no API call at all* — `localStorage` and `frontend/src/theme/themes.ts` | — |
 
 The client wrapper is `settingsApi` in `frontend/src/services/api.ts`. The theme needs no
@@ -304,8 +205,7 @@ Tables behind the page:
 
 | Table | Supplies |
 |---|---|
-| `settings` | The runtime overrides, under the keys `app_settings` (the five editable values) and `credential_config` (`credential_scan_enabled`, `credential_protocols`). All are read through `runtime_settings.load_overrides()`. The rule and matcher configuration lives in the same table under its own keys and is documented in [Alert Settings](Alert-Settings.md). |
-| `indicators` | The whole indicator table: `type`, `value`, `note`, `created_at`, and `analysis_id` which is NULL for global rows. |
+| `settings` | The runtime overrides, under the key `app_settings` (the five editable values), read through `runtime_settings.load_overrides()`. The detection, matcher and credential configuration lives in the same table under its own keys and is documented in [Alert Settings](Alert-Settings.md). |
 
 The effective settings view is assembled by `runtime_settings.effective()`, which resolves
 each editable key through `_int_value()` — clamp to the key's bound, fall back to the value
@@ -316,26 +216,16 @@ and `telemetry: false`.
 
 ## 4. Links into the rest of the app
 
-Settings is mostly a leaf: the theme panel and both configuration panels open nothing, and
-the indicator table has no drill-down.
+Settings is a leaf: nothing on it opens another page. Every control writes in place and reports
+the save beside itself.
 
-| Element | Opens |
-|---|---|
-| **Save Users & Passwords settings** | Nothing — it writes the two credential keys and the panel reports the save in place |
-| Anything on the surface-setting or theme panels | Nothing — the change applies in place |
+The only inbound link is the sidebar's Settings item, which is present on every page.
 
-Two inbound links matter, because they are how this page is reached in practice:
-
-* The [Users & Passwords](Credentials.md) page links here from its disabled-scan panel and from
-  both of its empty states, because the switch this panel edits is the reason those states exist.
-* The sidebar's Settings item, which is present on every page.
-
-The rule tables that were documented here have moved to
-[Alert Settings](Alert-Settings.md), including the two deep links the Findings workbench uses
-(`/alert-settings?sid=<n>` and `/alert-settings?rule=<rule_id>`).
+Everything that was documented here about the detector - the rule tables, the credential
+switch, the indicators and the deep links the Findings workbench uses - has moved to
+[Alert Settings](Alert-Settings.md).
 
 ## 5. Limits and honest caveats
-
 * **Only `max_upload_mb` really takes effect without a restart.** See §2.3. The other three
   numeric fields are saved and displayed as effective, while `object_extractor`,
   `http_analyzer` and `tshark` keep using the values `app.core.config.Settings` captured at
@@ -366,54 +256,13 @@ The rule tables that were documented here have moved to
   hues keep their vocabulary (`informational`, `low`, `medium`, `high`) and their relative
   reading in every palette, but the eight *chart* hues differ per theme — so a series colour
   seen in one palette does not identify the same series in another.
-* **Indicators cannot be edited or scoped from this page.** They are added and deleted only,
-  every one added here is global, and a delete has no confirmation and no undo. Deleting an
-  analysis also deletes the indicators scoped to it — `delete_analysis` clears
-  `indicators WHERE analysis_id = ?`, which cannot touch the global rows because NULL never
-  matches an equality test.
-* **The indicator list mixes scopes.** The panel asks for every indicator and shows each
-  row's `analysis_id`. A row scoped to another capture looks like an ordinary entry but will
-  never match anything except that capture, and nothing on the screen says so.
-* **An indicator match is a lead, not a verdict.** The rule's own reason text says the value
-  was supplied by an analyst rather than derived from traffic behaviour, so a match has to be
-  confirmed to resolve to the same entity the indicator was collected from before it is acted
-  on. A port indicator matches any packet carrying that port as source or destination, which
-  is a much weaker statement than "this service was used".
-* **Indicator matching is capped.** `indicator_match` evaluates at most
-  `MAX_FINDINGS_PER_RULE = 60` indicators per analysis, in `id` order, so on a long indicator
-  list later rows are not evaluated at all and the findings give no hint of it.
-* **Nothing here validates the indicators against reality.** There is no duplicate detection for
-  indicators, no check that an indicator is still the entity it was collected from, and no
-  warning when two rows name the same value under different types.
-* **The Users & Passwords switch is a setting, not a purge.** Turning `credential_scan_enabled`
-  off stops the stage in analyses started afterwards; it deletes no row that an earlier run wrote,
-  and the [Users & Passwords](Credentials.md) page keeps listing those rows while reporting that
-  the setting is off. An empty credentials table for such an analysis is a statement about the
-  setting, not about the capture.
-* **An empty protocol selection means none, not all.** `credential_protocols` is a positive
-  list: unticking all five leaves the scanner with nothing to read, and the Users & Passwords page
-  states that as its own case rather than presenting an empty table. The two keys are
-  independent — the master switch does not clear the protocol list, and the protocol list does
-  not re-enable the switch.
-* **Nothing on this panel decrypts anything.** The scanner reads the locations
-  [`docs/CREDENTIALS.md`](../docs/CREDENTIALS.md) §2 defines — cleartext HTTP fields and
-  FTP/SMTP/POP3/IMAP authentication commands — and never examines TLS, SSH or SMB-signed
-  traffic. Switching discovery on cannot change that, and the panel says so.
-* **This panel reports what the settings API exposes.** If the payload carries neither
-  `credential_scan_enabled` nor `credential_protocols`, the block states that it can neither
-  show nor change them rather than drawing the contract's defaults as this installation's
-  configuration. The saved values come from the response's own settings view, so a server that
-  stores something other than what was sent is shown as it stored it.
 
 ## 6. Related
 
 The upload limit and the retention flag this page edits are consumed by
-[PCAP-Files.md](PCAP-Files.md); the indicators feed the `indicator_match` rule documented in
-[Findings.md](Findings.md) and configured here; and the rules themselves - the signature half of
-[Threat-Hunt.md](Threat-Hunt.md) - are on [Alert Settings](Alert-Settings.md). The credential
-switch and protocol list this page edits are the subject of
-[Users & Passwords](Credentials.md) and specified in
-[`docs/CREDENTIALS.md`](../docs/CREDENTIALS.md). The environment
-variables that are the real controls for start-up-only settings are listed in
-[Getting-Started.md](Getting-Started.md), and the endpoints this page calls are specified in
-[Reference/API.md](Reference/API.md).
+[PCAP-Files.md](PCAP-Files.md). Everything about the detector - the built-in rules, the imported
+signatures, the credential stage's switch and the indicators - is on
+[Alert Settings](Alert-Settings.md); what those produce is documented in [Findings.md](Findings.md)
+and [Threat-Hunt.md](Threat-Hunt.md). The environment variables that are the real controls for
+start-up-only settings are listed in [Getting-Started.md](Getting-Started.md), and the endpoints
+this page calls are specified in [Reference/API.md](Reference/API.md).

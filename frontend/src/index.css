@@ -543,6 +543,17 @@
     @apply border-transparent bg-transparent hover:border-border hover:bg-surface2;
   }
 
+  /* A tab or a segmented-control option.
+     Same shape as a button, set one size up: a strip of these is navigation, not a
+     row of actions, and the extra size is what says so before the labels are read.
+     The line-height is set with the size because .btn's text-xs carries its own,
+     which would be too tight under 1.1rem text. */
+  .btn-tab {
+    @apply px-2 py-1;
+    font-size: 1.1rem;
+    line-height: 1.4;
+  }
+
   .input {
     @apply w-full rounded border border-border px-2.5 py-1.5 text-xs text-text
            placeholder:text-faint focus:border-accent focus:outline-none;

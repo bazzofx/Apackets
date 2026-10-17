@@ -1,20 +1,22 @@
 # Alert Settings
 
-The rule-management page (`/alert-settings`): the two families of rule that decide what a
-capture flags, each showing whether it is still running what shipped, and each restorable to its
-default.
+The detection page (`/alert-settings`): the four things that decide what a capture flags - the
+two families of rule, the credential stage they read, and the indicators they match - each rule
+showing whether it is still running what shipped, and each restorable to its default.
 
 The component is `frontend/src/pages/AlertSettingsPage.tsx`, which renders
-`frontend/src/components/AlertRulesSection.tsx` - the tab bar and the shared explanation -
-around `frontend/src/components/DetectionRulesPanel.tsx` and
-`frontend/src/components/SuricataRulesPanel.tsx`. Like [Settings](Settings.md) it is **not**
-wrapped in `AnalysisGuard`: the rules are configuration, so the page is fully readable with no
+`frontend/src/components/AlertRulesSection.tsx` - the tab bar and the shared explanation - around
+`frontend/src/components/DetectionRulesPanel.tsx`,
+`frontend/src/components/SuricataRulesPanel.tsx`,
+`frontend/src/components/UsersPasswordsPanel.tsx` and
+`frontend/src/components/IndicatorsPanel.tsx`. Like [Settings](Settings.md) it is **not** wrapped
+in `AnalysisGuard`: everything here is configuration, so the page is fully readable with no
 capture selected; only the per-capture features (hit counts, **Re-run on capture**) need one.
 
 It belongs beside Settings rather than inside it because it is not configuration in the same
-sense: Settings holds the knobs of this installation, while these two tables *are* the detector,
-and reading them is how anyone checks that what shipped is what is running. The section lived on
-`/settings` until it was given its own page and its own sidebar entry.
+sense: Settings holds the knobs of this installation, while these four tabs *are* the detector.
+The two rule tables and, later, the credential switch and the indicator list all lived on
+`/settings` until they were given this page and its own sidebar entry.
 
 ---
 
@@ -23,12 +25,13 @@ and reading them is how anyone checks that what shipped is what is running. The 
 It answers the question that comes before trusting any finding: *what is this installation
 actually looking for, and is it still what it shipped with?* Every rule is shown with its current
 state, the page's verdict on whether that state is the default one, and a way back to the default
-when it is not.
+when it is not. The two input tabs answer the other half of the same question: *what is it reading,
+and what has an analyst told it to watch for?*
 
 Two conventions hold across the whole page:
 
-* **Amber means "not at its defaults"** - a tinted row, a `modified` chip naming what moved, and
-  a count on the family's tab. It is the only amber on the page and it means nothing else.
+* **Amber means "not at its defaults"** - a tinted row, a `modified` chip naming what moved, and a
+  count on the tab. It is the only amber on the page and it means nothing else.
 * **Restore is one click away, and only offered where a default exists.** A signature that was
   uploaded has no vendored file to go back to, so its Restore button says so and stays disabled
   instead of inventing one.
@@ -36,38 +39,49 @@ Two conventions hold across the whole page:
 ## 2. What is on the screen
 
 A page headline (the sidebar group *Settings*, the title *Alert Settings*, the one-line purpose
-and the local-only note the shell draws), then one panel holding a two-tab section.
+and the local-only note the shell draws), then one panel holding a four-tab strip.
 
-### 2.1 The two rule families
 
-The two rule panels are **tabs of one section**, not two stacked cards. The section header reads
-*Alert rules* - *everything the analyser flags - rows tinted amber are not running their
-defaults* - and carries one button per family:
+### 2.1 The four tabs
 
-| Tab | Panel | Subtitle of the panel below it |
+The page is **one tab strip**: the two rule tables that decide what fires, and the two inputs
+those tables read. Nothing is stacked, so tuning a detection threshold can no longer happen
+out of sight of the 1,600-row signature table below it.
+
+| Tab | What it shows | Badge |
 |---|---|---|
-| **Detection rules** | The ten built-in heuristics (2.2) | *built-in heuristics run over every capture - view, enable/disable and tune thresholds* |
-| **Suricata rules** | The imported signature set (2.3) | *signature-based detections evaluated against this capture's indexed fields* |
+| **Detection rules** | The ten built-in heuristics (2.2) | The rule count, plus an amber count of rules not at their defaults |
+| **Suricata rules** | The imported signature set (2.3) | The rule count, plus an amber count of rules not at their defaults |
+| **Users & Passwords** | The cleartext credential stage's switch and protocol selection (2.4) | none |
+| **Indicators** | The analyst-supplied values `indicator_match` looks for (2.5) | none |
 
-Each tab button shows the family's rule count in muted monospace and, **when any rule in that
-family is not at its default**, an amber chip with that count and the tooltip *N rule(s) in this
-family are not at their defaults*. So the state of both families is visible without opening
-either tab - which is the point: the panels used to be stacked, and a tuned detection threshold
-sat above a 1,600-row signature table that nobody scrolled to.
+The last two are here rather than in Settings because they are detection *input*, not
+configuration of the installation: the credential switch decides whether a detection stage runs
+at all, and an indicator is the only reason a rule can fire. A tab that can be "not at its
+default" shows that count in amber; the two input tabs have no such notion, so they carry no
+badge.
 
-The tab is in the URL as `rules=detection` or `rules=suricata`, so a reload or a copied link
-keeps the tab. It also settles the two deep links the Findings page uses: `sid=<n>` opens the
-**Suricata rules** tab and `rule=<rule_id>` the **Detection rules** tab, because a finding's own
-link always means that rule rather than whichever tab was open last. Switching tabs by hand drops
-the other family's deep link from the URL, so the address bar never describes a rule that is not
-on screen.
+Every tab is a `btn btn-tab` (amber-badged or not, and the selected one adds `btn-primary`).
+`.btn-tab` is the application's one definition of a tab or segmented-control option: it is
+`.btn` with the padding tightened to `px-2 py-1` and the type set at **1.1rem** on a 1.4
+line-height, so a strip of them reads as navigation rather than as a row of action buttons. The
+same class is what the Findings tabs, the DNS and TLS *View* toggles and the Packets
+*Basic / Advanced* switch use, so all five strips are one size.
 
-Under the tabs sits one explanatory line, identical for both families: both are decisions this
-installation makes about your traffic, each panel states what it can change and what it cannot,
-and **Restore** puts a rule back to its default - the vendored text for a signature, the
+The tab is in the URL as `rules=detection`, `rules=suricata`, `rules=credentials` or
+`rules=indicators`, so a reload or a copied link keeps it. It also settles the two deep links the
+Findings page uses: `sid=<n>` opens the **Suricata rules** tab and `rule=<rule_id>` the
+**Detection rules** tab, because a finding's own link always means that rule rather than
+whichever tab was open last. Switching tabs by hand drops the other tab's deep link from the URL,
+so the address bar never describes a rule that is not on screen.
+
+Under the tabs sits one explanatory line: everything here is a decision this installation makes
+about your traffic, so everything here is editable, and each tab states what it can change and
+what it cannot - a signature's text and a heuristic's thresholds are editable, a heuristic's
+logic is not. **Restore** puts a rule back to its default: the vendored text for a signature, the
 documented thresholds for a heuristic.
 
-**Amber is the "not at defaults" signal, in both tabs.** A row is tinted (`bg-warn/[0.07]`) and
+**Amber is the "not at defaults" signal, in both rule tabs.** A row is tinted (`bg-warn/[0.07]`) and
 carries a `modified` chip whose tooltip names exactly what moved, and each panel's header reports
 how many rules are in that state. The colour is only ever this one and only ever means this one
 thing - *this row is not what shipped* - so it cannot be confused with severity, with the
@@ -245,6 +259,102 @@ can only be changed by calling the API directly.
 
 ---
 
+### 2.4 Users & Passwords discovery
+
+Panel title *Users & Passwords discovery* — the visible name matches the sidebar entry, which is
+the [Users & Passwords](Credentials.md) page. Subtitle: *the cleartext credential stage's own
+switch and protocol selection (docs/CREDENTIALS.md §7)*. A **Save Users & Passwords settings**
+button sits in the panel header and is enabled only while the block differs from what the settings
+payload currently holds.
+
+| Control | Setting | Default | Meaning |
+|---|---|---|---|
+| *search new analyses for cleartext credentials* (checkbox) | `credential_scan_enabled` | checked | With it off, the pipeline **skips the stage** and writes no rows at all |
+| Protocol checkboxes: HTTP, FTP, SMTP, POP3 and IMAP | `credential_protocols` | all five | Which protocols' locations the scanner reads. An empty selection means **none**, not "all" |
+
+Both live in the `settings` table under `credential_config` and are saved through the same
+`PUT /api/settings` the Editable settings panel uses, but in **their own request**: the save
+sends only the two credential keys, so editing one block can never submit the other's fields.
+What the controls show is read from `GET /api/settings` on every render, and an unsaved edit
+is held beside it — so the block draws the real configuration on the first frame, and a change
+that is toggled back by hand leaves the form clean again (the save button is enabled only while
+the edit differs from the payload). An unsaved change is labelled *Unsaved change — the pipeline
+keeps using the settings below until Save Users & Passwords settings is pressed*, and a successful
+save writes the response's settings view into the page's settings query and reads *Saved at
+`YYYY-MM-DD HH:MM:SS.mmm` — applied to analyses started after the save; what was already found is
+untouched*.
+
+If the settings API returns neither `credential_scan_enabled` nor `credential_protocols`, the
+panel says so instead of drawing the controls: showing the contract's defaults would describe
+the contract rather than this installation. When exactly one of the two keys is missing, the
+other is shown and the missing one falls back to its documented default. The list of protocol
+checkboxes is `credential_protocols_available` from the same payload — the protocols this backend
+will accept — falling back to the contract's five when the payload does not carry it, so the
+block cannot offer a protocol the server would reject.
+
+Directly under the panel, the block's explanation is a **collapsed help card**
+(`ScopeNote`, the same component the protocol pages and the Users & Passwords page use), titled
+*What switching Users & Passwords discovery off does, and does not do*. It states that the switch
+governs future analyses, that the protocol selection narrows where the scanner looks, and
+three things it is not: **nothing is deleted** (the rows an earlier run found stay in the
+analysis and stay readable on the [Users & Passwords](Credentials.md) page, which reports the
+setting's state beside them so the two cannot be confused), it cannot read anything encrypted
+— not with the scan on — and it is not a new capture pass, because the scanner reads the rows
+the other analysers already stored.
+
+### 2.5 Indicators
+
+Subtitle: *analyst-supplied indicators matched by the indicator_match rule (global scope)*,
+with the total indicator count as a chip in the header.
+
+The entry row is a toolbar of four controls:
+
+| Control | Notes |
+|---|---|
+| Type select | `ip`, `domain`, `port`, `ja3`, `ja4`, `ua`, `sha256` — in that order. |
+| Value input | Placeholder changes with the type: `10.0.0.9`, `c2.example.net`, `4444`, a full `771,4865-4866-4867,0-23-65281-10-11,29-23-24,0` JA3 string, a `t13d1516h2_8daaf6152771_b186095e22b6` JA4 string, `Mozilla/5.0 (compatible; suspicious-agent)`, or a 64-character SHA-256. |
+| Note input | *note (optional, shown in the finding)* |
+| Add indicator | Sends the indicator; disabled while the request is in flight. |
+
+Validation happens in two places. The browser refuses an empty value (*An indicator needs a
+value.*), a `port` that is not an integer between `1` and `65535`, and an `ip` containing a
+space. The server enforces the same type list, a non-empty value, and a port between `0` and
+`65535` — so a port of `0` is refused by the page but would be accepted by the API.
+
+The indicator table:
+
+| Column | Content |
+|---|---|
+| Type | An accent chip with the type as stored (lower-cased). |
+| Value | Truncated to 360 px, full value in the tooltip. |
+| Note | Clamped to a fixed width and truncated, with the full note in the tooltip; `—` when absent. |
+| Scope | The row's `analysis_id`, or the word `global` when it is null. |
+| Added | `created_at` as `YYYY-MM-DD HH:MM:SS.mmm`. |
+| Actions | **Delete**, which removes the row with no confirmation. |
+
+There is no edit: an indicator is added and deleted, never amended. When the table is empty
+the panel reads *No indicators defined. Indicators you add here are matched against every
+analysis.*
+
+Where indicators are consumed: the built-in detection engine's rule 10, `indicator_match`,
+reads `WHERE analysis_id IS NULL OR analysis_id = ?` — every global indicator plus the ones
+scoped to the capture being analysed — caps the loop at
+`MAX_FINDINGS_PER_RULE = 60` indicators per analysis, and skips any row whose type is not in
+`{"ip", "domain", "port", "ja3", "ja4", "ua", "sha256"}`. Each match becomes a finding whose
+reason text names the indicator's id, scope, type and value, and whose evidence carries the
+indicator's note, the table it matched in, the number of matching rows and the earliest
+match's timestamp.
+
+Measured on the library in `data/`: **6 indicators** — three global (`ip 192.168.1.50`,
+`ip 203.0.113.250`, a `sha256`) and three scoped to the fixture analysis
+`detect_verify.pcap` (`port 8443`, `domain nope3.example.com`, `ua sqlmap/1.7`).
+
+Important: `GET /api/indicators` is called with no `analysis_id`, which returns **every** row
+in the table. The three analysis-scoped indicators therefore appear in this list labelled
+with their analysis id, even though `indicator_match` will never apply them to any other
+capture. There is no control on this page to choose the scope, so anything added here is
+always global.
+
 ## 3. Where the data comes from
 
 | Panel | Call | Route module |
@@ -255,8 +365,10 @@ can only be changed by calling the API directly.
 | Import / upload / edit / toggle / delete / **restore** a signature | `POST /api/suricata/rules/seed`, `POST /api/suricata/rules/import`, `PUT /api/suricata/rules/{sid}`, `DELETE /api/suricata/rules/{sid}`, `POST /api/suricata/rules/{sid}/restore` | `routes_suricata.py` |
 | **Run on capture** | `POST /api/analyses/{id}/suricata/run` | `routes_suricata.py` |
 | **Re-run on capture** (detection half) | `POST /api/analyses/{id}/findings/rescan`, then `POST /api/analyses/{id}/suricata/run` | `routes_findings.py`, `routes_suricata.py` |
+| Users & Passwords discovery | `GET /api/settings`, `PUT /api/settings` (only `credential_scan_enabled` and `credential_protocols`) | `backend/app/api/routes_settings.py`; the stage is `backend/app/services/credential_analyzer.py` |
+| Indicators | `GET /api/indicators`, `POST /api/indicators`, `DELETE /api/indicators/{id}` | `routes_settings.py` |
 
-The client wrappers are `detectionApi` and `suricataApi` in
+The client wrappers are `detectionApi`, `suricataApi` and `settingsApi` in
 `frontend/src/services/api.ts`; `importSuricataRules` uses `XMLHttpRequest` rather than `fetch`,
 purely so a large rule file can report upload progress.
 
@@ -264,7 +376,8 @@ Tables behind the page:
 
 | Table | Supplies |
 |---|---|
-| `settings` | The detection configuration under `detection_config` (each rule's `enabled` and thresholds, read through `detection_engine.load_config()`) and the matcher configuration under `suricata_config` (HOME_NET, `max_findings_per_rule`, `include_unsupported`). |
+| `settings` | The detection configuration under `detection_config` (each rule's `enabled` and thresholds, read through `detection_engine.load_config()`), the matcher configuration under `suricata_config` (HOME_NET, `max_findings_per_rule`, `include_unsupported`), and the credential stage's switch and protocol list under `credential_config`. All are read through `runtime_settings.load_overrides()`. |
+| `indicators` | The whole indicator table: `type`, `value`, `note`, `created_at`, and `analysis_id`, which is NULL for global rows. |
 | `suricata_rules` | Everything in the signature table and every figure in its stats strip. `modified`, `restorable` and `differs` are **not** stored: they are computed per request by comparing the row with the vendored rule tree. |
 | `findings` | The Hits column only: a correlated subquery counting `rule_id = 'suricata:' || sid` for the selected analysis, and a plain `GROUP BY rule_id` count for each built-in rule id. |
 | `analyses` | Whether the per-capture buttons are available, through the top bar's shared selection. |
@@ -274,7 +387,7 @@ Tables behind the page:
 The page is a leaf: nothing here opens another page except **Open findings**, which returns to
 [Findings](Findings.md) (`/findings`).
 
-Two inbound links matter, because they are how the page is reached in practice:
+Three inbound links matter, because they are how the page is reached in practice:
 
 * `/alert-settings?sid=<n>` opens the **Suricata rules** tab with its search box seeded with that
   sid, so the table opens filtered to that rule. The Findings workbench uses it: the *Suricata
@@ -282,6 +395,9 @@ Two inbound links matter, because they are how the page is reached in practice:
 * `/alert-settings?rule=<rule_id>` does the same for the **Detection rules** tab. The *Detection
   rule behind this alert* panel - shown for every finding whose `rule_id` is not a
   `suricata:<sid>` - links here.
+* The [Users & Passwords](Credentials.md) page links to this page's *Users & Passwords* tab from
+  its disabled-scan panel and from both of its empty states, because the switch that tab edits is
+  the reason those states exist.
 
 The sidebar entry carries the count of rules that are not at their defaults, in the same amber, so
 the state of both families is visible from any page without opening this one.
@@ -346,6 +462,45 @@ the state of both families is visible from any page without opening this one.
 * **The page works without a capture, but its per-capture half is inert.** With no analysis
   selected, **Run on capture** and **Re-run on capture** are disabled and every Hits column reads
   `0`; the rules, the stats and the matcher scope still load, because they are global.
+* **Indicators cannot be edited or scoped from this page.** They are added and deleted only,
+  every one added here is global, and a delete has no confirmation and no undo. Deleting an
+  analysis also deletes the indicators scoped to it — `delete_analysis` clears
+  `indicators WHERE analysis_id = ?`, which cannot touch the global rows because NULL never
+  matches an equality test.
+* **The indicator list mixes scopes.** The panel asks for every indicator and shows each
+  row's `analysis_id`. A row scoped to another capture looks like an ordinary entry but will
+  never match anything except that capture, and nothing on the screen says so.
+* **An indicator match is a lead, not a verdict.** The rule's own reason text says the value
+  was supplied by an analyst rather than derived from traffic behaviour, so a match has to be
+  confirmed to resolve to the same entity the indicator was collected from before it is acted
+  on. A port indicator matches any packet carrying that port as source or destination, which
+  is a much weaker statement than "this service was used".
+* **Indicator matching is capped.** `indicator_match` evaluates at most
+  `MAX_FINDINGS_PER_RULE = 60` indicators per analysis, in `id` order, so on a long indicator
+  list later rows are not evaluated at all and the findings give no hint of it.
+* **Nothing here validates the indicators against reality.** There is no duplicate detection for
+  indicators, no check that an indicator is still the entity it was collected from, and no
+  warning when two rows name the same value under different types.
+* **The Users & Passwords switch is a setting, not a purge.** Turning `credential_scan_enabled`
+  off stops the stage in analyses started afterwards; it deletes no row that an earlier run wrote,
+  and the [Users & Passwords](Credentials.md) page keeps listing those rows while reporting that
+  the setting is off. An empty credentials table for such an analysis is a statement about the
+  setting, not about the capture.
+* **An empty protocol selection means none, not all.** `credential_protocols` is a positive
+  list: unticking all five leaves the scanner with nothing to read, and the Users & Passwords page
+  states that as its own case rather than presenting an empty table. The two keys are
+  independent — the master switch does not clear the protocol list, and the protocol list does
+  not re-enable the switch.
+* **Nothing on this panel decrypts anything.** The scanner reads the locations
+  [`docs/CREDENTIALS.md`](../docs/CREDENTIALS.md) §2 defines — cleartext HTTP fields and
+  FTP/SMTP/POP3/IMAP authentication commands — and never examines TLS, SSH or SMB-signed
+  traffic. Switching discovery on cannot change that, and the panel says so.
+* **This panel reports what the settings API exposes.** If the payload carries neither
+  `credential_scan_enabled` nor `credential_protocols`, the block states that it can neither
+  show nor change them rather than drawing the contract's defaults as this installation's
+  configuration. The saved values come from the response's own settings view, so a server that
+  stores something other than what was sent is shown as it stored it.
+
 ## 6. Related
 
 [Findings](Findings.md) for what these rules produced; [Settings](Settings.md) for the rest of the

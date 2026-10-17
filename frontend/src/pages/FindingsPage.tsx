@@ -326,7 +326,7 @@ function FindingsWorkbench() {
                       <button
                         key={entry.id}
                         type="button"
-                        className={clsx('btn px-2 py-1', tab === entry.id && 'btn-primary')}
+                        className={clsx('btn btn-tab', tab === entry.id && 'btn-primary')}
                         onClick={() => setTab(entry.id)}
                       >
                         <entry.icon size={13} aria-hidden />
