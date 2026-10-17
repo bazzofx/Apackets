@@ -2357,6 +2357,37 @@ def save_config(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return load_config()
 
 
+def describe_deviation(rule_id: str, params: dict[str, Any]) -> dict[str, Any]:
+    """Whether a rule runs its documented defaults, and what differs if not.
+
+    Two things can move a rule away from its definition: its switch and its
+    thresholds. The list of differing keys is what lets the interface say why a
+    rule is highlighted rather than only that it is.
+    """
+    spec = RULES.get(rule_id)
+    if spec is None:  # pragma: no cover - defensive
+        return {"modified": False, "differs": []}
+    differs: list[str] = []
+    if not params.get("enabled", True):
+        differs.append("enabled")
+    for key, default in spec.defaults.items():
+        if key == "enabled":
+            continue
+        if params.get(key, default) != default:
+            differs.append(key)
+    return {"modified": bool(differs), "differs": differs}
+
+
+def modified_rule_count() -> int:
+    """How many rules are not running their documented defaults."""
+    config = load_config()
+    return sum(
+        1
+        for rule_id in RULES
+        if describe_deviation(rule_id, config.get(rule_id, {}))["modified"]
+    )
+
+
 def list_rules(analysis_id: str | None = None) -> list[dict[str, Any]]:
     """Rule metadata for the UI, with hit counts when an analysis is given."""
     config = load_config()
@@ -2387,6 +2418,9 @@ def list_rules(analysis_id: str | None = None) -> list[dict[str, Any]]:
                 "defaults": dict(spec.defaults),
                 "notes": spec.notes,
                 "hits": int(hits.get(rule_id, 0)),
+                # Whether this rule is running its documented defaults, and which
+                # settings moved if it is not.
+                **describe_deviation(rule_id, params),
             }
         )
     return items
@@ -2557,9 +2591,11 @@ __all__ = [
     "SUSPICIOUS_PATTERNS",
     "analyze",
     "default_config",
+    "describe_deviation",
     "finding_id",
     "list_rules",
     "load_config",
+    "modified_rule_count",
     "parse_tcp_flags",
     "save_config",
 ]

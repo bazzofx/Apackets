@@ -795,6 +795,33 @@ finding as `detection_rule` (the counterpart of `rule` for `suricata:<sid>` find
 interface can name what fired and link to its editor instead of asking the analyst to guess
 which of the ten rules produced the alert.
 
+### "Not at its default", and restoring
+
+Both rule families report the same two things, because an analyst needs to know when a
+detector is no longer what shipped:
+
+* `modified` — the rule is not running its definition. For a built-in rule that means it is
+  disabled or a threshold differs; for a Suricata rule it means its text, its `rev` or its
+  enabled flag differs from the vendored `.rules` file. `differs` names what moved, so an
+  interface can say why rather than only that something is wrong.
+* `restorable` — there is a definition to return to. Every built-in rule has one; a Suricata
+  rule has one only if it exists under `backend/rules/`.
+
+Restoring is therefore one call per family:
+
+* built-in: `PUT /api/detection/rules/{rule_id}` with `{"reset": true}`;
+* Suricata: `POST /api/suricata/rules/{sid}/restore`, which rewrites the row from the bundled
+  file — text, `msg`, severity, options, source and category — and re-enables it.
+  `404 rule_not_found` for an unknown sid, `404 no_bundled_default` for an uploaded or
+  hand-written one.
+
+The Suricata comparison is against the **rule tree as it is on disk**, so a rule corrected in
+`backend/rules/local/` is compared with the correction: those rules sit at their defaults, and
+restoring one returns the corrected text rather than the upstream text it replaced.
+
+`GET /api/suricata/rules/stats` reports the same state as a count (`modified`), which is what
+the Settings section's tab badges read.
+
 ---
 
 ## 9. Frontend contract

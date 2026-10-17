@@ -11,6 +11,7 @@ import {
   RotateCcw,
   Save,
   ShieldAlert,
+  TriangleAlert,
   X,
   XCircle,
 } from 'lucide-react'
@@ -102,8 +103,14 @@ function isCustomised(rule: DetectionRule, key: string): boolean {
   return String(current ?? '') !== String(original ?? '')
 }
 
-function ruleHasDrift(rule: DetectionRule): boolean {
-  return fieldKeys(rule).some((key) => isCustomised(rule, key))
+/** How a deviation is named in the interface, key by key. */
+const DIFFERS_LABEL: Record<string, string> = { enabled: 'switched off' }
+
+/** "switched off, min_nxdomain" — what moved, for the row's tooltip. */
+function describeDiffers(rule: DetectionRule): string {
+  const keys = rule.differs ?? []
+  if (keys.length === 0) return 'differs from the defaults'
+  return keys.map((key) => DIFFERS_LABEL[key] ?? key).join(', ')
 }
 
 /**
@@ -343,9 +350,13 @@ export function DetectionRulesPanel() {
   const updateMutation = useMutation({
     mutationFn: (input: { ruleId: string; payload: DetectionRuleUpdate }) =>
       detectionApi.update(input.ruleId, input.payload, analysisId),
-    onSuccess: (rule) => {
+    onSuccess: (rule, variables) => {
       setEditorFor(null)
-      setNotice(rule.title + ' updated: ' + rule.threshold)
+      setNotice(
+        variables.payload.reset
+          ? rule.title + ' restored to its defaults: ' + rule.threshold
+          : rule.title + ' updated: ' + rule.threshold,
+      )
       invalidate()
     },
   })
@@ -391,6 +402,7 @@ export function DetectionRulesPanel() {
 
   const editorRule = editorFor ? items.find((rule) => rule.rule_id === editorFor) ?? null : null
   const analysisName = selected?.original_filename ?? 'the selected capture'
+  const modifiedCount = items.filter((rule) => rule.modified).length
 
   return (
     <div className="flex flex-col gap-3">
@@ -441,6 +453,14 @@ export function DetectionRulesPanel() {
               <SeverityBadge severity="low" count={rules.data.severities.low} />
               <SeverityBadge severity="informational" count={rules.data.severities.informational} />
             </div>
+            {modifiedCount > 0 ? (
+              <span
+                className="text-warn"
+                title="Rules whose switch or thresholds differ from the documented defaults. Tinted rows below are these rules; each can be put back with Restore."
+              >
+                <span className="mono">{formatNumber(modifiedCount)}</span> not at defaults
+              </span>
+            ) : null}
             <span className="ml-auto text-faint">
               {analysisId
                 ? 'hit counts are for ' + analysisName
@@ -550,19 +570,28 @@ export function DetectionRulesPanel() {
               </thead>
               <tbody>
                 {filtered.map((rule) => (
-                  <tr key={rule.rule_id} className={clsx(!rule.enabled && 'opacity-60')}>
+                  <tr
+                    key={rule.rule_id}
+                    className={clsx(
+                      !rule.enabled && 'opacity-60',
+                      rule.modified && 'bg-warn/[0.07]',
+                    )}
+                  >
                     <td>
                       <SeverityBadge severity={rule.severity} showLabel />
                     </td>
                     <td>
                       <div className="flex items-center gap-1.5">
                         <span className="text-text">{rule.title}</span>
-                        {ruleHasDrift(rule) ? (
+                        {rule.modified ? (
                           <span
-                            className="chip border-accent/50 bg-accent/15 text-accent2"
-                            title="One or more thresholds differ from the documented defaults"
+                            className="chip border-warn/60 bg-warn/15 text-warn"
+                            title={
+                              'Not at its defaults: ' + describeDiffers(rule) + '. Use Restore.'
+                            }
                           >
-                            tuned
+                            <TriangleAlert size={10} aria-hidden />
+                            modified
                           </span>
                         ) : null}
                       </div>
@@ -596,18 +625,36 @@ export function DetectionRulesPanel() {
                       </button>
                     </td>
                     <td>
-                      <button
-                        type="button"
-                        className="btn px-1.5 py-1"
-                        title="Edit this rule's thresholds"
-                        onClick={() => {
-                          updateMutation.reset()
-                          setEditorFor(rule.rule_id)
-                        }}
-                      >
-                        <Pencil size={12} aria-hidden />
-                        Edit
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          className="btn px-1.5 py-1"
+                          title="Edit this rule's thresholds"
+                          onClick={() => {
+                            updateMutation.reset()
+                            setEditorFor(rule.rule_id)
+                          }}
+                        >
+                          <Pencil size={12} aria-hidden />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn px-1.5 py-1"
+                          disabled={!rule.modified || updateMutation.isPending}
+                          title={
+                            rule.modified
+                              ? 'Put this rule back to its documented defaults'
+                              : 'This rule is already at its defaults'
+                          }
+                          onClick={() =>
+                            updateMutation.mutate({ ruleId: rule.rule_id, payload: { reset: true } })
+                          }
+                        >
+                          <RotateCcw size={12} aria-hidden />
+                          Restore
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

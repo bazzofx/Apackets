@@ -281,3 +281,54 @@ def test_a_suricata_finding_gets_no_built_in_rule(client) -> None:
         "/api/analyses/" + ANALYSIS_ID + "/findings/" + finding_id + "/context"
     ).json()
     assert context["detection_rule"] is None
+
+# --------------------------------------------------------------------------
+# is this rule still what shipped?
+# --------------------------------------------------------------------------
+
+def test_a_rule_at_its_defaults_is_not_modified(client) -> None:
+    listed = client.get("/api/detection/rules").json()["items"]
+    assert all(item["modified"] is False for item in listed)
+    assert all(item["differs"] == [] for item in listed)
+
+
+def test_a_tuned_threshold_marks_the_rule_and_names_itself(client) -> None:
+    client.put("/api/detection/rules/dns_nxdomain_burst", json={"thresholds": {"min_nxdomain": 7}})
+    item = _item(client, "dns_nxdomain_burst")
+    assert item["modified"] is True
+    assert item["differs"] == ["min_nxdomain"]
+
+
+def test_a_disabled_rule_is_modified(client) -> None:
+    client.put("/api/detection/rules/http_suspicious_path", json={"enabled": False})
+    item = _item(client, "http_suspicious_path")
+    assert item["modified"] is True
+    assert item["differs"] == ["enabled"]
+
+
+def test_every_differing_threshold_is_named(client) -> None:
+    client.put(
+        "/api/detection/rules/dns_long_labels",
+        json={"thresholds": {"max_label": 60, "max_name": 150}},
+    )
+    item = _item(client, "dns_long_labels")
+    assert set(item["differs"]) == {"max_label", "max_name"}
+
+
+def test_reset_clears_the_flag_and_the_reasons(client) -> None:
+    client.put("/api/detection/rules/outbound_volume", json={"thresholds": {"max_mb": 4}})
+    client.put("/api/detection/rules/outbound_volume", json={"enabled": False})
+    assert _item(client, "outbound_volume")["modified"] is True
+
+    restored = client.put("/api/detection/rules/outbound_volume", json={"reset": True}).json()
+    assert restored["modified"] is False
+    assert restored["differs"] == []
+    assert restored["enabled"] is True
+    assert restored["thresholds"]["max_mb"] == restored["defaults"]["max_mb"]
+
+
+def test_the_modified_count_follows_the_configuration(client) -> None:
+    assert detection_engine.modified_rule_count() == 0
+    client.put("/api/detection/rules/dns_nxdomain_burst", json={"thresholds": {"min_nxdomain": 3}})
+    client.put("/api/detection/rules/rare_destination_port", json={"enabled": False})
+    assert detection_engine.modified_rule_count() == 2

@@ -909,6 +909,14 @@ export const suricataApi = {
   deleteRule: (sid: number) =>
     request<{ ok: boolean; sid: number }>(`/suricata/rules/${sid}`, { method: 'DELETE' }),
 
+  /**
+   * Put one rule back to the definition the vendored rule tree carries. Only a
+   * vendored rule has a default; the API answers 404 `no_bundled_default` for an
+   * uploaded or hand-written one.
+   */
+  restoreRule: (sid: number) =>
+    request<SuricataRule>(`/suricata/rules/${sid}/restore`, { method: 'POST' }),
+
   /** Import the rule sets vendored under backend/rules/. */
   seedRules: () =>
     request<SuricataImportResult & { stats: SuricataRuleStats }>('/suricata/rules/seed', {

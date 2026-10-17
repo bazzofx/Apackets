@@ -1151,6 +1151,9 @@ def import_rules(
 
 def seed_bundled_rules(*, enabled: int = 1) -> dict[str, Any]:
     """Import every vendored rule file. Idempotent: SIDs are upserted."""
+    # A seed is the moment the store is rewritten from disk, so the memoised
+    # default index must not outlive it.
+    clear_bundled_cache()
     files = load_bundled_files()
     if not files:
         return {
@@ -1253,7 +1256,13 @@ def delete_rule(sid: int) -> bool:
 # bundled defaults (the state a rule returns to when it is restored)
 # --------------------------------------------------------------------------
 
-_BUNDLED_INDEX: tuple[tuple[int, float], dict[int, dict[str, Any]]] | None = None
+# The index is asked for once per row of a rules list (up to 250 times in a single
+# request), so reopening 286 files each time is not an option. It is memoised for a
+# couple of seconds and revalidated against the rule tree's size and newest mtime
+# when that window expires: a file edited outside the window is picked up without a
+# restart, and one edited inside it is picked up by the next request.
+_INDEX_TTL_S = 2.0
+_INDEX_CACHE: dict[str, Any] = {"checked": 0.0, "signature": None, "index": {}}
 
 
 def _file_signature(paths: list[Path]) -> tuple[int, float]:
@@ -1267,20 +1276,12 @@ def _file_signature(paths: list[Path]) -> tuple[int, float]:
     return len(paths), newest
 
 
-def bundled_rules() -> dict[int, dict[str, Any]]:
-    """Every rule the vendored tree defines, keyed by sid.
+def clear_bundled_cache() -> None:
+    """Drop the memoised index (a seed rewrites the store, so it is re-read)."""
+    _INDEX_CACHE.update({"checked": 0.0, "signature": None, "index": {}})
 
-    This is what "the default" means for a rule: the text on disk under
-    ``backend/rules/``, which is exactly what a fresh seed would import. The index
-    is cached against the file list's size and newest mtime, so editing a rule
-    file is picked up without restarting the process.
-    """
-    global _BUNDLED_INDEX
-    files = load_bundled_files()
-    signature = _file_signature([item[0] for item in files])
-    if _BUNDLED_INDEX is not None and _BUNDLED_INDEX[0] == signature:
-        return _BUNDLED_INDEX[1]
 
+def _build_bundled_index(files: list[tuple[Path, str, str]]) -> dict[int, dict[str, Any]]:
     index: dict[int, dict[str, Any]] = {}
     for path, source, category in files:
         try:
@@ -1296,8 +1297,29 @@ def bundled_rules() -> dict[int, dict[str, Any]]:
                 "category": category,
                 "raw": rule.raw,
             }
-    _BUNDLED_INDEX = (signature, index)
     return index
+
+
+def bundled_rules() -> dict[int, dict[str, Any]]:
+    """Every rule the vendored tree defines, keyed by sid.
+
+    This is what "the default" means for a rule: the text on disk under
+    ``backend/rules/``, which is exactly what a fresh seed would import. The index
+    is cached against the file list's size and newest mtime, so editing a rule
+    file is picked up without restarting the process; an edit inside the window is
+    picked up by the next request.
+    """
+    now = time.monotonic()
+    if now - float(_INDEX_CACHE["checked"]) < _INDEX_TTL_S and _INDEX_CACHE["index"]:
+        return _INDEX_CACHE["index"]
+
+    files = load_bundled_files()
+    signature = _file_signature([item[0] for item in files])
+    if _INDEX_CACHE["signature"] != signature or not _INDEX_CACHE["index"]:
+        _INDEX_CACHE["index"] = _build_bundled_index(files)
+        _INDEX_CACHE["signature"] = signature
+    _INDEX_CACHE["checked"] = now
+    return _INDEX_CACHE["index"]
 
 
 def default_state(sid: int) -> dict[str, Any] | None:
@@ -1509,6 +1531,7 @@ __all__ = [
     "PortExpr",
     "RuleSyntaxError",
     "bundled_rules",
+    "clear_bundled_cache",
     "config",
     "default_state",
     "default_variables",

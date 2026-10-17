@@ -953,6 +953,10 @@ export interface DetectionRule {
   notes: string
   /** Findings this rule produced in the requested analysis (0 without one). */
   hits: number
+  /** True when the rule is disabled or a threshold differs from its default. */
+  modified?: boolean
+  /** The threshold keys that differ from their defaults, plus 'enabled'. */
+  differs?: string[]
   /** Only echoed by a single-rule response. */
   effective?: Record<string, unknown>
 }
@@ -1366,6 +1370,15 @@ export interface SuricataRule {
   updated_at: number | null
   /** Findings produced by this rule for the requested analysis. */
   hits?: number | null
+  /**
+   * True when the stored rule is not the definition the vendored rule tree
+   * carries: its text was edited, its `rev` differs, or it is disabled.
+   */
+  modified?: boolean
+  /** False for uploaded and hand-written rules, which have no vendored default. */
+  restorable?: boolean
+  /** What moved, in the words the tooltip uses: 'text', 'revision', 'disabled'. */
+  differs?: string[]
 }
 
 export interface SuricataRuleStats {
@@ -1374,6 +1387,8 @@ export interface SuricataRuleStats {
   supported: number
   unsupported: number
   approximate: number
+  /** Rules that are not running their vendored default. */
+  modified?: number
   severities: SeverityCounts
   sources: { source: string; rules: number }[]
   categories: { category: string; rules: number }[]

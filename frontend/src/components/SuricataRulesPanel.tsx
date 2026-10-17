@@ -11,8 +11,10 @@ import {
   Pencil,
   Play,
   RefreshCw,
+  RotateCcw,
   Save,
   ShieldAlert,
+  TriangleAlert,
   Trash2,
   X,
   XCircle,
@@ -229,6 +231,20 @@ export function SuricataRulesPanel() {
     },
   })
 
+  /**
+   * Put a rule back to the definition the vendored tree carries: its text, its
+   * revision and its enabled state. Rules that are not vendored have no default,
+   * so the action is not offered for them - the API answers 404
+   * `no_bundled_default` and this panel never asks.
+   */
+  const restoreMutation = useMutation({
+    mutationFn: (rule: SuricataRule) => suricataApi.restoreRule(rule.sid),
+    onSuccess: (rule) => {
+      setNotice('Sid ' + rule.sid + ' restored to its vendored default: ' + rule.msg)
+      invalidateRules()
+    },
+  })
+
   const runMutation = useMutation({
     mutationFn: (target: string) => suricataApi.run(target),
     onSuccess: (result) => {
@@ -334,6 +350,14 @@ export function SuricataRulesPanel() {
             >
               <span className="mono">{formatNumber(stats.data.unsupported)}</span> skipped by the matcher
             </span>
+            {stats.data.modified ? (
+              <span
+                className="text-warn"
+                title="Rules that are not running the definition the vendored rule tree carries: their text was edited, their revision differs, or they are switched off. Tinted rows in the table are these rules; each can be put back with Restore."
+              >
+                <span className="mono">{formatNumber(stats.data.modified)}</span> not at defaults
+              </span>
+            ) : null}
             <div className="flex items-center gap-1">
               <SeverityBadge severity="high" count={stats.data.severities.high} />
               <SeverityBadge severity="medium" count={stats.data.severities.medium} />
@@ -359,6 +383,18 @@ export function SuricataRulesPanel() {
               Engine: <span className="mono">{engine.engine}</span> - {engine.note} Patterns are
               matched against TShark-extracted fields (URI, host, method, headers, bodies, DNS name,
               TLS SNI); rules that need raw packet payloads are skipped rather than approximated.
+            </span>
+          </div>
+        ) : null}
+
+        {stats.data && stats.data.modified ? (
+          <div className="flex items-start gap-2 border-b border-border bg-warn/[0.05] px-3 py-2 text-2xs text-warn">
+            <TriangleAlert size={13} className="mt-0.5 shrink-0" aria-hidden />
+            <span>
+              {formatNumber(stats.data.modified)} rule(s) are not running their vendored default -
+              their text, revision or enabled state differs from the file under the bundled rule
+              tree. They are tinted below; <span className="font-semibold">Restore</span> puts one
+              back.
             </span>
           </div>
         ) : null}
@@ -485,6 +521,14 @@ export function SuricataRulesPanel() {
             className="py-3"
           />
         ) : null}
+        {restoreMutation.error ? (
+          <ErrorState
+            error={restoreMutation.error}
+            variant="plain"
+            title="Could not restore the rule"
+            className="py-3"
+          />
+        ) : null}
 
         {rules.isLoading ? (
           <LoadingState label="Loading rules..." rows={5} />
@@ -526,7 +570,10 @@ export function SuricataRulesPanel() {
               </thead>
               <tbody>
                 {items.map((rule) => (
-                  <tr key={rule.sid} className={clsx(!rule.enabled && 'opacity-60')}>
+                  <tr
+                    key={rule.sid}
+                    className={clsx(!rule.enabled && 'opacity-60', rule.modified && 'bg-warn/[0.07]')}
+                  >
                     <td className="text-right">{rule.sid}</td>
                     <td>
                       <SeverityBadge severity={rule.severity} showLabel />
@@ -556,6 +603,23 @@ export function SuricataRulesPanel() {
                             title="Matched against extracted fields rather than raw payload bytes"
                           >
                             field match
+                          </span>
+                        ) : null}
+                        {rule.modified ? (
+                          <span
+                            className="chip border-warn/60 bg-warn/15 text-warn"
+                            title={
+                              'Not the vendored default: ' +
+                              (rule.differs && rule.differs.length > 0
+                                ? rule.differs.join(', ')
+                                : 'differs') +
+                              (rule.restorable
+                                ? '. Use Restore to put it back.'
+                                : '. This rule is not vendored, so there is no default to restore.')
+                            }
+                          >
+                            <TriangleAlert size={10} aria-hidden />
+                            modified
                           </span>
                         ) : null}
                       </div>
@@ -599,6 +663,22 @@ export function SuricataRulesPanel() {
                         >
                           <Pencil size={12} aria-hidden />
                           Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn px-1.5 py-1"
+                          disabled={!rule.modified || !rule.restorable || restoreMutation.isPending}
+                          title={
+                            !rule.modified
+                              ? 'This rule is already running its vendored definition'
+                              : rule.restorable
+                                ? 'Put this rule back to the text and state its bundled file defines'
+                                : 'This rule is not vendored, so there is no default to restore'
+                          }
+                          onClick={() => restoreMutation.mutate(rule)}
+                        >
+                          <RotateCcw size={12} aria-hidden />
+                          Restore
                         </button>
                         <button
                           type="button"

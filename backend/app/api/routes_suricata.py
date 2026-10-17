@@ -240,6 +240,26 @@ def update_suricata_rule(sid: int, payload: dict) -> dict:
     return _rule_dict(updated)
 
 
+@router.post("/suricata/rules/{sid}/restore")
+def restore_suricata_rule(sid: int) -> dict:
+    """Put one rule back to the definition the vendored rule tree carries.
+
+    Only rules that exist under backend/rules/ have a default to return to: an
+    uploaded or hand-written rule was never anywhere else, so restoring it would be
+    an invention. The 404s distinguish the two cases.
+    """
+    if sr.get_rule(sid) is None:
+        raise not_found("rule_not_found", f"No Suricata rule with sid {sid}.")
+    restored = sr.restore_bundled_rule(sid)
+    if restored is None:
+        raise not_found(
+            "no_bundled_default",
+            f"Sid {sid} is not a vendored rule, so it has no default to restore.",
+            {"sid": sid, "bundled_dir": str(sr.RULES_DIR)},
+        )
+    return _rule_dict(restored)
+
+
 @router.delete("/suricata/rules/{sid}")
 def delete_suricata_rule(sid: int) -> dict:
     if not sr.delete_rule(sid):

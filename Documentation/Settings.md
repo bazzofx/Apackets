@@ -3,13 +3,14 @@
 The configuration and rule-management page (`/settings`): what the backend is actually
 running with, the handful of values an analyst may change, the **Users & Passwords**
 discovery switch and its protocol selection, the indicators the detection engine matches
-against, the built-in detection rules and the Suricata rules panels, and the four colour
-themes.
+against, the **Alert rules** section (the built-in detection rules and the imported Suricata
+signatures, as two tabs of one section), and the four colour themes.
 
 The component is `frontend/src/pages/SettingsPage.tsx`, with
 `frontend/src/components/ThemePanel.tsx`,
+`frontend/src/components/AlertRulesSection.tsx` (which holds
 `frontend/src/components/DetectionRulesPanel.tsx` and
-`frontend/src/components/SuricataRulesPanel.tsx` as its large pieces. Like
+`frontend/src/components/SuricataRulesPanel.tsx`) as its large pieces. Like
 [PCAP Files](PCAP-Files.md) it is **not** wrapped in `AnalysisGuard`: most of the page makes
 sense with no capture selected, and only the rule panels' per-capture features need one.
 
@@ -25,7 +26,7 @@ analyst-supplied indicators are entered.
 
 ## 2. What is on the screen
 
-Eight panels, in this order.
+Seven panels, in this order.
 
 ### 2.1 Theme
 
@@ -276,17 +277,51 @@ with their analysis id, even though `indicator_match` will never apply them to a
 capture. There is no control on this page to choose the scope, so anything added here is
 always global.
 
-### 2.6 Detection rules
+### 2.6 Alert rules
+
+The two rule panels are **tabs of one section**, not two stacked cards. The section header reads
+*Alert rules* - *everything the analyser flags - rows tinted amber are not running their
+defaults* - and carries one button per family:
+
+| Tab | Panel | Subtitle of the panel below it |
+|---|---|---|
+| **Detection rules** | The ten built-in heuristics (2.7) | *built-in heuristics run over every capture - view, enable/disable and tune thresholds* |
+| **Suricata rules** | The imported signature set (2.8) | *signature-based detections evaluated against this capture's indexed fields* |
+
+Each tab button shows the family's rule count in muted monospace and, **when any rule in that
+family is not at its default**, an amber chip with that count and the tooltip *N rule(s) in this
+family are not at their defaults*. So the state of both families is visible without opening
+either tab - which is the point: the panels used to be stacked, and a tuned detection threshold
+sat above a 1,600-row signature table that nobody scrolled to.
+
+The tab is in the URL as `rules=detection` or `rules=suricata`, so a reload or a copied link
+keeps the tab. It also settles the two deep links the Findings page uses: `sid=<n>` opens the
+**Suricata rules** tab and `rule=<rule_id>` the **Detection rules** tab, because a finding's own
+link always means that rule rather than whichever tab was open last. Switching tabs by hand drops
+the other family's deep link from the URL, so the address bar never describes a rule that is not
+on screen.
+
+Under the tabs sits one explanatory line, identical for both families: both are decisions this
+installation makes about your traffic, each panel states what it can change and what it cannot,
+and **Restore** puts a rule back to its default - the vendored text for a signature, the
+documented thresholds for a heuristic.
+
+**Amber is the "not at defaults" signal, in both tabs.** A row is tinted (`bg-warn/[0.07]`) and
+carries a `modified` chip whose tooltip names exactly what moved, and each panel's header reports
+how many rules are in that state. The colour is only ever this one and only ever means this one
+thing - *this row is not what shipped* - so it cannot be confused with severity, with the
+`disabled` styling (60% opacity), or with the `skipped by the matcher` chip.
+
+### 2.7 Detection rules
 
 Subtitle: *built-in heuristics run over every capture - view, enable/disable and tune
 thresholds*.
 
 These are the ten rules in `backend/app/services/detection_engine.py` that produce most findings in
-a capture. They sit **above** the Suricata panel because they run first in the pipeline and
-because they are the ones an analyst most often needs to re-tune: the NXDOMAIN burst, the
-outbound-volume and the repeated-failed-connection rules are all threshold rules, and every
-finding they produce is a comparison against a number that used to be visible only in this
-documentation.
+a capture. They run first in the pipeline and they are the ones an analyst most often needs to
+re-tune: the NXDOMAIN burst, the outbound-volume and the repeated-failed-connection rules are all
+threshold rules, and every finding they produce is a comparison against a number that used to be
+visible only in this documentation.
 
 **The rules are code, and the panel says so.** Each rule is a Python function; nothing here
 can rewrite its matching logic. What the panel changes is the configuration that function
@@ -302,8 +337,9 @@ describe a threshold the engine is not using.
 | **Re-run on capture** | `POST /api/analyses/{id}/findings/rescan` then `POST /api/analyses/{id}/suricata/run` | Disabled until an analysis is selected. The built-in engine deletes every finding row for the analysis, Suricata ones included, so the Suricata matcher is run again immediately after - the same two-step the Findings page uses. |
 
 **Stats strip** (from `GET /api/detection/rules`): how many rules, how many enabled, four severity
-count badges, and which capture the hit counts refer to. Measured in this library: **10
-rules**, all enabled, **3 high / 5 medium / 1 low / 1 informational**.
+count badges, how many rules are **not at defaults** (amber, with a tooltip; the figure is absent
+when every rule is at its default), and which capture the hit counts refer to. Measured in this
+library: **10 rules**, all enabled, **3 high / 5 medium / 1 low / 1 informational**, none modified.
 
 **Explanation strip**: that the rules are code rather than signatures, and that a change
 applies to the next analysis - and to an existing one only after **Re-run on capture**,
@@ -319,11 +355,11 @@ the threshold sentence and the description), a severity select (`all severities`
 | Column | Content |
 |---|---|
 | Severity | A badge, labelled. |
-| Rule | The rule's title, with a `tuned` chip when any threshold differs from the documented default, and the `rule_id` underneath in monospace. |
+| Rule | The rule's title and, underneath, the `rule_id` in monospace. A rule that is disabled or whose thresholds differ from the defaults also carries an amber `modified` chip whose tooltip lists what moved (`enabled`, `min_nxdomain`, …), and the whole row is tinted amber. |
 | Fires when | The threshold sentence, truncated to 460 px with the full text in the tooltip. |
 | Hits | Findings this rule produced in the selected analysis; `0` without one. |
 | State | A button that toggles the rule between enabled and disabled. Disabled rows are drawn at 60% opacity. |
-| Actions | **Edit**, which opens the threshold editor. |
+| Actions | **Edit**, which opens the threshold editor, and **Restore**, which is enabled only while the rule is modified and puts every threshold back to its default and re-enables the rule — the same `{"reset": true}` call the editor's own button makes. |
 
 **The threshold editor** is a modal titled with the rule's title and its `rule_id` and severity,
 containing:
@@ -338,7 +374,9 @@ containing:
 
 Values are checked in the browser against the same rules the API applies, so a rejected value
 is explained in place rather than only after a round trip. **Save rule** stays disabled until
-something actually differs, and **Restore defaults** issues `{"reset": true}`.
+something actually differs, and **Restore defaults** issues `{"reset": true}` — available from
+the editor and from the row's own **Restore** button, so a rule can be put back without opening
+the editor at all.
 
 Two keys are deliberately not editable as such:
 
@@ -352,7 +390,7 @@ Three rules (`http_suspicious_path`, `http_cleartext_credentials`, `indicator_ma
 threshold at all - they are pattern and indicator driven - so their editor offers only the
 enable/disable switch and says so.
 
-### 2.7 Suricata rules
+### 2.8 Suricata rules
 
 Subtitle: *signature-based detections evaluated against this capture's indexed fields*.
 
@@ -367,11 +405,23 @@ Subtitle: *signature-based detections evaluated against this capture's indexed f
 **Stats strip** (from `GET /api/suricata/rules/stats`): total rules, rules enabled, rules
 `evaluable` by the matcher, rules `skipped by the matcher` (in the warning colour, with a
 tooltip naming the reasons — flowbits, thresholds, raw payload buffers, undissected
-protocols), four severity count badges, and up to four sources as `source (N)` joined by `|`.
+protocols), rules **not at defaults** (amber, shown only when the count is non-zero), four
+severity count badges, and up to four sources as `source (N)` joined by `|`.
 
-Measured in this library: **1,615 rules**, all enabled, **1,114 evaluable** and **501 skipped
-by the matcher**; sources `bundled:daffainfo` (1,167) and `bundled:oisf` (448); **284**
-`.rules` files vendored under `backend/rules/`.
+Measured in this library: **1,615 rules** from **286** `.rules` files, all enabled, **1,115
+evaluable** and **500 skipped by the matcher**, **0 not at defaults**; sources
+`bundled:daffainfo` (1,150), `bundled:oisf` (448) and `bundled:local` (17).
+
+**Not at defaults** is one API field, not a UI guess: `GET /api/suricata/rules` and
+`GET /api/suricata/rules/stats` report `modified` (and, per rule, `restorable` and `differs`),
+computed by comparing the stored row with the definition in the vendored rule tree — the text,
+the `rev`, and the enabled flag. A rule whose vendored file was corrected in
+`backend/rules/local/` is compared against the **local** file, so the 17 corrected rules sit at
+their defaults rather than showing as edited.
+
+When at least one rule is not at its default, an amber strip appears above the toolbar: *N
+rule(s) are not running their vendored default - their text, revision or enabled state differs
+from the file under the bundled rule tree. They are tinted below; Restore puts one back.*
 
 **Engine note**, from `GET /api/suricata/config`: *Engine: `apackets-native-matcher` — Rules
 are matched against TShark-extracted fields. The Suricata binary is not required and is not
@@ -399,12 +449,12 @@ paged at 25, 50, 100 or 250 rows.
 | Severity | A badge, labelled. |
 | Proto | The rule's protocol. |
 | Action | Usually `alert`. |
-| Message | The `msg`, truncated to 420 px with the full text in the tooltip. A warning `skipped` chip appears on rules the matcher cannot evaluate (its tooltip lists the unsupported options), and a `field match` chip appears on rules matched against extracted fields rather than raw payload bytes. |
+| Message | The `msg`, truncated to 420 px with the full text in the tooltip. A warning `skipped` chip appears on rules the matcher cannot evaluate (its tooltip lists the unsupported options), a `field match` chip appears on rules matched against extracted fields rather than raw payload bytes, and an amber `modified` chip appears on a rule that is not at its vendored default — its tooltip names what moved (`text`, `revision`, `disabled`) and says whether a default exists to restore. Such a row is also tinted amber. |
 | Category | The rule's category, truncated to 170 px; `-` when absent. |
 | Source | `bundled:daffainfo`, `bundled:oisf`, `upload:<file>` or `manual`, truncated to 150 px. |
 | Hits | How many findings for the currently selected analysis carry `rule_id = 'suricata:<sid>'`. Shows `-` when no analysis is selected and `0` when one is selected but the rule never matched. |
 | State | A button that toggles the rule between enabled and disabled. Disabled rows are drawn at 60% opacity. |
-| Actions | **Edit** (opens the rule text editor) and **Delete** (opens a confirmation dialog). |
+| Actions | **Edit** (opens the rule text editor), **Restore** and **Delete** (opens a confirmation dialog). **Restore** is enabled only for a modified rule that has a vendored default; it issues `POST /api/suricata/rules/{sid}/restore`, which rewrites the row from the bundled file — text, `msg`, severity, options, source and category — and re-enables it. Uploaded and hand-written rules have no default, so their Restore button is disabled with a tooltip saying so. |
 
 **The rule editor** is a modal with the rule text verbatim in a monospace textarea, a
 character count, and a note: *The rule is stored verbatim. The sid must stay `<sid>` — a rule
@@ -432,7 +482,7 @@ already in `findings` are not.
 (`1`–`1000`) and `include_unsupported`, but **this panel has no controls**, so those values
 can only be changed by calling the API directly.
 
-### 2.8 Local-only operation
+### 2.9 Local-only operation
 
 Four static statements, not data read from the backend: that capture files, decoded packets,
 extracted objects, hashes and findings never leave the machine and that the frontend talks
@@ -472,7 +522,7 @@ Tables behind the page:
 |---|---|
 | `settings` | The runtime overrides, under the keys `app_settings` (the five editable values), `credential_config` (`credential_scan_enabled`, `credential_protocols`) and `suricata_config` (HOME_NET, `max_findings_per_rule`, `include_unsupported`, per-variable overrides). All are read through `runtime_settings.load_overrides()`. |
 | `indicators` | The whole indicator table: `type`, `value`, `note`, `created_at`, and `analysis_id` which is NULL for global rows. |
-| `suricata_rules` | Everything in the rules table and every figure in the stats strip: `sid`, `rev`, `action`, `protocol`, `msg`, `category`, `severity`, `options`, `unsupported`, `supported`, `approximate`, `enabled`, `source`, `raw`, `created_at`, `updated_at`. |
+| `suricata_rules` | Everything in the rules table and every figure in the stats strip: `sid`, `rev`, `action`, `protocol`, `msg`, `category`, `severity`, `options`, `unsupported`, `supported`, `approximate`, `enabled`, `source`, `raw`, `created_at`, `updated_at`. The `modified` / `restorable` / `differs` columns are **not** stored — they are computed per request by comparing the row with the vendored rule tree. |
 | `findings` | The Hits column only: a correlated subquery counting `rule_id = 'suricata:' \|\| sid` for the selected analysis, and a plain `GROUP BY rule_id` count for each built-in rule id. |
 | `detection_config` (a `settings` row) | Every detection rule's `enabled` flag and thresholds, read through `detection_engine.load_config()` and written by `PUT /api/detection/rules/{rule_id}`. |
 | `analyses` | Whether **Run on capture** is available, through the top bar's shared selection. |
@@ -493,24 +543,26 @@ the indicator table has no drill-down.
 |---|---|
 | **Open findings** (in a Suricata run summary) | `/findings` |
 | **Run on capture** | Nothing — it evaluates rules against the selected capture and returns counts |
-| Import / upload / edit / delete / toggle a rule | Nothing — the table refreshes in place |
+| Import / upload / edit / delete / toggle / **Restore** a rule | Nothing — the table refreshes in place, and the notice names what changed |
+| **Detection rules** / **Suricata rules** tabs | Each other — the tab is written to the URL as `?rules=detection` or `?rules=suricata` |
 | **Save Users & Passwords settings** | Nothing — it writes the two credential keys and the panel reports the save in place |
 | Edit / toggle / **Restore defaults** on a detection rule | Nothing — the table refreshes in place, and the notice reports the regenerated *Fires when* sentence |
 | **Re-run on capture** (detection rules) | Nothing — it rewrites the selected analysis's findings and reports both engines' counts |
 
 Three inbound links matter, because they are how this page is reached in practice:
 
-* `/settings?sid=<n>` seeds the rule search box with that value, so the table opens filtered to
-  that rule. The Findings workbench uses it: the *Suricata rule behind this alert* panel has
-  an **edit in settings** button that navigates to `/settings?sid=<sid>`. The search is a
+* `/settings?sid=<n>` opens the **Suricata rules** tab and seeds its search box with that
+  value, so the table opens filtered to that rule. The Findings workbench uses it: the *Suricata
+  rule behind this alert* panel has an **edit in settings** button that navigates to
+  `/settings?sid=<sid>`. The search is a
   substring match over message, sid and rule text, so a sid whose digits also occur in another
   rule's text pulls that rule into the list as well — the filter narrows the table, it does
   not prove uniqueness.
-* `/settings?rule=<rule_id>` does the same for the detection panel: it seeds that panel's
-  search box with the id, so the table opens on the one rule. The Findings workbench uses it
-  the other way round: the *Detection rule behind this alert* panel, shown for every finding
-  whose `rule_id` is not a `suricata:<sid>`, has an **edit in settings** button that navigates
-  to `/settings?rule=<rule_id>`.
+* `/settings?rule=<rule_id>` does the same for the **Detection rules** tab: it opens that tab
+  and seeds its search box with the id, so the table opens on the one rule. The Findings
+  workbench uses it the other way round: the *Detection rule behind this alert* panel, shown for
+  every finding whose `rule_id` is not a `suricata:<sid>`, has an **edit in settings** button
+  that navigates to `/settings?rule=<rule_id>`.
 * The [Users & Passwords](Credentials.md) page links here from its disabled-scan panel and from
   both of its empty states, because the switch this panel edits is the reason those states exist.
 * The sidebar's Settings item, which is present on every page.
