@@ -42,7 +42,7 @@ function NotFoundPage() {
     <EmptyState
       icon={FileQuestion}
       title="Page not found"
-      description="That route does not exist in APackets."
+      description="That route does not exist in ShinboShark."
       action={
         <Link to="/" className="btn btn-primary">
           Back to Dashboard

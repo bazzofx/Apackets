@@ -256,7 +256,7 @@ function InvestigateProfile({
 
       {extra.length > 0 ? (
         <SectionNote tone="warn">
-          {`This response carries ${String(extra.length)} question(s) this build of APackets has no index entry for (${extra
+          {`This response carries ${String(extra.length)} question(s) this build of ShinboShark has no index entry for (${extra
             .map((question) => question.id)
             .join(', ')}). They are drawn below rather than dropped.`}
         </SectionNote>

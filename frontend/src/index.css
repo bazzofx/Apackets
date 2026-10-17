@@ -63,45 +63,64 @@
 /*
  * Theme tokens.
  *
- * The values below are the Steel Blue palette (the default) so the application
- * is styled before React runs; src/theme/ThemeProvider.tsx overwrites every one
- * of them on <html> for the active theme. Channels are space separated RGB so
- * Tailwind's `rgb(var(--c-x) / <alpha-value>)` colours work, and the only
- * literal colours in this file are these defaults.
+ * The values below are the Shinobi palette (the default) so the application is
+ * styled before React runs; src/theme/ThemeProvider.tsx overwrites every one of
+ * them on <html> for the active theme. Channels are space separated RGB so
+ * Tailwind's `rgb(var(--c-x) / <alpha-value>)` colours work, and the only literal
+ * colours in this file are these defaults.
  */
 :root {
-  --c-bg: 11 17 32;
-  --c-surface: 17 26 46;
-  --c-surface2: 22 32 58;
-  --c-border: 34 48 77;
-  --c-border2: 44 60 94;
-  --c-accent: 59 130 246;
-  --c-accent2: 96 165 250;
-  --c-text: 226 232 240;
-  --c-muted: 130 150 180;
-  --c-faint: 90 107 136;
-  --c-glow: rgba(59, 130, 246, 0.35);
-  --c-sev-informational: 100 116 139;
-  --c-sev-low: 56 189 248;
-  --c-sev-medium: 245 158 11;
-  --c-sev-high: 239 68 68;
-  --c-ok: 34 197 94;
-  --c-warn: 245 158 11;
-  --c-danger: 239 68 68;
-  --c-map-private: 96 165 250;
-  --c-map-public: 245 158 11;
-  --c-map-multicast: 167 139 250;
-  --c-map-local: 52 211 153;
-  --c-map-unclassified: 100 116 139;
-  --c-chart-1: 59 130 246;
-  --c-chart-2: 56 189 248;
-  --c-chart-3: 167 139 250;
-  --c-chart-4: 20 184 166;
-  --c-chart-5: 34 197 94;
-  --c-chart-6: 232 121 249;
-  --c-chart-7: 129 140 248;
-  --c-chart-8: 14 165 233;
+  --c-bg: 5 6 7;
+  --c-surface: 11 13 16;
+  --c-surface2: 18 22 26;
+  --c-border: 29 36 41;
+  --c-border2: 43 52 59;
+  --c-accent: 53 167 255;
+  --c-accent2: 127 210 255;
+  --c-text: 231 237 242;
+  --c-muted: 154 167 178;
+  --c-faint: 101 113 124;
+  --c-glow: rgba(53, 167, 255, 0.38);
+  --c-sev-informational: 107 119 131;
+  --c-sev-low: 76 201 255;
+  --c-sev-medium: 245 165 36;
+  --c-sev-high: 255 77 94;
+  --c-ok: 53 211 145;
+  --c-warn: 245 165 36;
+  --c-danger: 255 77 94;
+  --c-map-private: 53 167 255;
+  --c-map-public: 245 165 36;
+  --c-map-multicast: 176 124 255;
+  --c-map-local: 53 211 145;
+  --c-map-unclassified: 107 119 131;
+  --c-chart-1: 53 167 255;
+  --c-chart-2: 76 201 255;
+  --c-chart-3: 139 157 255;
+  --c-chart-4: 53 211 145;
+  --c-chart-5: 245 165 36;
+  --c-chart-6: 255 138 61;
+  --c-chart-7: 176 124 255;
+  --c-chart-8: 58 214 197;
   color-scheme: dark;
+
+  /*
+   * Motion tokens.
+   *
+   * Slow on purpose: an analyst reads numbers here, and an interface that moves
+   * quickly competes with them. Everything the stylesheet animates picks a duration
+   * from this scale, so "a calmer build" is one edit rather than forty.
+   *
+   * `--m-*` values are consumed by the rules below; `--m-ambient` is for the one
+   * continuous loop a viewport is allowed (the world map's travelling arcs).
+   */
+  --m-press: 180ms;
+  --m-short: 260ms;
+  --m-base: 520ms;
+  --m-slow: 900ms;
+  --m-ambient: 18s;
+  --m-pulse: 7.5s;
+  --m-ease-calm: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --m-ease-drift: cubic-bezier(0.45, 0.05, 0.55, 0.95);
 }
 
 @layer base {
@@ -1466,8 +1485,218 @@
     object-fit: contain;
   }
 
+/* ---------------------------------------------------------------- */
+/* The traffic chart's heartbeat sweep                              */
+/*                                                                  */
+/* A monitor draws its trace from left to right; so does this chart */
+/* when it first appears. One keyframe on a clip path - no timer, no */
+/* measurement - and nothing is left over afterwards, because the    */
+/* final clip is the same as no clip at all.                         */
+/* ---------------------------------------------------------------- */
+
+@keyframes chart-sweep {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    /* A negative inset, deliberately: the finished clip is larger than the box, so the
+       chart's own tooltip can still overhang the plot the way it always could. */
+    clip-path: inset(-20% -2% -8% -2%);
+  }
+}
+
+@keyframes heart-pulse {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.9;
+  }
+  70% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+@layer components {
+  .chart-sweep {
+    animation: chart-sweep 2.4s var(--m-ease-calm) both;
+  }
+
+  /* The ring around the newest point, breathing outward on the same slow clock as the
+     rest of the application. `fill-box` keeps the scale centred on the dot rather than
+     on the whole SVG, exactly as the world map's pulse does. */
+  .heart-dot-halo {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: heart-pulse 2.6s var(--m-ease-drift) infinite;
+  }
+}
+
+/* The ring exists only to animate, so with motion off it is removed rather than frozen
+   into a permanent circle around the newest point. The sweep is switched off by not
+   applying its class at all (TrafficSparkline.tsx asks the setting). */
+[data-motion='off'] .heart-dot-halo {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heart-dot-halo {
+    display: none;
+  }
+}
+
+
   .ip-menu-foot-ok {
     border-top-color: rgb(var(--c-ok) / 0.4);
+  }
+}
+
+/* ==================================================================== */
+/* Motion                                                                */
+/*                                                                       */
+/* The brief: slow and relaxing, and never in the way of a number. So    */
+/* there are three rules, and everything below is written to them.        */
+/*                                                                       */
+/* 1. Only `transform`, `opacity` and `stroke-dashoffset` animate — the   */
+/*    properties a browser composites, so animating a page of panels      */
+/*    costs no re-layout.                                                */
+/* 2. Motion marks *arrival and presence*, never a value: no counting up, */
+/*    no pulsing severity chips, no looping decoration beyond the map's   */
+/*    single ambient travel.                                             */
+/* 3. Stillness is a preference, not a speed. `[data-motion='off']` and    */
+/*    the operating system's reduce-motion setting end all motion — see   */
+/*    the two blocks at the end of this file.                            */
+/* ==================================================================== */
+
+/* A page arriving: a short rise, so a new section settles instead of popping. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Waiting: slower than Tailwind's `animate-pulse`, which reads as an alarm. */
+@keyframes calm-shimmer {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@layer components {
+  .page-head,
+  .page-body > * {
+    animation: rise-in var(--m-base) var(--m-ease-calm) both;
+  }
+
+  /* A page is a stack, so its children arrive in reading order. Six steps of
+     70 ms: the eye reads a stagger as one movement, ten steps read as a queue, so
+     everything after the sixth shares a single late delay. */
+  .page-body > *:nth-child(2) { animation-delay: 70ms; }
+  .page-body > *:nth-child(3) { animation-delay: 140ms; }
+  .page-body > *:nth-child(4) { animation-delay: 210ms; }
+  .page-body > *:nth-child(5) { animation-delay: 280ms; }
+  .page-body > *:nth-child(6) { animation-delay: 350ms; }
+  .page-body > *:nth-child(n + 7) { animation-delay: 420ms; }
+
+  /* Rows fade rather than slide: a table is a grid, and sliding rows would move
+     the columns. Capped at the first 40 — beyond that the reader is scrolling. */
+  .dt tbody tr {
+    animation: rise-in var(--m-short) var(--m-ease-calm) both;
+  }
+
+  .dt tbody tr:nth-child(n + 41) {
+    animation: none;
+  }
+
+  .skeleton {
+    animation: calm-shimmer 2.6s var(--m-ease-drift) infinite;
+  }
+
+  .nav-link {
+    transition: color var(--m-short) var(--m-ease-calm),
+      background-color var(--m-short) var(--m-ease-calm),
+      border-color var(--m-short) var(--m-ease-calm);
+  }
+
+  /* Shinobi flourishes, scoped to the palette so no other theme is touched. */
+  [data-theme='shinobi'] .page-head::before {
+    background-image: radial-gradient(
+      52% 100% at 8% 0%,
+      rgb(var(--c-accent) / 0.16) 0%,
+      transparent 72%
+    );
+  }
+
+  [data-theme='shinobi'] .page-head::after {
+    animation: rise-in var(--m-slow) var(--m-ease-calm) both;
+  }
+
+  /* One ambient element outside the map: a 1px gradient along the sidebar edge,
+     breathing on an 11 s cycle. It composites, so it costs nothing to run. */
+  [data-theme='shinobi'] .shinobi-edge {
+    animation: calm-shimmer 11s var(--m-ease-drift) infinite;
+  }
+
+  /* The world map's ambience, slowed: arcs travel on an 18 s loop, a dot breathes
+     on 7.5 s, the origin's glow on the same. Staggering is per-arc, and lives in
+     WorldMap.tsx as an inline delay so each arc sets off on its own beat. */
+  .world-arc {
+    animation-duration: var(--m-ambient);
+  }
+
+  .world-dot-pulse,
+  .world-hub-glow {
+    animation-duration: var(--m-pulse);
+  }
+
+  .world-hub-glow {
+    animation-name: calm-shimmer;
+    animation-timing-function: var(--m-ease-drift);
+    animation-iteration-count: infinite;
+  }
+}
+
+/* ==================================================================== */
+/* Stillness                                                            */
+/*                                                                       */
+/* Two switches, one outcome — and the media query wins: a reader who has  */
+/* asked their operating system for less motion must not have to find     */
+/* this application's own setting. `!important` is deliberate, so a stray  */
+/* inline animation elsewhere cannot defeat a preference.                  */
+/* ==================================================================== */
+
+[data-motion='off'] *,
+[data-motion='off'] *::before,
+[data-motion='off'] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* The pulse ring exists only to animate, so with motion off it is removed rather than
+   frozen into a permanent ring around every dot (the same rule the OS preference uses). */
+[data-motion='off'] .world-dot-pulse {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
   }
 }
 

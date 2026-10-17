@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { CSSProperties } from 'react'
 import clsx from 'clsx'
+import { useMotion } from '@/theme/MotionProvider'
 import { useThemeTokens } from '@/theme/ThemeProvider'
 import { formatBytes, formatClockTime, formatNumber } from '@/utils/format'
 import type { TrafficSeriesPoint } from '@/types'
@@ -20,6 +21,15 @@ export interface TrafficSparklineProps {
 
 export type TrafficMetric = 'both' | 'packets' | 'bytes'
 
+// The props Recharts hands a custom dot. Declared here rather than imported so this
+// component does not depend on a private Recharts type that changes between releases.
+interface DotRenderProps {
+  cx?: number
+  cy?: number
+  index?: number
+  payload?: unknown
+}
+
 /**
  * Compact traffic shape.
  *
@@ -37,6 +47,8 @@ export type TrafficMetric = 'both' | 'packets' | 'bytes'
  */
 export function TrafficSparkline({ series, height = 190, initialMetric = 'both' }: TrafficSparklineProps) {
   const tokens = useThemeTokens()
+  /* Motion off means no sweep and no pulse - the chart is simply there. */
+  const { still } = useMotion()
   const axisTick = { fill: tokens.muted, fontSize: 10 }
   const gridStroke = tokens.border
   const tooltipStyle: CSSProperties = {
@@ -54,6 +66,37 @@ export function TrafficSparkline({ series, height = 190, initialMetric = 'both' 
 
   const showPackets = metric !== 'bytes'
   const showBytes = metric !== 'packets'
+
+  /*
+   * The heartbeat dot: one dot at the newest point of the visible trace, with a ring
+   * that pulses outward. It marks the leading edge of the chart - the present moment of
+   * the capture - the way a monitor marks the last beat it drew. Everything is CSS;
+   * this function only decides *where* the dot goes, and returns nothing for the other
+   * points so the trace itself stays a clean line.
+   */
+  const lastIndex = series.length - 1
+  const lastPoint = series[lastIndex]
+  const pulseDot = (props: DotRenderProps) => {
+    const { cx, cy, index, payload } = props
+    // Recharts passes the point index; some versions omit it, so the datum is checked
+    // as well. Either way only the newest point draws, and the rest draw nothing.
+    const isLast = index === lastIndex || payload === lastPoint
+    if (!isLast || cx === undefined || cy === undefined) return <g />
+    return (
+      <g className="heart-dot" key="heart-dot">
+        <circle
+          className="heart-dot-halo"
+          cx={cx}
+          cy={cy}
+          r={4}
+          fill="none"
+          stroke={tokens.accent}
+          strokeWidth={1.2}
+        />
+        <circle cx={cx} cy={cy} r={2.4} fill={tokens.accent} />
+      </g>
+    )
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -98,7 +141,12 @@ export function TrafficSparkline({ series, height = 190, initialMetric = 'both' 
           </div>
         ) : null}
       </div>
-      <div style={{ height: height - 28 }} className="min-h-0 flex-1">
+      {/* The sweep: the whole plot is revealed from left to right, once, when the chart
+          appears (index.css). With motion off the class is simply absent. */}
+      <div
+        style={{ height: height - 28 }}
+        className={clsx('min-h-0 flex-1', !still && 'chart-sweep')}
+      >
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={series} margin={{ top: 4, right: showBytes ? 4 : 8, bottom: 0, left: 0 }}>
             <CartesianGrid stroke={gridStroke} vertical={false} />
@@ -150,7 +198,7 @@ export function TrafficSparkline({ series, height = 190, initialMetric = 'both' 
                 strokeWidth={1.5}
                 fill={tokens.accent}
                 fillOpacity={0.18}
-                dot={false}
+                dot={showPackets ? pulseDot : false}
                 isAnimationActive={false}
               />
             ) : null}
@@ -165,7 +213,7 @@ export function TrafficSparkline({ series, height = 190, initialMetric = 'both' 
                 strokeDasharray="3 2"
                 fill={tokens.accent2}
                 fillOpacity={0.12}
-                dot={false}
+                dot={showPackets ? false : pulseDot}
                 isAnimationActive={false}
               />
             ) : null}

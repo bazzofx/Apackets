@@ -346,7 +346,7 @@ export function SuricataRulesPanel() {
             </span>
             <span
               className="text-warn"
-              title="Rules whose options need features APackets cannot honour (flowbits, thresholds, raw payload buffers, undissected protocols). They are stored and listed but skipped when matching."
+              title="Rules whose options need features ShinboShark cannot honour (flowbits, thresholds, raw payload buffers, undissected protocols). They are stored and listed but skipped when matching."
             >
               <span className="mono">{formatNumber(stats.data.unsupported)}</span> skipped by the matcher
             </span>

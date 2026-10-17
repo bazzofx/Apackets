@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="referrer" content="no-referrer" />
     <meta name="color-scheme" content="dark" />
-    <title>APackets — Local PCAP Analyzer</title>
+    <title>ShinboShark — Local PCAP Analyzer</title>
     <script>
       /*
        * Runs before first paint so a stored theme never flashes Steel Blue.
@@ -19,6 +19,7 @@
         try {
           var key = 'apackets.theme'
           var hints = {
+            shinobi: ['5 6 7', '11 13 16', '18 22 26'],
             'steel-blue': ['11 17 32', '17 26 46', '22 32 58'],
             'cyber-punk': ['8 6 15', '18 11 31', '26 16 48'],
             'cyber-samurai': ['12 10 9', '23 19 16', '32 26 21'],
@@ -30,12 +31,36 @@
           } catch (storageError) {
             stored = null
           }
-          var id = Object.prototype.hasOwnProperty.call(hints, stored) ? stored : 'steel-blue'
+          var id = Object.prototype.hasOwnProperty.call(hints, stored) ? stored : 'shinobi'
+          /* A browser holding the palette that used to be the default never chose it:
+             ThemeProvider adopts Shinobi once and records that it did. The same test runs
+             here so the first painted frame is already the new default, without a flash
+             of Steel Blue - and without overriding a palette chosen on purpose later. */
+          try {
+            if (id === 'steel-blue' && window.localStorage.getItem('apackets.theme.default') === null) {
+              id = 'shinobi'
+            }
+          } catch (migrateError) {
+            /* no storage: the hint above stands */
+          }
           var root = document.documentElement
           root.setAttribute('data-theme', id)
           root.style.setProperty('--c-bg', hints[id][0])
           root.style.setProperty('--c-surface', hints[id][1])
           root.style.setProperty('--c-surface2', hints[id][2])
+          /*
+           * The motion preference is read here for the same reason the palette is:
+           * a reader who has asked for stillness must not get one animated frame
+           * while the React tree mounts. `calm` is the default; `off` is stillness.
+           */
+          var motion = 'calm'
+          try {
+            var storedMotion = window.localStorage.getItem('apackets.motion')
+            if (storedMotion === 'off' || storedMotion === 'calm') motion = storedMotion
+          } catch (motionError) {
+            motion = 'calm'
+          }
+          root.setAttribute('data-motion', motion)
         } catch (error) {
           /* Inline styles unavailable: the CSS defaults in index.css apply. */
         }

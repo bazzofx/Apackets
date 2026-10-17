@@ -186,7 +186,7 @@ export class ApiError extends Error {
 }
 
 export const NETWORK_ERROR_MESSAGE =
-  'Could not reach the APackets backend. Start it with `python -m uvicorn app.main:app --port 8000` and check that it is listening on 127.0.0.1:8000.'
+  'Could not reach the ShinboShark backend. Start it with `python -m uvicorn app.main:app --port 8000` and check that it is listening on 127.0.0.1:8000.'
 
 /** Coerce any thrown value into an `ApiError` for uniform display. */
 export function toApiError(error: unknown): ApiError {

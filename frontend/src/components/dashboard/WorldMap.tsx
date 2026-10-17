@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import clsx from 'clsx'
 import { Globe2, Loader2, Maximize2, Minus, Plus, RefreshCw } from 'lucide-react'
 import DestinationPanel from '@/components/dashboard/DestinationPanel'
+import { motionIsStill } from '@/theme/motion'
 import { COUNTRY_NAMES, WORLD_COUNTRIES, WORLD_VIEWBOX, countryName } from '@/theme/worldMap'
 import { formatBytes, formatNumber } from '@/utils/format'
 import type { GeographyCountry, GeographyOrigin, GeographyResponse, GeographyUnknown } from '@/types'
@@ -277,10 +278,10 @@ export function WorldMap({
       return
     }
     setPanelReady(false)
-    const reduce =
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
-    if (reduce) {
+    /* `motionIsStill()` reads both switches: this application's Motion setting and the
+       operating system's reduce-motion preference. Asking only the media query would
+       animate for a reader who had already turned motion off here. */
+    if (motionIsStill()) {
       /* Nothing moves, so nothing to wait for. */
       setPanelReady(true)
       return
@@ -541,7 +542,7 @@ export function WorldMap({
               <p className="text-xs leading-relaxed text-muted">
                 <span className="text-text">No location dataset yet.</span>{' '}
                 {data.dataset?.reason ??
-                  'The world outline is part of APackets; the address-to-country table is not.'}{' '}
+                  'The world outline is part of ShinboShark; the address-to-country table is not.'}{' '}
                 It is one public CC BY 4.0 file (DB-IP Lite, country), downloaded only when you ask
                 for it — no account, no key, and no capture data is ever sent.
               </p>

@@ -15,7 +15,7 @@
  * file is the only place in `src/**` allowed to contain a colour literal.
  */
 
-export type ThemeId = 'steel-blue' | 'cyber-punk' | 'cyber-samurai' | 'soc'
+export type ThemeId = 'shinobi' | 'steel-blue' | 'cyber-punk' | 'cyber-samurai' | 'soc'
 
 export interface ThemeTokens {
   /* surfaces */
@@ -61,11 +61,42 @@ export interface ThemeDefinition {
   tokens: ThemeTokens
 }
 
-export const DEFAULT_THEME_ID: ThemeId = 'steel-blue'
+/*
+ * Shinobi is the default: jet black, grey and one neon ascent blue. The four
+ * palettes that shipped before it remain, and a browser that has already chosen one
+ * keeps it - the default only decides what a first visit looks like.
+ */
+export const DEFAULT_THEME_ID: ThemeId = 'shinobi'
 
 /** Per-browser preference. A theme is not analysis data, so it stays local. */
 export const THEME_STORAGE_KEY = 'apackets.theme'
 
+const SHINOBI: ThemeTokens = {
+  bg: '#050607',
+  surface: '#0b0d10',
+  surface2: '#12161a',
+  border: '#1d2429',
+  border2: '#2b343b',
+  accent: '#35a7ff',
+  accent2: '#7fd2ff',
+  text: '#e7edf2',
+  muted: '#9aa7b2',
+  faint: '#65717c',
+  glow: 'rgba(53,167,255,0.38)',
+  sevInformational: '#6b7783',
+  sevLow: '#4cc9ff',
+  sevMedium: '#f5a524',
+  sevHigh: '#ff4d5e',
+  ok: '#35d391',
+  warn: '#f5a524',
+  danger: '#ff4d5e',
+  chart: ['#35a7ff', '#4cc9ff', '#8b9dff', '#35d391', '#f5a524', '#ff8a3d', '#b07cff', '#3ad6c5'],
+  mapPrivate: '#35a7ff',
+  mapPublic: '#f5a524',
+  mapMulticast: '#b07cff',
+  mapLocal: '#35d391',
+  mapUnclassified: '#6b7783',
+}
 const STEEL_BLUE: ThemeTokens = {
   bg: '#0b1120',
   surface: '#111a2e',
@@ -175,6 +206,14 @@ const SOC: ThemeTokens = {
 }
 
 export const THEMES: Record<ThemeId, ThemeDefinition> = {
+  shinobi: {
+    id: 'shinobi',
+    label: 'Shinobi',
+    description:
+      'Jet black, quiet grey and one neon ascent blue. The stealth palette: edges are hairlines, hue is reserved for what matters.',
+    swatch: ['#050607', '#12161a', '#35a7ff', '#7fd2ff', '#e7edf2'],
+    tokens: SHINOBI,
+  },
   'steel-blue': {
     id: 'steel-blue',
     label: 'Steel Blue',
@@ -206,6 +245,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
 }
 
 export const THEME_LIST: ThemeDefinition[] = [
+  THEMES.shinobi,
   THEMES['steel-blue'],
   THEMES['cyber-punk'],
   THEMES['cyber-samurai'],

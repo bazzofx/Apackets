@@ -32,12 +32,33 @@ export interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
+/**
+ * The palette that was the default before Shinobi.
+ *
+ * A browser holding exactly this value never chose it - it was written by a first visit
+ * when Steel Blue was the default. Adopting the new default once (below) is what stops
+ * "make Shinobi the default" from being invisible to everyone who has opened the app
+ * before. The marker makes it one-time: choosing Steel Blue afterwards sticks.
+ */
+const PREVIOUS_DEFAULT: ThemeId = 'steel-blue'
+const THEME_MIGRATION_KEY = 'apackets.theme.default'
+
 /** `localStorage` can throw (private mode, disabled storage), so read defensively. */
 function readStoredTheme(): ThemeId {
   if (typeof window === 'undefined') return DEFAULT_THEME_ID
   try {
     const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
-    return isThemeId(stored) ? stored : DEFAULT_THEME_ID
+    if (!isThemeId(stored)) return DEFAULT_THEME_ID
+    if (
+      stored === PREVIOUS_DEFAULT &&
+      DEFAULT_THEME_ID !== PREVIOUS_DEFAULT &&
+      window.localStorage.getItem(THEME_MIGRATION_KEY) === null
+    ) {
+      window.localStorage.setItem(THEME_STORAGE_KEY, DEFAULT_THEME_ID)
+      window.localStorage.setItem(THEME_MIGRATION_KEY, '1')
+      return DEFAULT_THEME_ID
+    }
+    return stored
   } catch {
     return DEFAULT_THEME_ID
   }

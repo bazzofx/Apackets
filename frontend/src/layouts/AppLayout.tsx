@@ -84,7 +84,7 @@ function TsharkStatus() {
     return (
       <div
         className="flex items-center gap-1.5 text-2xs text-danger"
-        title="The APackets backend is not reachable on this port."
+        title="The ShinboShark backend is not reachable on this port."
       >
         <Unplug size={12} aria-hidden />
         <span className="hidden lg:inline">backend offline</span>
@@ -307,9 +307,18 @@ export function AppLayout() {
         <div className="flex h-12 items-center gap-2 border-b border-border px-3">
           <Network size={16} className="shrink-0 text-accent2" aria-hidden />
           <span className="hidden text-sm font-semibold tracking-wide text-text lg:inline">
-            APackets
+            ShinboShark
           </span>
         </div>
+
+        {/* The shell's one ambient element: a hairline of the section hue along the
+            sidebar edge, breathing on an 11 s cycle in the Shinobi palette only
+            (index.css). It is one gradient, so it composites and costs nothing - and
+            it is the only motion on screen that is not an entrance. */}
+        <span
+          aria-hidden
+          className="shinobi-edge pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-accent/0 via-accent/45 to-accent/0"
+        />
 
         <div className="hidden border-b border-border px-3 py-2 lg:block">
           <TsharkStatus />
