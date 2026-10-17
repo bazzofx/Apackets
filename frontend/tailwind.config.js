@@ -44,7 +44,11 @@ export default {
         mono: ['JetBrains Mono', 'Cascadia Mono', 'Consolas', 'monospace'],
       },
       fontSize: {
-        '2xs': ['0.6875rem', { lineHeight: '1rem' }],
+        /* The smallest label in the interface: chips, panel subtitles, table
+           captions, eyebrow text. 13px, and a line-height that keeps the same
+           ratio the 11px value had (1.45), so multi-line captions still breathe
+           without every panel growing a row. */
+        '2xs': ['0.8125rem', { lineHeight: '1.1875rem' }],
       },
       boxShadow: {
         panel: '0 1px 2px 0 rgb(var(--c-bg) / 0.6)',
