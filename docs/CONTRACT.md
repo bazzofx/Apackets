@@ -584,11 +584,21 @@ skipped; only extraction failure of packets fails the whole analysis.
 
 ### Objects (`routes_objects.py`)
 * `GET /api/analyses/{id}/objects` — `{"items":[...]}` (non-paginated is fine, but
-  support `page`/`page_size` with the standard envelope).
+  support `page`/`page_size` with the standard envelope). Filters: `status`, `search`
+  (file name), `sort`/`order`, and `content_type` as a *family prefix* — `content_type=image`
+  matches objects whose recorded type is `image/*` **or** whose file name carries a raster
+  suffix (`.png .jpg .jpeg .gif .bmp .webp .tif .tiff .ico .avif`), because carved bodies
+  frequently record no usable type. `image/svg%` is excluded from that family: an SVG is a
+  document, and this application does not render capture content as active content.
 * `GET /api/analyses/{id}/objects/{object_id}/export` — `FileResponse` with
   `Content-Disposition: attachment` using the sanitised filename. Must reject
   any `object_id` that is unknown and any stored path that escapes the analysis
   directory (`403 path_traversal`).
+  - `?inline=1` serves a **raster image** inline so a gallery can draw it. The media type is
+    decided by the route, never by the query string: the recorded type is used when it is a
+    raster image type, else the file-name suffix; anything else remains an attachment whatever
+    the parameter says. Every response keeps `X-Content-Type-Options: nosniff`; inline images
+    are `Cache-Control: private, max-age=3600`, attachments `no-store`.
 * `POST /api/analyses/{id}/objects/extract` — re-runs extraction, returns
   `{"ok":true,"extracted":n}`.
 

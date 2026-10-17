@@ -9,6 +9,7 @@ import {
   FolderOpen,
   FolderUp,
   Globe,
+  Image,
   Info,
   KeyRound,
   LayoutDashboard,
@@ -261,6 +262,12 @@ export function AppLayout() {
       title: 'Look up one address, domain or URL and see everything this capture knows about it',
     },
     { to: '/objects', label: 'Files and Objects', icon: Package },
+    {
+      to: '/images',
+      label: 'Images',
+      icon: Image,
+      title: 'Pictures carved out of unencrypted response bodies, drawn from the stored bytes',
+    },
     {
       to: '/credentials',
       label: 'Users & Passwords',

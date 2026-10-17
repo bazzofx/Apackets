@@ -66,7 +66,9 @@ SAFE_CONTENT_TYPES: frozenset[str] = frozenset(
         "image/jpeg",
         "image/png",
         "image/tiff",
+        "image/vnd.microsoft.icon",
         "image/webp",
+        "image/x-icon",
         "text/css",
         "text/csv",
         "text/html",
@@ -146,6 +148,57 @@ def _content_type(row) -> tuple[str, str | None]:
     return "application/octet-stream", observed
 
 
+
+#: Raster image types the browser may be asked to draw inline.
+#:
+#: SVG is deliberately absent: an SVG is a document that can carry script, and this
+#: application never executes or renders capture content as active content. Everything
+#: here is a bitmap a browser decodes and draws, nothing more.
+INLINE_IMAGE_TYPES: frozenset[str] = frozenset(
+    {
+        "image/avif",
+        "image/bmp",
+        "image/gif",
+        "image/jpeg",
+        "image/png",
+        "image/tiff",
+        "image/vnd.microsoft.icon",
+        "image/webp",
+        "image/x-icon",
+    }
+)
+
+#: Filename suffix -> media type, used when the capture recorded no usable type. Many
+#: carved bodies arrive as `application/octet-stream` (or with no type at all) even when
+#: the bytes are an image, and the suffix is the only evidence there is.
+_IMAGE_SUFFIXES: dict[str, str] = {
+    ".avif": "image/avif",
+    ".bmp": "image/bmp",
+    ".gif": "image/gif",
+    ".ico": "image/vnd.microsoft.icon",
+    ".jpeg": "image/jpeg",
+    ".jpg": "image/jpeg",
+    ".png": "image/png",
+    ".tif": "image/tiff",
+    ".tiff": "image/tiff",
+    ".webp": "image/webp",
+}
+
+
+def _image_media_type(row) -> str | None:
+    """The image type this object can honestly be served as, or None.
+
+    The recorded content type wins; the filename suffix is the fallback, because a
+    carved body frequently records `application/octet-stream` while the name says what
+    it actually is. A browser that receives the wrong raster type simply fails to draw
+    it - there is no execution path in a PNG, a GIF or an icon.
+    """
+    media_type, _ = _content_type(row)
+    if media_type in INLINE_IMAGE_TYPES:
+        return media_type
+    suffix = Path(str(row["filename"] or "")).suffix.lower()
+    return _IMAGE_SUFFIXES.get(suffix)
+
 @router.get("/{analysis_id}/objects")
 def list_objects(
     analysis_id: str,
@@ -154,6 +207,11 @@ def list_objects(
     order: str | None = Query(None, description="asc | desc"),
     status: str | None = Query(None, description="complete | partial | failed"),
     search: str | None = Query(None, description="Substring of the displayed filename"),
+    content_type: str | None = Query(
+        None,
+        description=("Family prefix, e.g. 'image'. 'image' also matches image file names whose "
+                     "recorded type is missing or generic, which is how carved bodies arrive."),
+    ),
 ) -> dict:
     """Paginated extracted objects for one analysis."""
     deps.get_ready_analysis(analysis_id)
@@ -167,6 +225,24 @@ def list_objects(
         term = f"%{_escape_like(search.strip())}%"
         where.append("(filename LIKE ? ESCAPE '\\' OR original_filename LIKE ? ESCAPE '\\')")
         params.extend([term, term])
+    if content_type and content_type.strip():
+        family = content_type.strip().lower().split(";", 1)[0].strip().rstrip("/")
+        if family == "image":
+            # An image is an image whether or not the capture recorded a type for it.
+            suffix_clause = " OR ".join("lower(filename) LIKE ?" for _ in _IMAGE_SUFFIXES)
+            where.append(
+                "(COALESCE(lower(content_type), '') LIKE ? OR " + suffix_clause + ")"
+            )
+            params.append("image/%")
+            params.extend(f"%{suffix}" for suffix in _IMAGE_SUFFIXES)
+            # An SVG is not drawn anywhere in this application - it is a document that can
+            # carry script - so it is not offered to a gallery either. It stays visible on
+            # Files and Objects, where every carved file is listed by name.
+            where.append("COALESCE(lower(content_type), '') NOT LIKE ?")
+            params.append("image/svg%")
+        else:
+            where.append("COALESCE(lower(content_type), '') LIKE ?")
+            params.append(f"{family}/%")
 
     clause = " AND ".join(where)
     order_sql = _order_clause(sort, order)
@@ -209,8 +285,16 @@ def list_objects(
 
 
 @router.get("/{analysis_id}/objects/{object_id}/export")
-def export_object(analysis_id: str, object_id: str) -> FileResponse:
-    """Download one extracted object as an attachment."""
+def export_object(
+    analysis_id: str,
+    object_id: str,
+    inline: bool = Query(
+        False,
+        description=("Serve a raster image inline, so a gallery can draw it. Anything that "
+                     "is not a raster image is still an attachment, whatever this says."),
+    ),
+) -> FileResponse:
+    """Download one extracted object, as an attachment unless it is a raster image asked for inline."""
     deps.get_ready_analysis(analysis_id)
 
     row = db.query_one(
@@ -245,10 +329,20 @@ def export_object(analysis_id: str, object_id: str) -> FileResponse:
     filename = _header_safe(filename, limit=160) or "object.bin"
     media_type, observed = _content_type(row)
 
+    # Inline is a privilege, not a request: only a raster image type may be drawn in the
+    # page, and the type is decided here rather than trusted from the query string.
+    image_type = _image_media_type(row) if inline else None
+    if image_type is not None:
+        media_type = image_type
+
     headers = {
-        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Content-Disposition": (
+            f'inline; filename="{filename}"' if image_type is not None else f'attachment; filename="{filename}"'
+        ),
         "X-Content-Type-Options": "nosniff",
-        "Cache-Control": "no-store",
+        # A gallery re-reads the same handful of images on every visit; an attachment is
+        # a one-off download and stays uncached.
+        "Cache-Control": "private, max-age=3600" if image_type is not None else "no-store",
     }
     if observed:
         headers["X-Object-Content-Type"] = observed

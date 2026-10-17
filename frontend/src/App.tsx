@@ -27,6 +27,7 @@ const DnsPage = lazy(() => import('@/pages/DnsPage'))
 const TlsPage = lazy(() => import('@/pages/TlsPage'))
 const HostsPage = lazy(() => import('@/pages/HostsPage'))
 const ObjectsPage = lazy(() => import('@/pages/ObjectsPage'))
+const ImagesPage = lazy(() => import('@/pages/ImagesPage'))
 const CredentialsPage = lazy(() => import('@/pages/CredentialsPage'))
 const FindingsPage = lazy(() => import('@/pages/FindingsPage'))
 const InvestigatePage = lazy(() => import('@/pages/InvestigatePage'))
@@ -81,6 +82,7 @@ export function App() {
             <Route path="/smb" element={<ProtocolSessionsPage family="smb" />} />
             <Route path="/hosts" element={<HostsPage />} />
             <Route path="/objects" element={<ObjectsPage />} />
+            <Route path="/images" element={<ImagesPage />} />
             <Route path="/credentials" element={<CredentialsPage />} />
             <Route path="/findings" element={<FindingsPage />} />
             <Route path="/findings/:findingId" element={<FindingsPage />} />

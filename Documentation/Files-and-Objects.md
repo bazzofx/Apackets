@@ -250,6 +250,7 @@ The same pattern holds across the library: of the 129 rows in `objects` in
 | Element | Opens |
 |---|---|
 | **Download** on a row | `GET /api/analyses/{id}/objects/{object_id}/export`, an attachment download addressed by the server-generated object id |
+| The pictures among these objects | [Images](Images.md) (`/images`) draws the raster ones as a gallery: the same objects, filtered to `content_type=image`, served inline |
 | **Re-extract objects** | `POST …/objects/extract` for the selected analysis; the list is invalidated and reloaded |
 | Status filter, sort, search, pagination | The same page, re-queried through the URL |
 | `stored_path` in a non-complete row | Nothing. It is text for reference; the page never turns it into a link |

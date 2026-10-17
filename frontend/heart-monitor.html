@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>traffic flow · heart-rate style</title>
+  <style>
+    /* Page: very dark navy. */
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      background: #0b0f1a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    /* The monitor panel: slightly lighter navy, rounded, with a soft glow. */
+    .monitor {
+      background: #111a28;
+      border-radius: 14px;
+      padding: 18px 18px 12px;
+      box-shadow:
+        0 0 0 1px rgba(50, 255, 180, 0.08),
+        0 18px 60px rgba(0, 0, 0, 0.6),
+        0 0 40px rgba(50, 255, 180, 0.06);
+    }
+
+    /* The screen: near black, thin border, inner shadow. */
+    canvas {
+      display: block;
+      background: #0a0f17;
+      border: 1px solid #1c2a3a;
+      border-radius: 8px;
+      box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.9);
+    }
+
+    /* Caption under the canvas. */
+    .caption {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      color: #8fa9c4;
+      font-size: 13px;
+      letter-spacing: 0.02em;
+    }
+
+    /* The blinking dot: opacity and scale together, 1 -> 0.4, every 1.2 s. */
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #32ffb4;
+      box-shadow: 0 0 8px #32ffb4;
+      animation: blink 1.2s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.4;
+        transform: scale(0.75);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="monitor">
+    <canvas id="ecg" width="700" height="220"></canvas>
+    <div class="caption">
+      <span class="dot"></span>
+      <span>traffic flow · heart-rate style</span>
+    </div>
+  </div>
+
+  <script>
+    /* ------------------------------------------------------------------
+     * Constants
+     * ------------------------------------------------------------------ */
+    const W = 700;              // canvas width
+    const H = 220;              // canvas height
+    const BASELINE = 150;       // vertical centre of the trace
+    const AMPLITUDE = 38;       // height of each pulse spike
+    const SCROLL_SPEED = 1.8;   // pixels the trace shifts left per frame
+    const PULSE_INTERVAL = 90;  // frames between new spikes (~1.5 s at 60 fps)
+    const PULSE_WIDTH = 30;     // frames a spike takes to rise and fall
+
+    /* ------------------------------------------------------------------
+     * State
+     * ------------------------------------------------------------------ */
+    const canvas = document.getElementById('ecg');
+    const ctx = canvas.getContext('2d');
+
+    // Every sampled point of the trace. x runs 0..W; y is canvas space.
+    const points = [];
+
+    let frame = 0;           // frame counter, used to schedule the next spike
+    let pulseActive = false; // is a spike being drawn right now?
+    let progress = 0;        // 0..1 across the active spike
+
+    /* ------------------------------------------------------------------
+     * One frame: move the trace, sample a new point, draw it
+     * ------------------------------------------------------------------ */
+    function tick() {
+      frame++;
+
+      // 1. Start a new spike every PULSE_INTERVAL frames.
+      if (frame % PULSE_INTERVAL === 0) {
+        pulseActive = true;
+        progress = 0;
+      }
+
+      // 2. Scroll: every existing point moves left; anything off the left edge
+      //    is dropped so the array never grows without bound.
+      for (let i = 0; i < points.length; i++) {
+        points[i].x -= SCROLL_SPEED;
+      }
+      while (points.length > 0 && points[0].x < -5) {
+        points.shift();
+      }
+
+      // 3. Compute the new sample at the right edge.
+      let y = BASELINE;
+      if (pulseActive) {
+        // Negative because canvas y grows downward: the spike goes up.
+        y += -Math.sin(progress * Math.PI) * AMPLITUDE;
+      }
+      y = Math.max(2, Math.min(H - 2, y)); // keep the trace inside the canvas
+
+      points.push({ x: W, y: y });
+
+      // 4. Advance the spike, and end it when it has run its width.
+      if (pulseActive) {
+        progress += 1 / PULSE_WIDTH;
+        if (progress >= 1) {
+          pulseActive = false;
+          progress = 0;
+        }
+      }
+
+      draw();
+      requestAnimationFrame(tick);
+    }
+
+    /* ------------------------------------------------------------------
+     * Draw: the trace, glowing, plus a dot on the newest sample
+     * ------------------------------------------------------------------ */
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      if (points.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) {
+          ctx.lineTo(points[i].x, points[i].y);
+        }
+        ctx.strokeStyle = '#32ffb4';
+        ctx.lineWidth = 2.5;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.shadowColor = '#32ffb4';
+        ctx.shadowBlur = 12;
+        ctx.stroke();
+      }
+
+      // The leading dot: the newest sample, with a brighter glow.
+      const newest = points[points.length - 1];
+      if (newest) {
+        ctx.beginPath();
+        ctx.arc(newest.x, newest.y, 2.6, 0, Math.PI * 2);
+        ctx.fillStyle = '#32ffb4';
+        ctx.shadowBlur = 18;
+        ctx.fill();
+      }
+
+      // Reset the shadow so it cannot leak into another drawing operation.
+      ctx.shadowBlur = 0;
+    }
+
+    /* Seed the trace so the screen is not empty on the first frame. */
+    for (let x = 0; x <= W; x += SCROLL_SPEED) {
+      points.push({ x: x, y: BASELINE });
+    }
+
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>

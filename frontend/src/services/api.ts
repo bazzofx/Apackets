@@ -694,6 +694,8 @@ export interface FindingContextParams {
 export interface ObjectListParams extends PageParams {
   protocol?: string
   search?: string
+  /** Family prefix, e.g. `image`; also matches image names whose type was not recorded. */
+  content_type?: string
 }
 
 export const objectsApi = {
@@ -704,6 +706,15 @@ export const objectsApi = {
 
   exportUrl: (analysisId: string, objectId: string) =>
     apiUrl(`/analyses/${analysisId}/objects/${encodeURIComponent(objectId)}/export`),
+
+  /**
+   * The same bytes, served inline for a raster image so a gallery can draw it.
+   *
+   * The backend decides: a request for inline on anything that is not a raster image
+   * comes back as an attachment, so this URL cannot be used to render a document.
+   */
+  inlineUrl: (analysisId: string, objectId: string) =>
+    apiUrl(`/analyses/${analysisId}/objects/${encodeURIComponent(objectId)}/export?inline=1`),
 
   extract: (analysisId: string) =>
     request<ExtractObjectsResponse>(`/analyses/${analysisId}/objects/extract`, {

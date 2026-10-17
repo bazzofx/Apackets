@@ -48,6 +48,7 @@ The headings below are the five headings the sidebar draws, in its order.
 | Baseline Check | [Baseline-Check.md](Baseline-Check.md) | `/baseline-check` |
 | Hunt | [Investigate.md](Investigate.md) | `/investigate` |
 | Files and Objects | [Files-and-Objects.md](Files-and-Objects.md) | `/objects` |
+| Images | [Images.md](Images.md) | `/images` |
 | Users & Passwords | [Credentials.md](Credentials.md) | `/credentials` |
 
 ### Protocols

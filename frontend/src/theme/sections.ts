@@ -23,6 +23,7 @@ import {
   FolderOpen,
   FolderUp,
   Globe,
+  Image,
   Info,
   KeyRound,
   LayoutDashboard,
@@ -193,6 +194,21 @@ export const SECTIONS = {
       'Files carved out of the capture, with their hashes, their sizes and the HTTP transactions they were correlated against.',
     icon: Package,
     hueVar: '--c-chart-6',
+    variant: 'ledger',
+  },
+  images: {
+    id: 'images',
+    route: '/images',
+    group: 'Investigate',
+    label: 'Images',
+    purpose:
+      'The pictures this capture carried in the clear: every image carved out of an unencrypted response body, drawn from the stored bytes.',
+    icon: Image,
+    /* Every chart hue and semantic token is already another section's accent, so this
+       reuses chart 8 (Info). Two groups away in the sidebar, so the two never read as
+       related; the hue tints only the headline, the eyebrow, the active nav entry and a
+       card's hairline. */
+    hueVar: '--c-chart-8',
     variant: 'ledger',
   },
   credentials: {
@@ -368,6 +384,7 @@ export const SECTION_LIST: SectionIdentity[] = [
   SECTIONS.baselineCheck,
   SECTIONS.investigate,
   SECTIONS.objects,
+  SECTIONS.images,
   SECTIONS.credentials,
   SECTIONS.http,
   SECTIONS.dns,
