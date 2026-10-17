@@ -1,4 +1,11 @@
-import { useCallback, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+} from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
@@ -150,7 +157,26 @@ export function PcapFilesPage() {
     queryKey: ['baseline'],
     queryFn: () => baselineApi.status(),
     staleTime: 10_000,
+    /* A change sweeps the whole library in the background, so poll while it runs and
+       stop the moment it is done: this page is the one that started it. */
+    refetchInterval: (query) => (query.state.data?.recalc?.running ? 1000 : false),
   })
+
+  /* The sweep rewrites the baseline findings of every analysis, so a finished sweep
+     invalidates what those findings feed: the finding lists, their counts and the
+     dashboard summary. Tracked across renders because the truth arrives by polling. */
+  const recalcRunning = baseline.data?.recalc?.running === true
+  const recalcWasRunning = useRef(false)
+  useEffect(() => {
+    if (recalcWasRunning.current && !recalcRunning) {
+      void queryClient.invalidateQueries({ queryKey: ['findings'] })
+      void queryClient.invalidateQueries({ queryKey: ['findings-counts'] })
+      void queryClient.invalidateQueries({ queryKey: ['summary'] })
+      void queryClient.invalidateQueries({ queryKey: ['baseline-compare'] })
+    }
+    recalcWasRunning.current = recalcRunning
+  }, [recalcRunning, queryClient])
+
   const invalidateBaseline = () => {
     void queryClient.invalidateQueries({ queryKey: ['baseline'] })
     void queryClient.invalidateQueries({ queryKey: ['findings'] })
@@ -166,13 +192,31 @@ export function PcapFilesPage() {
             status.baseline.original_filename +
             (status.active
               ? ' - baseline mode is on, so new analyses are compared against it.'
-              : ' - baseline mode is off.')
-          : 'Baseline cleared. Baseline mode is off.',
+              : ' - baseline mode is off.') +
+            (status.recalc?.running
+              ? ' Recalculating the baseline findings for ' +
+                String(status.recalc.total) +
+                ' analyses…'
+              : '')
+          : 'Baseline cleared. Baseline mode is off.' +
+            (status.recalc?.running ? ' Its findings are being removed.' : ''),
+      )
+      invalidateBaseline()
+    },
+  })
+  const recalculate = useMutation({
+    mutationFn: () => baselineApi.recalculate(),
+    onSuccess: (status) => {
+      setNotice(
+        status.recalc?.running
+          ? 'Recalculating the baseline findings for ' + String(status.recalc.total) + ' analyses…'
+          : 'Baseline findings are already being recalculated, or recalculation is switched off for this installation.',
       )
       invalidateBaseline()
     },
   })
   const baselineId = baseline.data?.baseline?.analysis_id ?? null
+  const recalc = baseline.data?.recalc
 
   const startUpload = useCallback(
     async (file: File) => {
@@ -392,8 +436,8 @@ export function PcapFilesPage() {
               {baseline.data.active
                 ? 'Every analysis is compared against it: entities this capture never contained are reported as findings.'
                 : 'Baseline mode is off, so nothing is compared until you switch it on.'}{' '}
-              Changing the baseline does not rewrite findings already stored - re-run the rules on an
-              analysis to recompute them.
+              Choosing or clearing the baseline recomputes its findings for every analysis in the background, so the
+              findings on the other pages match it without anyone pressing anything.
             </span>
           </div>
         ) : (
@@ -407,6 +451,63 @@ export function PcapFilesPage() {
           </div>
         )}
 
+        {recalc !== undefined ? (
+          <div className="flex items-start gap-2 border-b border-border px-3 py-2 text-2xs">
+            <RefreshCw
+              size={13}
+              className={clsx(
+                'mt-0.5 shrink-0',
+                recalcRunning ? 'animate-spin text-warn' : 'text-faint',
+              )}
+              aria-hidden
+            />
+            <span className="flex-1 text-muted">
+              {recalcRunning ? (
+                <>
+                  <span className="text-text">Recalculating the baseline findings.</span>{' '}
+                  {formatNumber(recalc.done)} of {formatNumber(recalc.total)} analyses done
+                  {recalc.current !== null ? (
+                    <>
+                      {' — '}
+                      <span className="mono">{recalc.current}</span>
+                    </>
+                  ) : null}
+                  . The findings on every page update when it finishes.
+                </>
+              ) : recalc.finished_at !== null ? (
+                <>
+                  <span className="text-text">Baseline findings recalculated</span> for{' '}
+                  {formatNumber(recalc.done)} analyses
+                  {recalc.findings > 0 ? <> — {formatNumber(recalc.findings)} findings</> : null}
+                  {recalc.seconds !== null ? <> in {recalc.seconds.toFixed(1)} s</> : null}
+                  {', '}
+                  {formatRelativeTime(recalc.finished_at)}
+                  {recalc.errors.length > 0 ? (
+                    <span className="text-red-300" title={recalc.errors.join('; ')}>
+                      {' '}
+                      — {formatNumber(recalc.errors.length)} analysis(es) could not be recalculated
+                    </span>
+                  ) : null}
+                  .
+                </>
+              ) : recalc.auto ? (
+                <>Choosing a baseline recomputes the baseline findings for every analysis automatically.</>
+              ) : (
+                <>Automatic recalculation is switched off on this installation (
+                  <span className="mono">APACKETS_BASELINE_AUTO_RECALC=0</span>).</>
+              )}
+            </span>
+            <button
+              type="button"
+              className="btn-tab shrink-0"
+              disabled={recalcRunning || !recalc.auto || recalculate.isPending}
+              onClick={() => recalculate.mutate()}
+              title="Re-run the seven baseline rules over every analysis now"
+            >
+              Recalculate
+            </button>
+          </div>
+        ) : null}
         {isLoading ? (
           <LoadingState label="Loading analyses…" rows={4} />
         ) : analyses.length === 0 ? (

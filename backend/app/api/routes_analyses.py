@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import threading
 import time
+from collections import OrderedDict
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile
@@ -304,13 +306,72 @@ def delete_analysis(
 def build_summary(row, *, domain_limit: int = 5) -> dict:
     analysis_id = row["id"]
 
-    totals = _totals(row)
-    interval, series = _traffic_series(analysis_id, row)
+    aggregate = _aggregates(analysis_id, row, domain_limit)
+    # The one figure in `totals` that is not an aggregate over the capture: findings are
+    # rewritten whenever the rules are re-run, so they are counted live and are not part
+    # of the cached bundle (see `_aggregates`).
+    totals = dict(aggregate["totals"])
+    totals["findings"] = _scalar(
+        "SELECT COUNT(*) FROM findings WHERE analysis_id = ?", (analysis_id,)
+    )
     notes = _notes(row, totals)
 
     return {
         "analysis": {**_analysis_dict(row), "job_status": _job_status(analysis_id)},
         "totals": totals,
+        "protocol_distribution": aggregate["protocol_distribution"],
+        "traffic_series": aggregate["traffic_series"],
+        "series_interval": aggregate["series_interval"],
+        "top_talkers": aggregate["top_talkers"],
+        "top_ports": aggregate["top_ports"],
+        "top_conversations": aggregate["top_conversations"],
+        "top_domains": aggregate["top_domains"],
+        "top_domains_note": TOP_DOMAINS_NOTE,
+        "traffic_extremes": aggregate["traffic_extremes"],
+        "findings_summary": _findings_summary(analysis_id),
+        "protocol_hierarchy": pipeline.load_protocol_hierarchy(analysis_id),
+        "severity_counts": _severity_counts(analysis_id),
+        "notes": notes,
+    }
+
+
+#: The parts of a summary that cannot change once a capture is indexed.
+#:
+#: `packets`, `conversations`, `dns_queries`, `http_transactions`, `tls_sessions` and
+#: `hosts` are written by the pipeline (which always creates a new analysis id) and by
+#: `POST /protocols/rescan` (which calls :func:`clear_summary_cache`). Everything else
+#: in the payload - findings, severity counts, job status, the analysis row itself - is
+#: computed live on every request, because those are the values a rescan, a rule run or
+#: a background sweep can change, and each costs well under a millisecond.
+#:
+#: Measured on a 163 584-frame capture, the cached aggregate takes 0.8 s to build and
+#: about 15 ms to serve; without it every visit to the Dashboard paid the 0.8 s.
+_AGGREGATE_CACHE: "OrderedDict[str, dict]" = OrderedDict()
+_AGGREGATE_CACHE_LIMIT = 8
+_aggregate_lock = threading.Lock()
+
+
+def clear_summary_cache(analysis_id: str | None = None) -> None:
+    """Forget the cached aggregates of one analysis, or of all of them."""
+    with _aggregate_lock:
+        if analysis_id is None:
+            _AGGREGATE_CACHE.clear()
+        else:
+            _AGGREGATE_CACHE.pop(analysis_id, None)
+
+
+def _aggregates(analysis_id: str, row, domain_limit: int) -> dict:
+    """The summary's immutable half, memoised per analysis and domain limit."""
+    key = f"{analysis_id}:{domain_limit}"
+    with _aggregate_lock:
+        cached = _AGGREGATE_CACHE.get(key)
+        if cached is not None:
+            _AGGREGATE_CACHE.move_to_end(key)
+            return cached
+
+    interval, series = _traffic_series(analysis_id, row)
+    value = {
+        "totals": _totals(row),
         "protocol_distribution": _protocol_distribution(analysis_id),
         "traffic_series": series,
         "series_interval": interval,
@@ -318,13 +379,14 @@ def build_summary(row, *, domain_limit: int = 5) -> dict:
         "top_ports": _top_ports(analysis_id),
         "top_conversations": _top_conversations(analysis_id),
         "top_domains": _top_domains(analysis_id, limit=domain_limit),
-        "top_domains_note": TOP_DOMAINS_NOTE,
         "traffic_extremes": _traffic_extremes(analysis_id),
-        "findings_summary": _findings_summary(analysis_id),
-        "protocol_hierarchy": pipeline.load_protocol_hierarchy(analysis_id),
-        "severity_counts": _severity_counts(analysis_id),
-        "notes": notes,
     }
+    with _aggregate_lock:
+        _AGGREGATE_CACHE[key] = value
+        _AGGREGATE_CACHE.move_to_end(key)
+        while len(_AGGREGATE_CACHE) > _AGGREGATE_CACHE_LIMIT:
+            _AGGREGATE_CACHE.popitem(last=False)
+    return value
 
 
 def _job_status(analysis_id: str) -> str | None:

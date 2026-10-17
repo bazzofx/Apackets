@@ -177,7 +177,44 @@ instead.
 When the selected frame is not on the page being displayed, the page says so above the
 detail pane: the pane is loaded by frame number from the capture, so it is still accurate.
 
-### 2.7 CSV export
+### 2.7 The right-click menu on a frame
+
+Right-clicking anywhere on a packet row opens the application's context menu, already
+holding **that frame's conversation**. The menu is the shared
+`IpContextMenu` (the one every address in the application uses); the packet table is
+what makes it conversation-aware. Every row carries
+
+| Attribute | On the row | On each address cell |
+|---|---|---|
+| `data-ip` | the source address | that cell's address |
+| `data-ip-transport` | `tcp` / `udp` | same |
+| `data-ip-stream` | the conversation id (`tcp_stream`, or `udp_stream` for UDP) | same |
+| `data-ip-port` | the destination port | that side's port |
+| `data-frame` | the frame number | — |
+
+The menu reads the nearest of those, so a right click on the destination address acts on
+the destination while a right click on the protocol column still acts on the frame.
+
+| Item | What it does |
+|---|---|
+| **Pivot <address> to Hunt** | Opens the address's profile on [Hunt](Investigate.md). |
+| **Show Conversations with <address>** | Opens [Conversations](Conversations.md) filtered to the address. |
+| **Follow this conversation** | Opens that very stream on Conversations (`?stream=<transport>:<id>`), the link the Findings page's **Follow conversation** also builds. Shown only when the frame knows its conversation. |
+| **Open conversation in Wireshark** | `POST /api/analyses/{id}/wireshark` with the address, the transport and the stream id; the backend composes `ip.addr == <address> && tcp.stream == <id>` and starts the GUI on that filter. The item is labelled **Pivot to Wireshark** when the frame has no conversation id, and then it opens every frame of the address. |
+| **Copy frame number** | Copies the frame number to the clipboard and confirms it in the menu. Shown only for a packet row. |
+
+For **TCP** the filter is exact — `tcp.stream` is the number this application stored.
+For **UDP** Wireshark's `udp.stream` is *not* the same numbering, so the composed filter is
+`ip.addr == <address> && port == <port>` instead: the honest approximation of a
+conversation, and the menu footer says the filter follows a conversation rather than every
+frame of the address.
+
+The menu is keyboard-reachable: `Shift+F10` or the context-menu key on a focused row
+opens it, the arrow keys walk the items, `Escape` closes it and returns focus to the row.
+Because the listener sits on `document`, right-clicking a host row, a conversation
+endpoint or an address in prose opens the same menu with that address.
+
+### 2.8 CSV export
 
 The **CSV** button fetches `packets/export.csv` itself rather than navigating to it, so it
 can report the numbers the backend sends back. The file has ten columns, exactly:

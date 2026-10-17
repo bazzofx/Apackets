@@ -45,7 +45,7 @@ SUMMARY_COLUMNS = (
     "number, time_epoch, time_relative, src_ip, src_port, dst_ip, dst_port, "
     "protocol, transport, frame_len, tcp_flags, info, protocols, eth_src, eth_dst, "
     "vlan_id, ttl, ip_version, dns_query, http_method, http_host, http_uri, "
-    "http_status, tls_sni, tls_version, tcp_stream"
+    "http_status, tls_sni, tls_version, tcp_stream, udp_stream"
 )
 
 SORTABLE = {

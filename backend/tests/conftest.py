@@ -40,6 +40,10 @@ _SESSION_DATA = _TMP_ROOT / f"pytest-data-{os.getpid()}"
 _SESSION_DATA.mkdir(parents=True, exist_ok=True)
 os.environ["APACKETS_DATA_DIR"] = str(_SESSION_DATA)
 os.environ.setdefault("APACKETS_TSHARK_TIMEOUT_S", "180")
+# A baseline change sweeps every analysis in a background thread; in a test process
+# that would write while assertions run. The sweep is exercised directly instead
+# (tests/test_baseline.py::test_a_baseline_change_recomputes_only_the_baseline_rules).
+os.environ["APACKETS_BASELINE_AUTO_RECALC"] = "0"
 
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))

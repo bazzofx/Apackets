@@ -504,8 +504,8 @@ function BaselineReport({ summary }: { summary: BaselineSummary }) {
 
       <SectionNote>
         These differences are also written to <Link to="/findings" className="underline underline-offset-2">Findings</Link>
-        {' '}by the seven <span className="mono">baseline_*</span> rules. Changing the baseline does not
-        rewrite stored findings: re-run the rules on this analysis to recompute them.
+        {' '}by the seven <span className="mono">baseline_*</span> rules, which are re-run for every
+        analysis whenever the baseline changes.
       </SectionNote>
     </div>
   )

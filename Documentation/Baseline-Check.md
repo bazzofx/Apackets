@@ -102,8 +102,8 @@ multicast, broadcast and documentation addresses, so those never appear as reach
 
 ### 4.3 The closing line
 
-*These differences are also written to Findings by the seven `baseline_*` rules.* It also says
-that changing the baseline does not rewrite stored findings, and links to
+*These differences are also written to Findings by the seven `baseline_*` rules, which
+are re-run for every analysis whenever the baseline changes.* It links to
 [Findings](Findings.md) — the page where they are recorded.
 
 ---

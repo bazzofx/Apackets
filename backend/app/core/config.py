@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     # --- retention ---------------------------------------------------------
     retain_uploads: bool = True
 
+    # --- detection ---------------------------------------------------------
+    # Choosing a baseline rewrites the baseline findings of every analysis in the
+    # background; the test suite switches that off so a sweep cannot write while a
+    # test is asserting.
+    baseline_auto_recalc: bool = True
+
     # --- server ------------------------------------------------------------
     host: str = "127.0.0.1"
     port: int = 8000

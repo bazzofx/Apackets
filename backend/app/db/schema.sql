@@ -101,6 +101,17 @@ CREATE INDEX IF NOT EXISTS idx_pk_proto    ON packets(analysis_id, protocol);
 CREATE INDEX IF NOT EXISTS idx_pk_transport ON packets(analysis_id, transport);
 CREATE INDEX IF NOT EXISTS idx_pk_len      ON packets(analysis_id, frame_len);
 CREATE INDEX IF NOT EXISTS idx_pk_tcpstream ON packets(analysis_id, tcp_stream);
+-- Covering indexes for the Dashboard aggregates. `build_summary` groups packets by
+-- source, destination, port, protocol and time bucket, and always sums frame_len;
+-- without frame_len in the index every group is a table lookup per row. Measured on
+-- a 163k-frame capture: the five queries below the summary went from 1.29 s to 0.53 s
+-- together, at a one-off cost of 3.6 s to build (paid once, during analysis, by a
+-- capture large enough to need it).
+CREATE INDEX IF NOT EXISTS idx_pk_src_len   ON packets(analysis_id, src_ip, frame_len);
+CREATE INDEX IF NOT EXISTS idx_pk_dst_len   ON packets(analysis_id, dst_ip, frame_len);
+CREATE INDEX IF NOT EXISTS idx_pk_dport_len ON packets(analysis_id, dst_port, transport, frame_len);
+CREATE INDEX IF NOT EXISTS idx_pk_proto_len ON packets(analysis_id, protocol, frame_len);
+CREATE INDEX IF NOT EXISTS idx_pk_time_len  ON packets(analysis_id, time_epoch, frame_len);
 CREATE INDEX IF NOT EXISTS idx_pk_udpstream ON packets(analysis_id, udp_stream);
 
 CREATE TABLE IF NOT EXISTS conversations (

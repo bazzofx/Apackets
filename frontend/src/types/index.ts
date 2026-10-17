@@ -363,6 +363,8 @@ export interface PacketSummary {
   ttl: number | null
   ip_version?: number | null
   tcp_stream?: number | null
+  /** UDP conversation id, for the same reason `tcp_stream` is sent. */
+  udp_stream?: number | null
   dns_query: string | null
   http_method: string | null
   http_host: string | null
@@ -2148,6 +2150,32 @@ export interface GeographyResponse {
 /* The baseline network (one global reference capture)                  */
 /* ------------------------------------------------------------------ */
 
+/**
+ * The background sweep that rewrites the baseline findings after the reference changes.
+ *
+ * A baseline change alters what the seven `baseline_*` rules would say about every
+ * analysis, so the stored findings are rebuilt for the whole library. The sweep runs off
+ * the request path and reports itself here.
+ */
+export interface BaselineRecalc {
+  running: boolean
+  /** Whether the deployment allows the sweep at all (`APACKETS_BASELINE_AUTO_RECALC`). */
+  auto: boolean
+  trigger: string | null
+  started_at: number | null
+  finished_at: number | null
+  /** Analyses to sweep, and how many are done. */
+  total: number
+  done: number
+  current: string | null
+  current_id: string | null
+  /** Baseline findings written by the sweep so far, across analyses. */
+  findings: number
+  errors: string[]
+  seconds: number | null
+  rule_ids: string[]
+}
+
 /** What the baseline is, whether baseline mode is on, and what it holds. */
 export interface BaselineStatus {
   configured: boolean
@@ -2166,6 +2194,8 @@ export interface BaselineStatus {
     created_at: number | null
   } | null
   counts: Record<string, number> | null
+  /** Progress of the findings sweep the change triggered. */
+  recalc?: BaselineRecalc
 }
 
 /** One capture diffed against the baseline: counts and samples, never full sets. */

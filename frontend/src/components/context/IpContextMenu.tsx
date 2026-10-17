@@ -49,7 +49,16 @@ import {
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { ArrowLeftRight, CheckCircle2, Crosshair, Loader2, MonitorPlay, TriangleAlert } from 'lucide-react'
+import {
+  ArrowLeftRight,
+  CheckCircle2,
+  Crosshair,
+  Hash,
+  Loader2,
+  MonitorPlay,
+  TriangleAlert,
+  Waypoints,
+} from 'lucide-react'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { wiresharkApi } from '@/services/api'
 
@@ -64,6 +73,8 @@ export interface IpTargetFacts {
   transport: string | null
   streamId: number | null
   port: number | null
+  /** The frame number, when the click landed inside a packet row. */
+  frame: number | null
 }
 
 /** Where "Pivot <ip> to Hunt" goes: the profile page's documented parameters. */
@@ -103,11 +114,17 @@ export function ipFactsFrom(element: Element | null): IpTargetFacts | null {
   const port = holder.getAttribute('data-ip-port')
   const parsedStream = stream === null ? null : Number.parseInt(stream, 10)
   const parsedPort = port === null ? null : Number.parseInt(port, 10)
+  /* The frame is read from an ancestor rather than the holder: a cell carries the
+     address and the conversation, the row carries the frame it is a row of. */
+  const frameHolder = (element as Element | null)?.closest?.('[data-frame]') ?? null
+  const parsedFrame =
+    frameHolder === null ? null : Number.parseInt(frameHolder.getAttribute('data-frame') ?? '', 10)
   return {
     ip: ip.trim(),
     transport: holder.getAttribute('data-ip-transport'),
     streamId: parsedStream !== null && Number.isFinite(parsedStream) ? parsedStream : null,
     port: parsedPort !== null && Number.isFinite(parsedPort) ? parsedPort : null,
+    frame: parsedFrame !== null && Number.isFinite(parsedFrame) ? parsedFrame : null,
   }
 }
 
@@ -244,7 +261,7 @@ export function factsFromPoint(x: number, y: number): IpTargetFacts | null {
   const caret = textNodeAt(x, y)
   if (caret) {
     const token = ipAtOffset(caret.node.data, caret.offset)
-    if (token) return { ip: token.ip, transport: null, streamId: null, port: token.port }
+    if (token) return { ip: token.ip, transport: null, streamId: null, port: token.port, frame: null }
   }
 
   let element = document.elementFromPoint?.(x, y) ?? null
@@ -253,7 +270,7 @@ export function factsFromPoint(x: number, y: number): IpTargetFacts | null {
     if (text !== '' && text.length <= 64) {
       const tokens = ipTokens(text)
       if (tokens.length === 1) {
-        return { ip: tokens[0].ip, transport: null, streamId: null, port: tokens[0].port }
+        return { ip: tokens[0].ip, transport: null, streamId: null, port: tokens[0].port, frame: null }
       }
     }
     element = element.parentElement
@@ -278,9 +295,15 @@ export interface IpMenuBodyProps {
   error: string | null
   /** The filter the backend composed, once a launch has succeeded. */
   result: string | null
+  /** A one-line confirmation for an action with no other outcome (a copy). */
+  notice?: string | null
   onHunt: () => void
   onConversations: () => void
   onWireshark: () => void
+  /** Open this conversation on the Conversations page. */
+  onFollow?: () => void
+  /** Copy the frame number the click landed on. */
+  onCopyFrame?: () => void
   onKeyDown?: (event: ReactKeyboardEvent<HTMLDivElement>) => void
   menuRef?: MutableRefObject<HTMLDivElement | null>
   firstItemRef?: MutableRefObject<HTMLButtonElement | null>
@@ -300,6 +323,9 @@ export function IpMenuBody({
   onHunt,
   onConversations,
   onWireshark,
+  onFollow,
+  onCopyFrame,
+  notice = null,
   onKeyDown,
   menuRef,
   firstItemRef,
@@ -362,6 +388,20 @@ export function IpMenuBody({
         <span>{ip === null ? 'Show Conversations' : `Show Conversations with ${ip}`}</span>
       </button>
 
+      {scope !== null && onFollow !== undefined ? (
+        <button
+          type="button"
+          role="menuitem"
+          className="ip-menu-item"
+          title={`Open ${scope} on the Conversations page`}
+          onClick={onFollow}
+        >
+          <Waypoints size={13} aria-hidden />
+          <span>Follow this conversation</span>
+          <span className="ip-menu-hint">{scope}</span>
+        </button>
+      ) : null}
+
       <button
         type="button"
         role="menuitem"
@@ -381,9 +421,23 @@ export function IpMenuBody({
         ) : (
           <MonitorPlay size={13} aria-hidden />
         )}
-        <span>Pivot to Wireshark</span>
+        <span>{scope !== null ? 'Open conversation in Wireshark' : 'Pivot to Wireshark'}</span>
         {version ? <span className="ip-menu-hint">v{version}</span> : null}
       </button>
+
+      {facts !== null && facts.frame !== null && onCopyFrame !== undefined ? (
+        <button
+          type="button"
+          role="menuitem"
+          className="ip-menu-item"
+          title={`Copy frame ${facts.frame} to the clipboard`}
+          onClick={onCopyFrame}
+        >
+          <Hash size={13} aria-hidden />
+          <span>Copy frame number</span>
+          <span className="ip-menu-hint">#{facts.frame}</span>
+        </button>
+      ) : null}
 
       {inert ? (
         <p className="ip-menu-note">
@@ -403,6 +457,13 @@ export function IpMenuBody({
         <p className="ip-menu-error">
           <TriangleAlert size={11} aria-hidden />
           <span>{error}</span>
+        </p>
+      ) : null}
+
+      {notice ? (
+        <p className="ip-menu-ok">
+          <CheckCircle2 size={11} aria-hidden />
+          <span>{notice}</span>
         </p>
       ) : null}
 
@@ -444,6 +505,9 @@ export function IpContextMenu() {
   const navigate = useNavigate()
   const [target, setTarget] = useState<OpenTarget | null>(null)
   const [position, setPosition] = useState({ left: 0, top: 0 })
+  /* The last copy's confirmation, cleared with the menu: the menu closes on scroll
+     and on the next right click, so a notice never outlives the action. */
+  const [notice, setNotice] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
   const firstItemRef = useRef<HTMLButtonElement | null>(null)
 
@@ -476,6 +540,7 @@ export function IpContextMenu() {
       const facts =
         ipFactsFrom(event.target as Element | null) ??
         factsFromPoint(event.clientX, event.clientY)
+      setNotice(null)
       setTarget({
         facts,
         x: event.clientX,
@@ -618,6 +683,24 @@ export function IpContextMenu() {
           : null
       }
       result={launch.isSuccess ? launch.data.filter : null}
+      notice={notice}
+      onFollow={() => {
+        if (!facts) return
+        close()
+        navigate(conversationsUrl(facts.ip, facts.transport, facts.streamId))
+      }}
+      onCopyFrame={() => {
+        if (!facts || facts.frame === null) return
+        const value = String(facts.frame)
+        void (async () => {
+          try {
+            await navigator.clipboard.writeText(value)
+            setNotice('Frame ' + value + ' copied to the clipboard.')
+          } catch {
+            setNotice('The clipboard is not available in this context.')
+          }
+        })()
+      }}
       menuRef={menuRef}
       firstItemRef={firstItemRef}
       style={position}

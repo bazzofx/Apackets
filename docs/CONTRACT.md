@@ -713,9 +713,14 @@ when not derivable.
  "info":"GET /index.html HTTP/1.1","protocols":"eth:ip:tcp:http",
  "src_mac":"...","dst_mac":"...","vlan_id":null,"ttl":64,
  "dns_query":null,"http_method":"GET","http_host":"example.com",
- "http_uri":"/index.html","http_status":null,"tls_sni":null}
+ "http_uri":"/index.html","http_status":null,"tls_sni":null,
+ "tcp_stream":0,"udp_stream":null}
 ```
 Fields are `null` when absent. `src_port`/`dst_port` are `null` for non-TCP/UDP.
+`tcp_stream`/`udp_stream` are the conversation ids of `conversations(transport, stream_id)`,
+so a row can name the conversation it belongs to without a second request; the right-click
+menu uses them to open that conversation in Wireshark (`tcp.stream == N`) or in this
+application (`/conversations?stream=tcp:N`).
 
 **Detail** = summary plus:
 ```json
@@ -836,10 +841,17 @@ and documented in [Baseline.md](../Documentation/Baseline.md); the contract is:
   it recorded and how many of this capture's it shares; `evidence` repeats that as
   `baseline` / `capture` / `overlap` / `novel_kind` / `novel_count` / `sample`.
   The language stays investigative: novelty is reported, intent is not.
-* **Staleness.** A baseline change is a pointer change. Findings already stored keep the
-  reference they ran with until the analysis is re-run
-  (`POST /api/analyses/{id}/findings/rescan`). The rules read only the index, so a rescan
-  does not need the capture file.
+* **Staleness.** A baseline change is a pointer change *and* a findings change: choosing,
+  switching or clearing a baseline schedules a background sweep that replaces the
+  `baseline_*` findings of every completed analysis with at least one packet
+  (`backend/app/services/baseline_recalc.py`). The sweep calls
+  `detection_engine.rerun_rules(analysis_id, rule_ids)`, which deletes and re-writes
+  only those rows - the other built-in findings and every `suricata:` match keep their
+  rows and their `created_at` - so it is not the `rescan` path and it never needs
+  the capture file. Measured over the 13-analysis library in `data/`: 3.8 s,
+  157 baseline findings, 0 errors. It runs off the request path, single-flight (a change
+  during a sweep marks it to run again), and is switched off by
+  `APACKETS_BASELINE_AUTO_RECALC=false` (the test suite sets that).
 * **Caps.** 40 findings per rule, 40 samples per evidence list, 10 frame numbers per
   finding, and four memoised profiles and comparisons per process (dropped on every
   configuration write).
@@ -851,7 +863,14 @@ Endpoints (`backend/app/api/routes_baseline.py`):
 | `GET /api/baseline` | — | `configured`, `enabled`, `active`, `reason`, `label`, `created_at`, `baseline` (id, filename, status, packet_count, created_at) and `counts` per profile kind. |
 | `PUT /api/baseline` | `analysis_id`?, `enabled`?, `label`? — merged over the current configuration | the same shape as `GET`. |
 | `DELETE /api/baseline` | — | the same shape, with `configured: false`. |
+| `POST /api/baseline/recalculate` | — | the same shape; starts the sweep on request instead of waiting for a change. |
 | `GET /api/analyses/{analysis_id}/baseline` | — | `active`, `comparable`, `baseline`, `capture`, `overlap`, `novel_counts` and the capped `novel` lists. Applies the readiness gate. |
+
+Every response from the three `/baseline` routes carries `recalc`: `running`, `auto`,
+`trigger`, `started_at`, `finished_at`, `total`, `done`, `current`, `current_id`,
+`findings`, `errors[]`, `seconds` and `rule_ids[]` — the progress of the findings sweep
+described above. `PUT` accepts `recalc: false` to write the configuration without
+scheduling one (a scripted caller may prefer to await the sweep itself).
 
 Errors on `PUT`: `400 analysis_not_found` (unknown id), `400 analysis_not_ready` (status in
   `details`), `400 analysis_empty` (no packets indexed).

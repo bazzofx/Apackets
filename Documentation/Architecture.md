@@ -322,9 +322,12 @@ narrowly as one can be:
 
 Every address in the application — a host row, a conversation endpoint, a packet's
 source or destination, a map node, a card on the Dashboard — answers a right click
-with the same three actions: **Pivot `<ip>` to Hunt**, **Show Conversations with
-`<ip>`**, and **Pivot to Wireshark**. Three properties make that work without each
-component knowing the menu exists:
+with the same actions: **Pivot `<ip>` to Hunt**, **Show Conversations with `<ip>`**,
+and the Wireshark pivot. When the element knows its conversation the pivot is labelled
+**Open conversation in Wireshark** and filters to that stream, and a further
+**Follow this conversation** item opens the same stream on the Conversations page; a
+packet row also offers **Copy frame number**. Three properties make that work without
+each component knowing the menu exists:
 
 * **It delegates from the document.** One `contextmenu` listener is installed on
   `document`; it walks up from whatever was clicked to the nearest `[data-ip]` and

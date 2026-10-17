@@ -2603,6 +2603,91 @@ def _persist(analysis_id: str, rows: list[dict[str, Any]], created_at: float) ->
     return len(payload)
 
 
+def rerun_rules(
+    analysis_id: str,
+    rule_ids: Sequence[str],
+    *,
+    created_at: float | None = None,
+) -> dict[str, Any]:
+    """Re-run a subset of the built-in rules, replacing only their findings.
+
+    ``analyze`` owns a whole-capture re-run: it clears every finding and writes them
+    all again. This exists for the change that only affects *some* rules - the
+    baseline network, whose seven rules are the only ones that read a second capture.
+    Deleting and re-writing just those rows means a baseline change cannot disturb the
+    Suricata matches (a separate writer, which ``analyze`` erases) or the findings of
+    rules that had nothing to do with it, and it costs one rule set instead of
+    seventeen.
+
+    A disabled rule is honoured the same way ``analyze`` honours it: its rows are
+    removed and nothing is written in their place.
+    """
+    started = time.monotonic()
+    stamp = time.time() if created_at is None else created_at
+    config = load_config()
+
+    wanted = [rule_id for rule_id in RULES if rule_id in set(rule_ids)]
+    unknown = sorted(set(rule_ids) - set(RULES))
+    if unknown:
+        log.warning("rerun_rules ignored unknown rule ids: %s", ", ".join(unknown))
+
+    if wanted:
+        placeholders = ", ".join("?" for _ in wanted)
+        with db.get_conn() as conn:
+            conn.execute(
+                "DELETE FROM findings WHERE analysis_id = ? AND rule_id IN (" + placeholders + ")",
+                (analysis_id, *wanted),
+            )
+
+    by_severity: Counter[str] = Counter({name: 0 for name in SEVERITIES})
+    rules_run = 0
+    rule_errors: dict[str, str] = {}
+    total = 0
+
+    for rule_id in wanted:
+        spec = RULES[rule_id]
+        params = config.get(rule_id, {})
+        if not params.get("enabled", True):
+            continue
+
+        try:
+            raw_findings = spec.run(analysis_id, params)
+        except Exception as exc:  # a broken rule must never fail the caller
+            log.exception("detection rule %s failed: %s", rule_id, exc)
+            rule_errors[rule_id] = f"{type(exc).__name__}: {exc}"
+            continue
+
+        rules_run += 1
+        if not raw_findings:
+            continue
+        if len(raw_findings) > MAX_FINDINGS_PER_RULE:
+            raw_findings = raw_findings[:MAX_FINDINGS_PER_RULE]
+
+        finalised = [_finalise(spec, analysis_id, item) for item in raw_findings]
+        deduped: dict[str, dict[str, Any]] = {}
+        for row in finalised:
+            deduped.setdefault(row["id"], row)
+
+        try:
+            written = _persist(analysis_id, list(deduped.values()), stamp)
+        except sqlite3.Error as exc:
+            log.exception("could not persist findings for rule %s: %s", rule_id, exc)
+            rule_errors[rule_id] = f"{type(exc).__name__}: {exc}"
+            continue
+
+        total += written
+        for row in deduped.values():
+            by_severity[row["severity"]] += 1
+
+    return {
+        "findings": total,
+        "by_severity": {name: by_severity[name] for name in SEVERITIES},
+        "rules_run": rules_run,
+        "rules_requested": len(wanted),
+        "rule_errors": rule_errors,
+        "seconds": round(time.monotonic() - started, 3),
+    }
+
 def analyze(ctx: Any, analysis_id: str, capture_path: Path) -> dict:
     """Run every enabled rule and persist its findings.
 
@@ -2738,5 +2823,6 @@ __all__ = [
     "load_config",
     "modified_rule_count",
     "parse_tcp_flags",
+    "rerun_rules",
     "save_config",
 ]

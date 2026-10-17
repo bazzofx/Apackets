@@ -1090,6 +1090,9 @@ export const baselineApi = {
   /** One capture diffed against the baseline: counts and samples. */
   compare: (analysisId: string) =>
     request<BaselineSummary>(`/analyses/${analysisId}/baseline`),
+
+  /** Re-run the baseline rules over every analysis; the sweep reports through `recalc`. */
+  recalculate: () => request<BaselineStatus>('/baseline/recalculate', { method: 'POST' }),
 }
 
 export const wiresharkApi = {

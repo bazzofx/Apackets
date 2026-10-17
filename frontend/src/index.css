@@ -644,6 +644,14 @@
     justify-content: space-between;
     gap: 1.25rem;
     padding: 1.25rem 0 1rem;
+    /* The headline is never the thing that gives way. A page that is exactly
+       one viewport tall (`page-fill`, the Findings workbench) distributes its
+       height between the head and the body; without this the head is a
+       shrinkable flex item, and because the boxed variants set
+       `overflow: hidden` its automatic minimum size is zero - so on a short
+       window it was squeezed and, because the content is bottom-aligned, the
+       top of the headline was sliced off instead of the page scrolling. */
+    flex-shrink: 0;
   }
 
   /* Section bloom: one soft wash of the section hue, top left. */
@@ -800,7 +808,11 @@
 
   .page-fill .page-body {
     flex: 1 1 auto;
-    min-height: 0;
+    /* A floor, not zero: below this the workbench's own panes stop being
+       usable, so the page scrolls (its parent `main` is `overflow-auto`)
+       instead of crushing them into a strip. With the head fixed at its
+       content height this is the only thing that ever gives way. */
+    min-height: 24rem;
   }
 
   /* Every card on a page carries a hairline of that page's hue, so a page is

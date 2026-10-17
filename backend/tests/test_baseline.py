@@ -13,7 +13,7 @@ import time
 import pytest
 
 from app.db import database as db
-from app.services import baseline, detection_engine
+from app.services import baseline, baseline_recalc, detection_engine
 
 BASELINE_ID = "b" * 32
 CAPTURE_ID = "c" * 32
@@ -203,3 +203,82 @@ def test_the_baseline_rules_are_in_the_catalogue(client) -> None:  # noqa: ARG00
     } <= ids
     # They are switchable like any other rule.
     assert detection_engine.RULES["baseline_new_host"].severity == "high"
+
+def _existing_finding(analysis_id: str, finding_id: str, rule_id: str) -> None:
+    """A finding this module must not touch: another rule, or a Suricata match."""
+    with db.get_conn() as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO findings (
+                id, analysis_id, rule_id, severity, title, description, reason,
+                evidence, packet_numbers, entities, recommendation, created_at
+            ) VALUES (?, ?, ?, 'low', 'written by another rule', 'x', 'y', '{}', '[]', '{}', 'z', 1.0)
+            """,
+            (finding_id, analysis_id, rule_id),
+        )
+
+
+def _rule_ids(analysis_id: str) -> list[str]:
+    return sorted(
+        row["rule_id"]
+        for row in db.query_all(
+            "SELECT rule_id FROM findings WHERE analysis_id = ?", (analysis_id,)
+        )
+    )
+
+
+def test_recalculating_a_baseline_touches_only_the_baseline_rules(client) -> None:  # noqa: ARG001
+    _baseline_setup()
+    _analysis(CAPTURE_ID, "after.pcap")
+    _packets(
+        CAPTURE_ID,
+        [
+            ("192.168.8.229", "93.184.216.34", 51000, 443, 2),
+            ("192.168.8.178", "93.184.216.34", 52000, 443, 2),
+        ],
+    )
+    _existing_finding(CAPTURE_ID, "tcp_syn_scan:keepme", "tcp_syn_scan")
+    _existing_finding(CAPTURE_ID, "suricata:1:2", "suricata:1:2")
+
+    stats = baseline_recalc.recompute(CAPTURE_ID)
+
+    rules = _rule_ids(CAPTURE_ID)
+    # The baseline family is re-run from the comparison...
+    assert "baseline_new_host" in rules
+    assert stats["findings"] >= 1
+    # ...and nothing else is erased or rewritten, which is why this is not `analyze()`.
+    assert "tcp_syn_scan" in rules
+    assert "suricata:1:2" in rules
+
+
+def test_switching_the_baseline_off_removes_its_findings(client) -> None:  # noqa: ARG001
+    _baseline_setup()
+    _analysis(CAPTURE_ID, "after.pcap")
+    _packets(CAPTURE_ID, [("192.168.8.178", "93.184.216.34", 52000, 443, 2)])
+    baseline_recalc.recompute(CAPTURE_ID)
+    assert any(rule.startswith("baseline_") for rule in _rule_ids(CAPTURE_ID))
+
+    baseline.clear_config()
+    baseline_recalc.recompute(CAPTURE_ID)
+
+    # A rule that can no longer speak leaves no stale rows behind.
+    assert not any(rule.startswith("baseline_") for rule in _rule_ids(CAPTURE_ID))
+
+
+def test_the_recalculation_state_is_reported_with_the_baseline(client) -> None:  # noqa: ARG001
+    body = client.get("/api/baseline").json()
+    recalc = body["recalc"]
+    assert recalc["running"] is False
+    assert recalc["auto"] is False  # the suite switches the background sweep off
+    assert set(recalc["rule_ids"]) == {
+        "baseline_new_host",
+        "baseline_new_destination",
+        "baseline_new_service",
+        "baseline_new_dns",
+        "baseline_new_sni",
+        "baseline_new_ja3",
+        "baseline_no_overlap",
+    }
+    # No sweep is scheduled while it is disabled, so a change cannot race a test.
+    assert client.put("/api/baseline", json={"analysis_id": None}).json()["recalc"]["running"] is False
+

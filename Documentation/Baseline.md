@@ -161,6 +161,39 @@ Each finding carries:
   opens on the traffic rather than on an aggregate;
 * `entities` (`ips`, `hostnames`, `ports`, `uris`) for the finding's own links.
 
+### Recalculating the findings after a change
+
+A baseline change is not a local edit: it changes what all seven rules would say about
+**every** analysis. Leaving the stored findings alone would make the findings pages
+describe a reference that is no longer the one configured, so choosing, switching or
+clearing a baseline schedules a sweep:
+
+* **Scope.** Only the `baseline_*` rows are replaced - the other built-in findings and
+  every `suricata:` match keep the rows they have. This is why the sweep calls
+  `detection_engine.rerun_rules` rather than `analyze()`, which erases every finding
+  (Suricata's included) and re-runs seventeen rules to answer a question about seven.
+* **Off the request path.** `PUT /api/baseline` and `DELETE /api/baseline` return as soon as
+  the configuration is written; the sweep runs in a daemon thread and reports itself
+  under `recalc` on `GET /api/baseline`. Measured on the 13-capture library in
+  `data/` (read-only copy of the same database): **13 analyses in 3.8 s**, 157 baseline
+  findings, no errors. For comparison, the full `analyze()`+`suricata` path that the
+  Findings page's **Re-run rules** performs took **34.7 s** over the same library.
+* **Single-flight.** A second change during a sweep does not start a second thread; it
+  marks the sweep to run again, so the last write always wins and the database never has
+  two sweeps competing for the write lock.
+* **Only where there is something to compute.** Only `completed` analyses with at least
+  one indexed packet are swept. The analysis that *is* the baseline is swept too: its
+  rules are silent by definition, so the sweep simply removes rows it should not have.
+* **Manual repeat.** `POST /api/baseline/recalculate` runs the same sweep on demand -
+  useful after re-enabling a baseline rule in [Alert Settings](Alert-Settings.md) - and the
+  PCAP Files strip carries it as a **Recalculate** button.
+* **Switched off.** `APACKETS_BASELINE_AUTO_RECALC=false` leaves the stored findings alone
+  until someone asks: the sweep reports `auto: false` and the endpoints never schedule
+  one. The test suite runs with it off, so a sweep can never write while a test asserts.
+
+The interface draws the sweep while it runs: PCAP Files polls `GET /api/baseline` once a
+second and shows `N of M analyses done` with the capture in flight, then the finding
+counts and lists on every page are invalidated when it finishes.
 ---
 
 ## 6. The interface
@@ -238,9 +271,10 @@ samples. It applies the shared readiness gate, so an unfinished analysis is `409
 * **UDP listeners are a heuristic.** For UDP the profile keeps every `dst_port < 49152`,
   because UDP has no handshake to observe. A client that happens to use a low source port
   is counted as a destination port.
-* **Changing the baseline does not recompute stored findings.** Findings keep the reference
-  they ran with until the rules are re-run (`POST /api/analyses/{id}/findings/rescan`). The
-  PCAP Files strip says this in the interface rather than leaving it to be discovered.
+* **A change recalculates the findings, but nothing else.** The sweep rewrites only the
+  `baseline_*` rows (§5.1); the other built-in findings and every Suricata match keep
+  the rows they already had, including their `created_at`. An analysis that was never
+  scanned for findings stays unscanned - the sweep does not invent them.
 * **The profile is memoised in process.** Four profiles and four comparisons are cached, and
   the caches are dropped on every configuration write. A baseline edited by two processes at
   once is last-writer-wins, because the store is a single `settings` row.

@@ -526,6 +526,11 @@ def rescan_protocols(analysis_id: str) -> dict:
 
     def worker(ctx) -> None:
         protocol_analyzer.analyze(ctx, analysis_id, capture)
+        # The Dashboard's cached aggregates were read from these tables; the rescan
+        # has just rewritten them, so the next summary request must recompute.
+        from app.api.routes_analyses import clear_summary_cache
+
+        clear_summary_cache(analysis_id)
 
     job_id = jobs.submit(analysis_id, worker, kind="protocol_rescan")
     log.info("queued protocol rescan %s for analysis %s", job_id, analysis_id)

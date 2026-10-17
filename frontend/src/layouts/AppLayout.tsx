@@ -1,4 +1,5 @@
 import { Fragment, type CSSProperties } from 'react'
+import { Suspense } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
@@ -34,6 +35,7 @@ import {
 } from 'lucide-react'
 import StatusChip from '@/components/StatusChip'
 import { useAnalysis, useHealth } from '@/hooks/useAnalysis'
+import LoadingState from '@/components/LoadingState'
 import { baselineApi, detectionApi, findingsApi, suricataApi } from '@/services/api'
 import { sectionForRoute } from '@/theme/sections'
 import { formatNumber } from '@/utils/format'
@@ -419,7 +421,12 @@ export function AppLayout() {
         </header>
 
         <main className="min-h-0 flex-1 overflow-auto p-4">
-          <Outlet />
+          {/* Pages are loaded on demand (App.tsx), and the fallback sits *here*, inside
+              the shell: a chunk arriving must not take the sidebar and the top bar with
+              it, or every first visit to a page would flash the whole application. */}
+          <Suspense fallback={<LoadingState label="Loading this section…" rows={3} />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

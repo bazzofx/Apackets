@@ -108,14 +108,32 @@ Between the panel header and the table, one line explains the global comparison:
 * **When a baseline is set** — *Baseline network: `<file>` (`<N>` frames). Every analysis
   is compared against it…* or, with the mode off, *Baseline mode is off, so nothing is
   compared until you switch it on.* Both variants end with the sentence that matters:
-  *Changing the baseline does not rewrite findings already stored — re-run the rules on an
-  analysis to recompute them.*
+  *Choosing or clearing the baseline recomputes its findings for every analysis in the
+  background, so the findings on the other pages match it without anyone pressing
+  anything.*
 * **When none is set** — *No baseline network is set. Tick a completed capture in the
   Baseline column and every later analysis will be compared against it — new addresses,
   destinations, services, names and TLS fingerprints become findings.*
 
 The strip is informational: it holds no control. The comparison it describes is
 [Baseline.md](Baseline.md).
+
+### 2.4.1 The recalculation line
+
+Directly under the strip, a second line reports the sweep that rewrites the baseline
+findings of every analysis (`Documentation/Baseline.md` §5, *Recalculating the findings
+after a change*):
+
+| State | What it says |
+|---|---|
+| Sweeping | *Recalculating the baseline findings.* `N` of `M` analyses done — `<file>` — and that the findings on every page update when it finishes. The icon spins and the line polls `GET /api/baseline` once a second. |
+| Finished | *Baseline findings recalculated* for `M` analyses — `X` findings in `Y` s, then how long ago. A sweep that could not process some analyses says so and lists them in the tooltip. |
+| Never swept | *Choosing a baseline recomputes the baseline findings for every analysis automatically.* |
+| Automatic sweep disabled | Names `APACKETS_BASELINE_AUTO_RECALC=0`, the switch that turns it off. |
+
+The line's **Recalculate** button (`POST /api/baseline/recalculate`) runs the sweep again
+on demand; it is disabled while a sweep is running, and while automatic recalculation is
+switched off.
 
 ### 2.5 Choosing the baseline
 

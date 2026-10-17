@@ -15,6 +15,7 @@ section, plus the machinery they all depend on.
 |---|---|
 | [Getting-Started.md](Getting-Started.md) | Install, run, upload a first capture, and what to expect while it processes |
 | [Architecture.md](Architecture.md) | How a capture becomes a page: stages, storage, the local-only guarantee |
+| [Performance.md](Performance.md) | What loading and navigating actually cost, measured, and what was changed |
 | [Reference/API.md](Reference/API.md) | The REST surface, and how it relates to the frozen contract |
 
 ## The application, section by section

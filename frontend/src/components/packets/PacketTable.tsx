@@ -138,12 +138,29 @@ export function PacketTable({
           {items.map((packet) => {
             const isSelected = selected === packet.number
             const length = packetLength(packet)
+            /* The conversation this frame belongs to, when the capture knew it:
+               the right-click menu turns it into `tcp.stream == N` in Wireshark
+               and into `transport:stream` for the Conversations page. A UDP
+               stream id is carried too, but only to unlock a port filter —
+               Wireshark's `udp.stream` is not this application's numbering. */
+            const streamId =
+              packet.transport === 'tcp'
+                ? (packet.tcp_stream ?? null)
+                : (packet.udp_stream ?? null)
             return (
               <tr
                 key={packet.number}
                 className={clsx('group cursor-pointer', isSelected && 'selected')}
                 aria-selected={isSelected}
                 tabIndex={0}
+                /* Row-level fallback so a right click anywhere on the frame — not
+                   only on an address cell — opens the menu with this frame's
+                   conversation already known. */
+                data-ip={packet.src_ip ?? undefined}
+                data-ip-transport={packet.transport ?? undefined}
+                data-ip-stream={streamId ?? undefined}
+                data-ip-port={packet.dst_port ?? undefined}
+                data-frame={packet.number}
                 onClick={() => onSelect(packet.number)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
@@ -158,7 +175,13 @@ export function PacketTable({
                   {formatTimestamp(packet.time_epoch)}
                 </td>
                 <td>
-                  <span className="flex items-center" data-ip={packet.src_ip ?? undefined}>
+                  <span
+                    className="flex items-center"
+                    data-ip={packet.src_ip ?? undefined}
+                    data-ip-transport={packet.transport ?? undefined}
+                    data-ip-stream={streamId ?? undefined}
+                    data-ip-port={packet.src_port ?? undefined}
+                  >
                     <MonoCell maxWidth={190}>{packet.src_ip}</MonoCell>
                     <CellCopy value={packet.src_ip} label="Copy the source IP" />
                   </span>
@@ -174,7 +197,13 @@ export function PacketTable({
                   </span>
                 </td>
                 <td>
-                  <span className="flex items-center" data-ip={packet.dst_ip ?? undefined}>
+                  <span
+                    className="flex items-center"
+                    data-ip={packet.dst_ip ?? undefined}
+                    data-ip-transport={packet.transport ?? undefined}
+                    data-ip-stream={streamId ?? undefined}
+                    data-ip-port={packet.dst_port ?? undefined}
+                  >
                     <MonoCell maxWidth={190}>{packet.dst_ip}</MonoCell>
                     <CellCopy value={packet.dst_ip} label="Copy the destination IP" />
                   </span>

@@ -39,6 +39,15 @@ left it sizing to its content), the page opts into filling it with the `page-fil
 height - which is what makes the virtualised list, whose inner spacer is as tall as every row,
 push the whole document instead of scrolling.
 
+One consequence is easy to get wrong, and it was visible on this page before it was fixed:
+a page that is exactly one viewport tall distributes its height between its head and its
+body, so both are candidates to shrink. The head carries `flex-shrink: 0` and the
+body carries a `min-height` floor instead, because the boxed header sets
+`overflow: hidden` - which makes its automatic minimum size zero - and its content is
+bottom-aligned, so shrinking the head cut the top off the `Findings` headline rather
+than scrolling the page. A short window now scrolls the page once the workbench reaches its
+floor, and the headline is never clipped.
+
 ### 2.1 Toolbar
 
 | Control | Behaviour |
@@ -562,19 +571,21 @@ and nothing else. Specifically:
 The page then invalidates the findings list, the rule catalogue, the finding context, the
 findings counts and the dashboard summary, so everything visible re-reads.
 
-**Re-run rules is also how a baseline change reaches this page.** The seven
-[baseline rules](Baseline.md) compare the capture against whatever reference was configured
-*when they ran*, and they write ordinary `findings` rows, so:
+**A baseline change reaches this page on its own.** The seven
+[baseline rules](Baseline.md) compare the capture against whatever reference was
+configured *when they ran*, and they write ordinary `findings` rows. Choosing,
+switching or clearing a baseline therefore schedules a background sweep that replaces
+their rows for every analysis - only the `baseline_*` rows, so the Suricata matches
+and the other built-in findings listed above are untouched - and the lists here are
+invalidated when it finishes. Three properties follow:
 
-* changing the baseline (or switching baseline mode on) does **not** touch findings that
-  are already stored — the old rows keep the reference they were measured with, named in
-  their own `reason` text;
-* a rescan recomputes them against the current baseline, and with baseline mode off the
-  seven rules produce nothing at all, so their rows disappear;
-* a rescan never needs the capture file and never re-uploads anything — the profile it
-  compares is read from the index (`packets`, `dns_queries`, `http_transactions`,
-  `tls_sessions`), which is exactly why it can run on a capture whose upload has been
-  purged.
+* **Re-run rules still works, and now goes further.** A rescan recomputes *every* rule, so
+  it repeats what the sweep did for the baseline family and refreshes the rest; it is the
+  right action when a rule's threshold changed, and no longer needed for a baseline change.
+* **Neither path needs the capture file or a re-upload.** Both read the index, which is
+  why findings can be rebuilt on a capture whose upload has been purged.
+* **With baseline mode off the seven rules produce nothing**, so their rows disappear
+  rather than lingering as a record of a comparison that is no longer in force.
 
 ## 5. Links into the rest of the app
 
@@ -609,10 +620,11 @@ findings counts and the dashboard summary, so everything visible re-reads.
   were already loaded — so it can never reveal a Suricata match beyond the 500-row list.
 * **Baseline findings describe a relationship, not this capture alone.** A finding from
   one of the seven [baseline rules](Baseline.md) is a statement about *two* captures, and
-  the row cannot be understood without the reference it names. Change the baseline and the
-  stored rows still cite the old one; delete the baseline capture and they keep citing a
-  file that no longer exists, until the rules are re-run. This page shows the finding, not
-  the comparison behind it — `GET /api/analyses/{id}/baseline` does that.
+  the row cannot be understood without the reference it names. Changing or clearing the
+  baseline replaces these rows after a few seconds (the sweep in [Baseline.md](Baseline.md)
+  §5), so a row naming a reference that is no longer configured means the sweep could not
+  run - check `recalc` on `GET /api/baseline`. This page shows the finding, not the
+  comparison behind it — [Baseline Check](Baseline-Check.md) shows that.
 * **Severity chip counts ignore the other filters.** They are a `GROUP BY severity` over the
   whole analysis, so with a search or rule filter active they describe a different set from the
   list, and the `all` chip is the sum of the four rather than the row count.
