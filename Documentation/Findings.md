@@ -24,6 +24,21 @@ a verdict, and the page carries that sentence itself in the Overview tab.
 The page is wrapped in `AnalysisGuard`. The layout is a toolbar on top, then two columns: the
 triage list (22 rem `xl` column) and the detail workbench.
 
+**The page does not scroll; its panes do.** From `xl` up the two columns are bounded and each
+scrolls inside itself: the triage list in its own panel, the detail workbench in its own right-hand
+pane. Scrolling over the list therefore moves the rows and nothing else - the toolbar, the header
+and the shell stay exactly where they are, so the finding being read never leaves the screen. Below
+`xl` the two panes stack and the page scrolls normally, because a 22 rem column and a detail pane
+cannot share a phone-width screen.
+
+That behaviour comes from a chain of definite heights, so it is worth naming: `<main>` in
+`AppLayout` is exactly one viewport tall (`h-dvh` on the content column, not `min-h-screen`, which
+left it sizing to its content), the page opts into filling it with the `page-fill` class, and
+`.page-fill .page-body` hands the remaining height to the workbench, whose root is
+`h-full min-h-0`. Remove any one of those and the panes silently collapse to their content
+height - which is what makes the virtualised list, whose inner spacer is as tall as every row,
+push the whole document instead of scrolling.
+
 ### 2.1 Toolbar
 
 | Control | Behaviour |

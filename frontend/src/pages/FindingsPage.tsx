@@ -263,7 +263,11 @@ function FindingsWorkbench() {
       </Panel>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-[22rem_minmax(0,1fr)]">
-        <section className="panel flex min-h-[24rem] flex-col overflow-hidden xl:h-full">
+        {/* One column below `xl` (the two panes stack and the page scrolls), two
+            bounded panes from `xl` up: `h-full` fills the grid row and `overflow-hidden` keeps
+            the virtualized list inside it. `xl:min-h-0` drops the stacking floor, which
+            would otherwise be a floor above the pane and force the page to scroll. */}
+        <section className="panel flex min-h-[24rem] flex-col overflow-hidden xl:h-full xl:min-h-0">
           <div className="panel-header">
             <span className="panel-title">Findings</span>
             <span className="text-2xs text-faint">{formatNumber(total)} total</span>

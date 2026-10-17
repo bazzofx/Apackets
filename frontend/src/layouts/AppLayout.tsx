@@ -334,7 +334,13 @@ export function AppLayout() {
         </div>
       </aside>
 
-      <div className="ml-14 flex min-h-screen flex-col lg:ml-52">
+      {/* The content column is exactly one viewport tall, so `<main>` has a definite
+          height to resolve against and scrolling happens inside it rather than in the
+          document. A page can then size its own panes with `h-full` and scroll a list
+          without moving the toolbar or the page underneath it (the Findings workbench
+          relies on exactly that). `dvh`, not `vh`: on mobile the browser chrome is part of that
+          viewport and 100vh would leave the last row under it. */}
+      <div className="ml-14 flex h-dvh flex-col lg:ml-52">
         <header className="sticky top-0 z-10 flex h-12 items-center gap-3 border-b border-border bg-surface/95 px-3 backdrop-blur">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {selected ? (
