@@ -557,20 +557,23 @@ function ObjectsContent() {
         ) : (
           <>
             <div className="max-h-[36rem] overflow-auto">
-              <table className="dt">
+              <table className="dt objects-table">
                 <thead>
                   <tr>
-                    <th>Status</th>
-                    <th>File name</th>
-                    <th>Source</th>
-                    <th>Destination</th>
-                    <th>Protocol</th>
-                    <th>Content type</th>
-                    <th className="text-right">Size</th>
-                    <th>Stream / frames</th>
-                    <th>Hashes</th>
-                    <th>Note</th>
-                    <th>Export</th>
+                    {/* Percentage widths, honoured because `.objects-table` is a fixed
+                        layout: eleven columns never fit a panel on their own, so each one
+                        is given its share and every cell truncates inside it. */}
+                    <th className="w-[8%]">Status</th>
+                    <th className="w-[13%]">File name</th>
+                    <th className="w-[11%]">Source</th>
+                    <th className="w-[11%]">Destination</th>
+                    <th className="w-[6%]">Protocol</th>
+                    <th className="w-[9%]">Content type</th>
+                    <th className="w-[6%] text-right">Size</th>
+                    <th className="w-[8%]">Stream / frames</th>
+                    <th className="w-[14%]">Hashes</th>
+                    <th className="w-[6%]">Note</th>
+                    <th className="w-[8%]">Export</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -585,7 +588,7 @@ function ObjectsContent() {
                           </td>
                           <td>
                             <MonoCell
-                              maxWidth={200}
+                              maxWidth={140}
                               title={
                                 row.original_filename && row.original_filename !== row.filename
                                   ? `${row.filename} (exported as ${row.original_filename})`
@@ -597,7 +600,7 @@ function ObjectsContent() {
                           </td>
                           <td>
                             <MonoCell
-                              maxWidth={170}
+                              maxWidth={120}
                               title={
                                 row.src_ip === null
                                   ? 'not correlated to an endpoint'
@@ -611,7 +614,7 @@ function ObjectsContent() {
                           </td>
                           <td>
                             <MonoCell
-                              maxWidth={170}
+                              maxWidth={120}
                               title={
                                 row.dst_ip === null
                                   ? 'not correlated to an endpoint'
@@ -623,16 +626,16 @@ function ObjectsContent() {
                                 : `${row.dst_ip}${row.dst_port === null ? '' : `:${row.dst_port}`}`}
                             </MonoCell>
                           </td>
-                          <td>
+                          <td className="whitespace-normal">
                             <span className="text-muted">{row.protocol ?? '—'}</span>
                           </td>
                           <td>
-                            <MonoCell maxWidth={170}>{row.content_type}</MonoCell>
+                            <MonoCell maxWidth={110}>{row.content_type}</MonoCell>
                           </td>
                           <td className="text-right" title={row.size === null ? 'size not recorded' : `${formatNumber(row.size)} bytes`}>
                             {formatBytes(row.size)}
                           </td>
-                          <td>
+                          <td className="whitespace-normal">
                             <span className="flex flex-col gap-0.5 text-2xs">
                               <span className="mono text-text">
                                 {row.stream_id === null ? '—' : `stream ${row.stream_id}`}
@@ -653,12 +656,12 @@ function ObjectsContent() {
                                 const value = row[algorithm]
                                 return (
                                   <span key={algorithm} className="flex items-center gap-1">
-                                    <span className="w-11 shrink-0 text-2xs uppercase text-faint">
+                                    <span className="w-10 shrink-0 text-2xs uppercase text-faint">
                                       {algorithm}
                                     </span>
                                     <span
                                       className={clsx(
-                                        'min-w-0 max-w-[13rem] truncate mono text-2xs',
+                                        'min-w-0 flex-1 truncate mono text-2xs',
                                         value === null ? 'text-faint' : 'text-text',
                                       )}
                                       title={
@@ -680,7 +683,7 @@ function ObjectsContent() {
                           <td>
                             <span
                               className={clsx(
-                                'block max-w-[18rem] truncate text-2xs',
+                                'block truncate text-2xs',
                                 row.note ? 'text-muted' : 'text-faint',
                               )}
                               title={row.note ?? 'No note was recorded for this object.'}

@@ -839,6 +839,22 @@
     @apply bg-accent/15;
   }
 
+  /* The object table is the one table that has to *fit* rather than scroll: eleven
+   * columns, four of them hashes, cannot be given their natural widths inside a
+   * panel. A fixed layout makes the percentages in the markup mean what they say,
+   * and clipping each cell is what turns a too-long value into an ellipsis instead
+   * of a wider table. Every clipped value keeps its own tooltip, and the hashes keep
+   * their copy buttons. */
+  .objects-table {
+    table-layout: fixed;
+  }
+
+  .objects-table thead th,
+  .objects-table tbody td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .mono {
     @apply font-mono;
   }
@@ -897,11 +913,17 @@
     flex-shrink: 0;
   }
 
-  /* Section bloom: one soft wash of the section hue, top left. */
+  /* Section bloom: one soft wash of the section hue, top left.
+   *
+   * The box bleeds upward (-55%) so the wash fades into the content above the head,
+   * but it does **not** bleed sideways: an 8% overhang on each side put the element
+   * past the right edge of `main` - which is the page's scroll container - so every
+   * page carried a horizontal scrollbar for a gradient that is transparent at the
+   * edges anyway. The radial is centred at 10% 0%, so nothing visible is lost. */
   .page-head::before {
     content: '';
     position: absolute;
-    inset: -55% -8% auto -8%;
+    inset: -55% 0 auto 0;
     height: 170px;
     pointer-events: none;
     background-image: radial-gradient(
