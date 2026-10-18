@@ -859,8 +859,8 @@ def test_geography_envelope_end_to_end(client, dataset, make_analysis, lookup_ca
     body = response.json()
 
     assert set(body) == {
-        "analysis_id", "generated_at", "dataset", "origin", "countries", "unknown",
-        "counts", "note",
+        "analysis_id", "generated_at", "dataset", "origin", "countries", "links",
+        "unknown", "counts", "note",
     }
     assert body["analysis_id"] == ANALYSIS_ID
     assert isinstance(body["generated_at"], float)
@@ -913,11 +913,106 @@ def test_geography_envelope_end_to_end(client, dataset, make_analysis, lookup_ca
         "reserved": 2,
     }
     assert "countries_truncated" not in body["counts"]
+    # No conversations were recorded, so nothing links two countries: an empty list, not
+    # an invented edge between the three destinations.
+    assert body["links"] == []
     assert "registered" in body["note"]
     assert "unknown" in body["note"]
 
     # §3, finally: a private, loopback, multicast or reserved address is never looked up.
     assert sorted(lookup_calls) == ["1.0.0.7", "1.0.1.5", "3.0.0.1", "3.0.0.2", "8.8.8.8"]
+
+
+def test_links_are_only_the_pairs_the_capture_itself_proves(client, dataset, make_analysis):
+    # US and AU both appear, and precisely one conversation has an endpoint in each; the
+    # conversation with the capture's own side at one end links nothing.
+    make_analysis([("3.0.0.1", 100, 1000), ("1.0.0.7", 40, 400), ("192.168.8.229", 9, 90)])
+    with db.get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO conversations (analysis_id, conv_id, transport, stream_id, endpoint_a,
+                                       endpoint_b, ip_a, ip_b, packets_total, bytes_total)
+            VALUES (?, 'c1', 'TCP', 1, '3.0.0.1:443', '1.0.0.7:51000', '3.0.0.1', '1.0.0.7', 7, 700),
+                   (?, 'c2', 'TCP', 2, '192.168.8.229:51001', '3.0.0.1:443', '192.168.8.229',
+                       '3.0.0.1', 5, 500)
+            """,
+            (ANALYSIS_ID, ANALYSIS_ID),
+        )
+
+    body = client.get(f"/api/analyses/{ANALYSIS_ID}/geography").json()
+
+    assert body["links"] == [
+        {"source": "AU", "target": "US", "packets": 7, "bytes": 700, "conversations": 1},
+    ]
+
+
+def test_a_link_sums_every_conversation_between_the_same_two_countries(client, dataset, make_analysis):
+    make_analysis([("3.0.0.1", 10, 100), ("1.0.1.5", 10, 100)])
+    with db.get_conn() as conn:
+        for index, packets in enumerate((4, 6), start=1):
+            conn.execute(
+                """
+                INSERT INTO conversations (analysis_id, conv_id, transport, stream_id, endpoint_a,
+                                           endpoint_b, ip_a, ip_b, packets_total, bytes_total)
+                VALUES (?, ?, 'TCP', ?, '1.0.1.5:443', '3.0.0.1:51000', '1.0.1.5', '3.0.0.1', ?, ?)
+                """,
+                (ANALYSIS_ID, f"c{index}", index, packets, packets * 100),
+            )
+
+    body = client.get(f"/api/analyses/{ANALYSIS_ID}/geography").json()
+
+    # One pair, the two conversations summed, and the pair named in a stable order
+    # whatever order the rows arrived in.
+    assert body["links"] == [
+        {"source": "CN", "target": "US", "packets": 10, "bytes": 1000, "conversations": 2},
+    ]
+
+
+def test_links_never_cross_a_conversation_that_touches_the_origin(client, dataset, make_analysis):
+    # Two countries, no conversation between them: the only conversations go through the
+    # capture's own side, which carries no country at all.
+    make_analysis([("3.0.0.1", 10, 100), ("1.0.0.7", 10, 100), ("192.168.8.229", 10, 100)])
+    with db.get_conn() as conn:
+        for index, (near, far) in enumerate((("192.168.8.229", "3.0.0.1"),
+                                             ("192.168.8.229", "1.0.0.7")), start=1):
+            conn.execute(
+                """
+                INSERT INTO conversations (analysis_id, conv_id, transport, stream_id, endpoint_a,
+                                           endpoint_b, ip_a, ip_b, packets_total, bytes_total)
+                VALUES (?, ?, 'TCP', ?, ?, ?, ?, ?, 3, 300)
+                """,
+                (ANALYSIS_ID, f"c{index}", index, near, far, near, far),
+            )
+
+    body = client.get(f"/api/analyses/{ANALYSIS_ID}/geography").json()
+
+    assert body["links"] == []
+
+
+def test_links_are_capped_by_volume(client, geoip_home, make_analysis):
+    codes = sorted(geoip.ISO_CODES)[: routes_geo.LINK_CAP + 4]
+    _install_csv(geoip_home, _range_csv(codes))
+    rows = [(f"11.{index}.0.7", 10, 1000 + index) for index in range(len(codes))]
+    make_analysis(rows)
+    with db.get_conn() as conn:
+        # Every pair with the first address, each pair a different volume.
+        for index, code in enumerate(codes[1:], start=1):
+            conn.execute(
+                """
+                INSERT INTO conversations (analysis_id, conv_id, transport, stream_id, endpoint_a,
+                                           endpoint_b, ip_a, ip_b, packets_total, bytes_total)
+                """
+                " VALUES (?, ?, 'TCP', ?, '11.0.0.7:443', '11.1.0.7:51000', '11.0.0.7', ? , ?, ?)",
+                (ANALYSIS_ID, f"c{index}", index, f"11.{index}.0.7", index, index * 100),
+            )
+
+    body = client.get(f"/api/analyses/{ANALYSIS_ID}/geography").json()
+
+    assert len(body["links"]) == routes_geo.LINK_CAP
+    # The busiest pairs survive the cap, and the list is sorted by bytes descending.
+    volumes = [link["bytes"] for link in body["links"]]
+    assert volumes == sorted(volumes, reverse=True)
+    assert body["links"][0]["bytes"] == (len(codes) - 1) * 100
 
 
 def test_geography_sums_both_directions_of_every_host_row(client, dataset, make_analysis):

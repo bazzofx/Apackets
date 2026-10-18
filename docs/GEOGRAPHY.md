@@ -160,6 +160,9 @@ is rejected as truncated rather than installed.
       "ips_truncated": false
     }
   ],
+  "links": [
+    { "source": "AU", "target": "US", "packets": 7, "bytes": 700, "conversations": 1 }
+  ],
   "unknown": { "addresses": 2, "packets": 12, "bytes": 900, "ips": ["…"], "ips_truncated": false },
   "counts": { "addresses": 12, "located": 8, "countries": 5, "unknown": 2, "local": 2 },
   "note": "…"
@@ -173,6 +176,20 @@ is rejected as truncated rather than installed.
 * `name` is the country's English name, resolved from the code by the frontend's map asset
   (§6) or a bundled code list. The API may send `null` when it does not know the name; the
   page then shows the code. It never invents a name from a code by pattern.
+* `links` is the **country-to-country** relation, and it is the only claim in this payload
+  that a country pair was ever in contact: a `conversations` row whose two endpoints are both
+  located, in two different countries. The pair is unordered — `source` is the lower code — and
+  the block sums every conversation between the two, with `conversations` counting how many
+  there were. It is sorted by `bytes` descending and capped at `LINK_CAP` (24).
+  * An empty list is the **normal** answer, not a failure: an ordinary capture of one network
+    talking outward has its own side at one end of every conversation, and a private address
+    carries no country (§3), so nothing pairs. Pairs appear when the capture holds traffic
+    between two public endpoints — a span port, a proxy chain, a routed segment.
+  * Nothing is inferred from co-occurrence. Two countries that both appear in the capture are
+    **not** linked unless a single conversation has an endpoint in each.
+  * The pairs are summed in one pass over the analysis's `conversations` rows, resolving each
+    endpoint through the address-to-country map the aggregation already built — the dataset is
+    never asked twice, and `packets` is never read.
 * `note` states the section's limits (§7) in one sentence, then one more naming which
   conversation is linked, and one more for each cap that bit. It is never shorter than §7
   requires and never leaves a cut unreported.
@@ -300,12 +317,25 @@ panel is the same shape.
 * **One dot per country**, sized by bytes and tinted by the theme, with the count of its
   addresses beside it. Nothing is drawn per address: a capture with 400 destinations draws at
   most `COUNTRY_CAP` dots.
-* Arcs run from the origin hub to each country's label point, and carry a **slow, low-opacity
-  flow** — one travelling dash per arc — to show direction without demanding attention. The
-  animation is disabled entirely under `prefers-reduced-motion: reduce`, and it never changes
-  its colour, thickness or speed per frame beyond that travel.
+* Arcs run from the origin hub to each country's label point and carry a **slow, low-opacity
+  flow** — one travelling dash per arc — to show direction without demanding attention.
+  * On top of that travel the busiest arcs (`SPARK_CAP = 24`) carry two **particle layers**: a
+    set of bright beads marching outward along the same path, and a faster stuttering flicker.
+    Both reuse the arc's own `d` and declare `pathLength="100"`, so one dash rule fits every
+    arc length and each layer loops without a jump. They are decoration: they encode no
+    number, and nothing on the page reads them.
+  * Around each of the busiest dots (`MOTE_CAP = 24`) three **motes** drift outward and fade,
+    scattered on a seeded bearing so a re-render never reshuffles them.
+  * Every animated layer is removed — `display: none`, not frozen — under
+    `prefers-reduced-motion: reduce` or this application's own motion setting. What remains
+    is the geometry, which is the part that means something.
+* **Country-to-country links** are drawn as thin cyan arcs between two countries' label points,
+  and only for the pairs `links` proves (§5.3): a conversation with a located endpoint in each.
+  They are a different colour from the crimson arcs on purpose — crimson leaves this capture's
+  side, cyan does not. A capture that proves no pair draws none, and the map says nothing about
+  it: an absent link is not a claim of absence.
 * Countries are hoverable and focusable; selecting one highlights it on the map and in the
-  list under it, and clicking an address in the list opens that host.
+  ranking panel beside it, and a row's own destinations are listed in the panel a dot opens.
 * **The map zooms.** Wheel or pinch zooms about the pointer, dragging pans, and the controls in
   the corner zoom in, zoom out and reset. The scale is clamped to `1 × – 8 ×` and the pan is
   clamped so the world never leaves the frame. Keyboard users get the same three controls, and
@@ -348,6 +378,10 @@ panel is the same shape.
 * **A dot is a destination, not a person.** One address in a country means one address in a
   country; the ranking panel gives the address count, so a single CDN edge never reads as a
   campaign.
+* **A link is a conversation, not a relationship.** §5.3's `links` reports only the pairs a
+  single recorded conversation has an endpoint in each of. Two countries whose addresses both
+  appear are not thereby connected, and an empty list says the capture proved no such pair —
+  never that the two countries never talk.
 * **The dataset ages.** `dataset_month` and `fetched_at` are both shown, because a stale
   country table is a different claim from a fresh one.
 
@@ -360,6 +394,7 @@ panel is the same shape.
 | `MIN_RANGES` | `100000` | Smallest parsed dataset accepted as complete |
 | `REFRESH_MONTHS_BACK` | `6` | Monthly files tried before the refresh gives up |
 | `PORT_CAP` | `25` | Ports in one destination panel, largest first |
+| `LINK_CAP` | `24` | Country pairs in one response, busiest first |
 | `GEO_TARGET_DETAIL_CAP` | `50` | Addresses in one destination panel (the same 50 as `GEO_IP_CAP`) |
 
 ## 9. Where the code lives

@@ -10,7 +10,7 @@ import type { GeographyCountry, GeographyOrigin, GeographyResponse, GeographyUnk
 /**
  * The capture's public destinations on a world map (docs/GEOGRAPHY.md §6).
  *
- * Four things are drawn, and nothing else:
+ * Six things are drawn, and nothing else:
  *
  * 1. **the world**, from the bundled Natural Earth outlines — no tile server, no CDN, no
  *    fetch at render time;
@@ -19,12 +19,22 @@ import type { GeographyCountry, GeographyOrigin, GeographyResponse, GeographyUnk
  *    destinations still draws at most `COUNTRY_CAP` dots, which is the whole point of
  *    grouping by country;
  * 3. **an arc per country**, flowing slowly outward from the origin hub so the direction of
- *    traffic is legible at a glance. The movement is one travelling dash per arc, and it is
- *    switched off entirely under `prefers-reduced-motion` (see index.css);
- * 4. **the origin hub**, drawn in its own dashed inset in the corner rather than placed on
+ *    traffic is legible at a glance. The movement is one travelling dash per arc, and the
+ *    busiest arcs carry two more layers of it — beads and a flicker — which are decoration
+ *    and encode nothing;
+ * 4. **a link between two countries**, and only where `links` proves one: a conversation of
+ *    this capture with a located endpoint in each. An ordinary capture of one network
+ *    talking outward proves none, and then none is drawn;
+ * 5. **the origin hub**, drawn in its own dashed inset in the corner rather than placed on
  *    the map. A private address carries no country and the capture does not contain this
  *    installation's public address, so putting the hub at a location would be an invention;
- *    the inset says what it is.
+ *    the inset says what it is;
+ * 6. **motes** around the busiest dots, thrown outward on a seeded bearing and fading — a
+ *    constellation of arrivals, and the only thing here that carries no count at all.
+ *
+ * Every animated layer is removed rather than frozen when motion is off (`prefers-reduced-
+ * motion` or this application's own setting — see index.css), so what a still reader sees is
+ * exactly the geometry.
  *
  * The map is a view of the response, never a source of anything: with no dataset installed
  * it draws the world and says so, and countries the response could not place are counted in
@@ -118,6 +128,54 @@ function arcPath(targetX: number, targetY: number, lift: number): string {
   const controlY = midY + (dx / distance) * lift
   return `M${ORIGIN.x},${ORIGIN.y} Q${controlX.toFixed(1)},${controlY.toFixed(1)} ${targetX},${targetY}`
 }
+
+/** Quadratic arc between two countries' label points, bowed perpendicular to the chord. */
+function linkPath(fromX: number, fromY: number, toX: number, toY: number, lift: number): string {
+  const dx = toX - fromX
+  const dy = toY - fromY
+  const distance = Math.max(1, Math.hypot(dx, dy))
+  const controlX = (fromX + toX) / 2 - (dy / distance) * lift
+  const controlY = (fromY + toY) / 2 + (dx / distance) * lift
+  return `M${fromX},${fromY} Q${controlX.toFixed(1)},${controlY.toFixed(1)} ${toX},${toY}`
+}
+
+/**
+ * A stable number in [0, 1) for a country and a salt.
+ *
+ * The motes are scattered around a dot by a seeded value rather than `Math.random()`,
+ * so a re-render — a hover, a theme change, a zoom — scatters them identically instead of
+ * reshuffling the constellation under the reader's eye.
+ */
+function seeded(code: string, salt: number): number {
+  const text = code + ':' + String(salt)
+  let hash = 2166136261
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return ((hash >>> 0) % 1000) / 1000
+}
+
+/**
+ * How many arcs carry the particle layers.
+ *
+ * Each layer is one more animated dash offset on one more path, so the busiest pair of
+ * dozen arcs is where they earn their keep; past that the map is already busy and the
+ * extra paths cost more than they show.
+ */
+const SPARK_CAP = 24
+/** Motes scattered around each destination dot. */
+const MOTES_PER_DOT = 3
+/**
+ * How many dots carry motes: the busiest, in the same order the API ranks countries.
+ *
+ * Three motes per country over a sixty-country capture is 180 animated circles, and the
+ * countries past the first few dozen are single addresses a pixel wide — the constellation
+ * is for the destinations that carry the capture, not for every speck on the map.
+ */
+const MOTE_CAP = 24
+/** How far a mote drifts before it fades, in map units. */
+const MOTE_DRIFT = 9
 
 export interface WorldMapProps {
   data: GeographyResponse
@@ -318,6 +376,81 @@ export function WorldMap({
     [countries],
   )
 
+  /* One arc per country, resolved once: the base path and the two particle layers that
+     trace it must be the *same* `d`, and finding a country's label point three times per
+     render for sixty countries is 180 searches for one answer. */
+  const arcs = useMemo(
+    () =>
+      countries.flatMap((country, index) => {
+        const point = WORLD_COUNTRIES.find((entry) => entry.code === country.code)
+        if (point === undefined) return []
+        const distance = Math.hypot(point.x - ORIGIN.x, point.y - ORIGIN.y)
+        return [
+          {
+            code: country.code,
+            d: arcPath(point.x, point.y, Math.min(120, distance * 0.28)),
+            index,
+          },
+        ]
+      }),
+    [countries],
+  )
+
+  /* §5.3's links: a country pair the capture itself proves. Empty for an ordinary capture
+     of one network talking outward, which is the honest answer and not a missing feature. */
+  const links = useMemo(
+    () =>
+      (data.links ?? []).flatMap((link, index) => {
+        const from = WORLD_COUNTRIES.find((entry) => entry.code === link.source)
+        const to = WORLD_COUNTRIES.find((entry) => entry.code === link.target)
+        if (from === undefined || to === undefined) return []
+        const distance = Math.hypot(to.x - from.x, to.y - from.y)
+        return [
+          {
+            key: link.source + '-' + link.target,
+            d: linkPath(from.x, from.y, to.x, to.y, Math.min(90, distance * 0.22)),
+            index,
+            source: link.source,
+            target: link.target,
+            title:
+              countryName(link.source) +
+              ' ↔ ' +
+              countryName(link.target) +
+              ': ' +
+              formatNumber(link.conversations) +
+              ' conversation(s), ' +
+              formatBytes(link.bytes),
+          },
+        ]
+      }),
+    [data.links],
+  )
+
+  /* The constellation around each dot. Seeded, so it never reshuffles between renders. */
+  const motes = useMemo(
+    () =>
+      countries.slice(0, MOTE_CAP).flatMap((country) => {
+        const point = WORLD_COUNTRIES.find((entry) => entry.code === country.code)
+        if (point === undefined) return []
+        const radius = radiusFor(country)
+        return Array.from({ length: MOTES_PER_DOT }, (_, index) => {
+          const turn = (index / MOTES_PER_DOT) * Math.PI * 2 + seeded(country.code, index) * 1.1
+          const reach = 4 + seeded(country.code, index + 9) * MOTE_DRIFT
+          const start = radius + 1.5
+          return {
+            key: country.code + ':' + String(index),
+            x: point.x + Math.cos(turn) * start,
+            y: point.y + Math.sin(turn) * start,
+            dx: Math.cos(turn) * reach,
+            dy: Math.sin(turn) * reach,
+            size: 0.7 + seeded(country.code, index + 33) * 0.7,
+            delay: -(seeded(country.code, index + 21) * 5),
+          }
+        })
+      }),
+    [countries, maxBytes],
+  )
+
   const active = hovered ?? focused
   const activeCountry = countries.find((country) => country.code === active) ?? null
 
@@ -375,22 +508,65 @@ export function WorldMap({
             ))}
           </g>
 
-          {/* Arcs: one per country, flowing outward. The dash travel is CSS (§index.css). */}
-          <g data-world-arcs>
-            {countries.map((country, index) => {
-              const point = WORLD_COUNTRIES.find((entry) => entry.code === country.code)
-              if (point === undefined) return null
-              const distance = Math.hypot(point.x - ORIGIN.x, point.y - ORIGIN.y)
-              return (
+          {/* Country to country: drawn only where one conversation of this capture has an
+              endpoint in each country, so the map can never imply a route it did not see. */}
+          <g data-world-links>
+            {links.map((link) => (
+              <g key={link.key}>
                 <path
-                  key={country.code}
-                  d={arcPath(point.x, point.y, Math.min(120, distance * 0.28))}
-                  data-world-arc={country.code}
-                  className={clsx('world-arc', active === country.code && 'world-arc-active')}
-                  style={{ animationDelay: `${String(-index * 0.42)}s` } as CSSProperties}
+                  d={link.d}
+                  data-world-link={link.key}
+                  className={clsx(
+                    'world-link',
+                    (active === link.source || active === link.target) && 'world-link-active',
+                  )}
+                  style={{ animationDelay: `${String(-link.index * 0.63)}s` } as CSSProperties}
+                >
+                  <title>{link.title}</title>
+                </path>
+                <path
+                  d={link.d}
+                  pathLength={100}
+                  aria-hidden
+                  className='world-link-spark'
+                  style={{ animationDelay: `${String(-link.index * 0.47)}s, ${String(-link.index * 0.29)}s` } as CSSProperties}
                 />
-              )
-            })}
+              </g>
+            ))}
+          </g>
+
+          {/* Arcs: one per country, flowing outward from the capture's own side. The base
+              line is the geography; the bead and the flicker are the traffic on it, and the
+              busiest arcs carry them (see SPARK_CAP in WorldMap.tsx). */}
+          <g data-world-arcs>
+            {arcs.map((arc) => (
+              <g key={arc.code}>
+                <path
+                  d={arc.d}
+                  data-world-arc={arc.code}
+                  className={clsx('world-arc', active === arc.code && 'world-arc-active')}
+                  style={{ animationDelay: `${String(-arc.index * 0.42)}s` } as CSSProperties}
+                />
+                {arc.index < SPARK_CAP ? (
+                  <>
+                    <path
+                      d={arc.d}
+                      pathLength={100}
+                      aria-hidden
+                      className='world-spark'
+                      style={{ animationDelay: `${String(-arc.index * 0.53)}s, ${String(-arc.index * 0.31)}s` } as CSSProperties}
+                    />
+                    <path
+                      d={arc.d}
+                      pathLength={100}
+                      aria-hidden
+                      className='world-flicker'
+                      style={{ animationDelay: `${String(-arc.index * 0.71)}s, ${String(-arc.index * 0.23)}s` } as CSSProperties}
+                    />
+                  </>
+                ) : null}
+              </g>
+            ))}
           </g>
 
           {/* Destination dots, and the label for the largest few. */}
@@ -442,6 +618,26 @@ export function WorldMap({
                 </g>
               )
             })}
+          </g>
+
+          {/* The constellation: motes thrown outward from each dot, fading as they go. They
+              carry no data — the dot's size and the arc already say how much traffic there
+              is — so they are `aria-hidden` and hidden outright when motion is off. */}
+          <g data-world-motes aria-hidden>
+            {motes.map((mote) => (
+              <circle
+                key={mote.key}
+                className="world-mote"
+                cx={mote.x}
+                cy={mote.y}
+                r={mote.size}
+                style={{
+                  '--mote-dx': `${mote.dx.toFixed(1)}px`,
+                  '--mote-dy': `${mote.dy.toFixed(1)}px`,
+                  animationDelay: `${mote.delay.toFixed(2)}s`,
+                } as CSSProperties}
+              />
+            ))}
           </g>
 
           {/* The origin: a labelled inset, deliberately not placed anywhere on the earth. */}

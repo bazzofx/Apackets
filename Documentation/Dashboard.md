@@ -107,6 +107,9 @@ The contract for the whole feature — the dataset, its licence and provenance, 
 | World outline | One path per ISO 3166-1 alpha-2 code, from the bundled Natural Earth 110m asset (`frontend/src/theme/worldMap.ts`, generated, public domain). No tile server and no fetch at render time. |
 | Origin | The capture's own side, drawn as a **dashed inset in the corner** with its address count and volume — never a point on the map. A private address carries no country, and the capture does not hold this installation's public address, so placing the hub anywhere would be an invention. |
 | Arc | One per country, from the origin to that country's label point, with a single travelling dash (`7s`, staggered per country) showing direction. |
+| Live wire | The busiest 24 arcs carry two more copies of their own path: bright beads marching outward (`5.2s`) and a faster stuttering flicker (`3.4s`). Both are scaled to the path with `pathLength="100"`, so one rule fits every arc length, and both are decoration — they encode no number. |
+| Link | Thin cyan arc between two countries' label points, drawn **only** where one conversation of this capture has a located endpoint in each. A row of the ranking panel's countries that merely both appear is never linked: co-occurrence is not a conversation. An ordinary capture of one network talking outward draws none, because its own side is at one end of every conversation. |
+| Motes | Three per dot for the busiest 24 dots, drifting outward and fading, on a seeded bearing so a re-render never reshuffles them. `aria-hidden`, and hidden outright when motion is off. |
 | Destination dot | **One per country**, never one per address, at that country's label point, radius `3 + 9 × sqrt(bytes / largest country's bytes)`. A capture with four hundred destinations draws at most `COUNTRY_CAP` (60) dots. |
 | Dot label | Drawn for the six largest countries and for whichever is focused, as `US · 16` — the code and the address count. |
 | Hover readout | Under the map: the country's name, addresses, volume, packets, and its first four addresses as buttons that open the host page. |
@@ -118,8 +121,11 @@ The contract for the whole feature — the dataset, its licence and provenance, 
 | Capture line | Under the tabs: the shown capture's state dot, its filename and its packet count. |
 | Provenance line | Under the map, when the dataset is installed: the dataset's own month, its range count and the licence attribution (*IP geolocation by DB-IP*), which CC BY 4.0 requires. |
 
-Motion is a promise, not decoration: the arcs move slowly and the pinned dot pulses, and both
-are switched off entirely under `prefers-reduced-motion: reduce`.
+Motion is a promise, not decoration: the arcs move slowly, the beads and the flicker travel
+along them, the motes drift out of the dots, and the pinned dot pulses — all of it switched off
+entirely under `prefers-reduced-motion: reduce` **and** under this application's own motion
+setting, where the particle layers are removed rather than frozen into permanent marks. The
+lines, the dots and their labels stay: the geometry is the part that means something.
 
 **Zooming.** The wheel or a pinch zooms about the pointer, dragging pans, and the controls in
 the bottom-right corner zoom in, zoom out and fit the world again; the current scale is in

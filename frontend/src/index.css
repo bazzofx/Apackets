@@ -343,6 +343,182 @@
     }
   }
 
+  /* ------------------------------------------------------------------ */
+  /* The live wire: particles travelling the arcs                         */
+  /*                                                                    */
+  /* Each arc may carry two more copies of its own path, drawn on top: a  */
+  /* bead of light (`.world-spark`) and a flicker (`.world-flicker`). Both */
+  /* declare `pathLength="100"` in the markup, which makes every dash      */
+  /* length a percentage of that path rather than a number of map units — */
+  /* so one rule fits a 60-unit hop and a 700-unit ocean crossing, and    */
+  /* one dash period is one seamless loop at any length.                  */
+  /*                                                                    */
+  /* Two animations per layer, deliberately: the travel is linear and     */
+  /* endless, while the brightness stutters on another period. Running    */
+  /* them on one keyframes rule would tie the flicker to the distance     */
+  /* travelled, which is the one thing it must not do.                    */
+  /* ------------------------------------------------------------------ */
+
+  .world-spark {
+    fill: none;
+    stroke: rgb(var(--c-accent2) / 0.95);
+    stroke-width: 2.6;
+    stroke-linecap: round;
+    /* Five beads along the path, each 1.4% of its length, marching outward. */
+    stroke-dasharray: 1.4 18.6;
+    filter: drop-shadow(0 0 3px rgb(var(--c-accent2) / 0.9));
+    opacity: 0;
+    /* 2.4 s per dash period is one bead crossing the arc in about twelve seconds: fast
+       enough to read as flow, slow enough not to strobe, and far quicker than the base
+       line's own drift so the two layers stay distinguishable. */
+    animation:
+      world-spark-fly 2.4s linear infinite,
+      world-spark-glow 1.6s ease-in-out infinite;
+  }
+
+  @keyframes world-spark-fly {
+    from {
+      stroke-dashoffset: 0;
+    }
+    to {
+      /* One dash period in `pathLength` units: 1.4 + 18.6. */
+      stroke-dashoffset: -20;
+    }
+  }
+
+  @keyframes world-spark-glow {
+    0%,
+    100% {
+      opacity: 0.15;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  /* The flicker is the same trick with shorter dashes and a stutter: the light
+     breaks up along the line rather than running as beads. */
+  .world-flicker {
+    fill: none;
+    stroke: rgb(var(--c-accent) / 0.9);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-dasharray: 0.5 6.3;
+    opacity: 0;
+    animation:
+      world-flicker-fly 1.8s linear infinite,
+      world-flicker-glow 1.1s steps(1, end) infinite;
+  }
+
+  @keyframes world-flicker-fly {
+    from {
+      stroke-dashoffset: 0;
+    }
+    to {
+      /* One dash period in `pathLength` units: 0.5 + 6.3. */
+      stroke-dashoffset: -6.8;
+    }
+  }
+
+  @keyframes world-flicker-glow {
+    0% {
+      opacity: 0.04;
+    }
+    18% {
+      opacity: 0.62;
+    }
+    26% {
+      opacity: 0.1;
+    }
+    42% {
+      opacity: 0.5;
+    }
+    58% {
+      opacity: 0.05;
+    }
+    72% {
+      opacity: 0.66;
+    }
+    100% {
+      opacity: 0.04;
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Country to country: a link the capture itself proves                */
+  /*                                                                    */
+  /* Drawn only when a conversation has an endpoint in each country, so   */
+  /* an ordinary capture of one network talking outward draws none of     */
+  /* them. Thin and cyan, because it answers a different question from    */
+  /* the crimson arcs: those leave this capture's side, these do not.     */
+  /* ------------------------------------------------------------------ */
+
+  .world-link {
+    fill: none;
+    stroke: rgb(var(--c-accent2) / 0.4);
+    stroke-width: 0.9;
+    stroke-dasharray: 3 7;
+    animation: world-link-flow 9s linear infinite;
+  }
+
+  .world-link-active {
+    stroke: rgb(var(--c-accent2) / 0.85);
+    stroke-width: 1.3;
+  }
+
+  @keyframes world-link-flow {
+    from {
+      stroke-dashoffset: 0;
+    }
+    to {
+      stroke-dashoffset: -10;
+    }
+  }
+
+  .world-link-spark {
+    fill: none;
+    stroke: rgb(var(--c-accent2) / 0.95);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-dasharray: 1.2 20;
+    filter: drop-shadow(0 0 3px rgb(var(--c-accent2) / 0.8));
+    opacity: 0;
+    animation:
+      world-spark-fly 1.9s linear infinite,
+      world-spark-glow 1.3s ease-in-out infinite;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Constellation motes around each destination                         */
+  /*                                                                    */
+  /* Three motes per dot, thrown outward on a seeded bearing so a         */
+  /* re-render scatters them identically, and each drifts away as it       */
+  /* fades: an address arriving. They are decoration and carry no data,    */
+  /* which is why they are `aria-hidden` in the markup and hidden         */
+  /* entirely when motion is off.                                         */
+  /* ------------------------------------------------------------------ */
+
+  .world-mote {
+    fill: rgb(var(--c-accent2) / 0.9);
+    opacity: 0;
+    animation: world-mote 5s ease-out infinite;
+  }
+
+  @keyframes world-mote {
+    0% {
+      opacity: 0;
+      transform: translate(0, 0);
+    }
+    25% {
+      opacity: 0.85;
+    }
+    100% {
+      opacity: 0;
+      /* The offsets are set per mote in WorldMap.tsx. */
+      transform: translate(var(--mote-dx, 0px), var(--mote-dy, 0px));
+    }
+  }
+
   .world-dot-group {
     cursor: pointer;
   }
@@ -535,14 +711,20 @@
     }
 
     .world-arc,
+    .world-link,
     .world-dot-pulse,
     .world-panel {
       animation: none;
     }
 
-    /* The pulse only exists to animate, so with motion off it is hidden rather
-       than frozen into a permanent ring around the dot. */
-    .world-dot-pulse {
+    /* The pulse, the beads, the flicker and the motes exist only to animate, so with
+       motion off they are hidden rather than frozen into permanent bright marks on the
+       map. The link lines themselves stay: they are geography, not movement. */
+    .world-dot-pulse,
+    .world-spark,
+    .world-flicker,
+    .world-link-spark,
+    .world-mote {
       display: none;
     }
   }
@@ -1691,9 +1873,14 @@
   transition: none !important;
 }
 
-/* The pulse ring exists only to animate, so with motion off it is removed rather than
-   frozen into a permanent ring around every dot (the same rule the OS preference uses). */
-[data-motion='off'] .world-dot-pulse {
+/* The pulse ring, the travelling beads, the flicker and the constellation motes exist only
+   to animate, so with motion off they are removed rather than frozen into permanent marks
+   (the same rule the OS preference uses). */
+[data-motion='off'] .world-dot-pulse,
+[data-motion='off'] .world-spark,
+[data-motion='off'] .world-flicker,
+[data-motion='off'] .world-link-spark,
+[data-motion='off'] .world-mote {
   display: none;
 }
 

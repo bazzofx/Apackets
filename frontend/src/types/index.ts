@@ -2027,6 +2027,25 @@ export interface GeographyCountry {
   ips_truncated: boolean
 }
 
+/**
+ * One country pair the capture itself proves: a conversation whose two endpoints are
+ * located in two different countries.
+ *
+ * A private address carries no country, so an ordinary capture of one network talking
+ * outward proves no pair at all and sends an empty list. Nothing here is inferred from
+ * co-occurrence — two countries are linked only when one conversation has an endpoint in
+ * each.
+ */
+export interface GeographyLink {
+  /** ISO 3166-1 alpha-2, the lower of the pair — the pair is unordered. */
+  source: string
+  target: string
+  /** The pair's conversations summed. */
+  packets: number
+  bytes: number
+  conversations: number
+}
+
 /** The capture's own side. A private address has no country, so this is never a map point. */
 export interface GeographyOrigin {
   label: string
@@ -2133,6 +2152,8 @@ export interface GeographyResponse {
   dataset: { available: boolean; source: GeoipStatus['source']; reason: string | null }
   origin: GeographyOrigin
   countries: GeographyCountry[]
+  /** Country pairs proven by a conversation, capped by the API's `LINK_CAP`. */
+  links: GeographyLink[]
   unknown: GeographyUnknown
   counts: {
     addresses: number

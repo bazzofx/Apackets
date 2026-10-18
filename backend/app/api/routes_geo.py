@@ -47,6 +47,11 @@ GEO_IP_CAP = geoip.GEO_IP_CAP
 PORT_CAP = geoip.PORT_CAP
 GEO_TARGET_DETAIL_CAP = geoip.GEO_TARGET_DETAIL_CAP
 
+#: §5.3's links: how many country pairs one response may carry. A capture that proves
+#: more than this many is typical of a span port or a proxy chain, and the busiest pairs
+#: are the ones worth drawing.
+LINK_CAP = 24
+
 #: §3: the origin is the capture's own network, drawn as one labelled hub, never a
 #: point on the map - a private address carries no country and none is invented.
 ORIGIN_LABEL = "This capture's own addresses"
@@ -99,6 +104,67 @@ class _Bucket:
             "ips": ips,
             "ips_truncated": truncated,
         }
+
+
+@dataclass
+class _Link:
+    """One country pair, summed over the conversations that prove it.
+
+    §5.3's ``links`` are a *relation the capture itself proves*: a ``conversations`` row
+    whose two endpoints are both located, in two different countries. The origin side is
+    deliberately not a country - a private address carries none (§3) - so an ordinary
+    capture of one network talking outward proves no pair at all and reports an empty
+    list. Nothing here is inferred from co-occurrence: two countries are linked only when
+    a single conversation has an endpoint in each.
+    """
+
+    packets: int = 0
+    bytes: int = 0
+    conversations: int = 0
+
+
+def _country_links(analysis_id: str, codes: dict[str, str]) -> list[dict[str, Any]]:
+    """§5.3's ``links``: country pairs proven by this capture's conversations.
+
+    ``codes`` is the address -> country map the aggregation already built, so a pair
+    costs two dictionary lookups per conversation and the dataset is never asked twice.
+    Only conversations with *both* endpoints located can link anything; a conversation
+    with the capture's own side at one end has no second country to point at.
+    """
+    pairs: dict[tuple[str, str], _Link] = {}
+    rows = db.query_all(
+        """
+        SELECT ip_a, ip_b,
+               COALESCE(packets_total, 0) AS packets,
+               COALESCE(bytes_total, 0)   AS bytes
+          FROM conversations
+         WHERE analysis_id = ?
+        """,
+        (analysis_id,),
+    )
+    for row in rows:
+        left = codes.get(row["ip_a"]) if row["ip_a"] else None
+        right = codes.get(row["ip_b"]) if row["ip_b"] else None
+        if left is None or right is None or left == right:
+            continue
+        key = (left, right) if left < right else (right, left)
+        link = pairs.setdefault(key, _Link())
+        link.packets += int(row["packets"] or 0)
+        link.bytes += int(row["bytes"] or 0)
+        link.conversations += 1
+
+    # Busiest first, then by code, so one capture always answers the same.
+    ordered = sorted(pairs.items(), key=lambda item: (-item[1].bytes, item[0]))
+    return [
+        {
+            "source": source,
+            "target": target,
+            "packets": link.packets,
+            "bytes": link.bytes,
+            "conversations": link.conversations,
+        }
+        for (source, target), link in ordered[:LINK_CAP]
+    ]
 
 
 def _note(countries: int, truncated: bool) -> str:
@@ -182,6 +248,8 @@ def _aggregate(analysis_id: str) -> dict[str, Any]:
     reserved = _Bucket()
     unknown = _Bucket()
     countries: dict[str, _Bucket] = {}
+    #: address -> country, so §5.3's links never ask the dataset a second time.
+    codes: dict[str, str] = {}
     unparsable = 0
 
     for row in rows:
@@ -204,6 +272,7 @@ def _aggregate(analysis_id: str) -> dict[str, Any]:
             # installed every public address is honestly unknown rather than guessed.
             code = dataset.country_for(ip) if dataset is not None else None
             if code:
+                codes[ip] = code
                 countries.setdefault(code, _Bucket()).add(ip, packets, size)
             else:
                 unknown.add(ip, packets, size)
@@ -259,6 +328,7 @@ def _aggregate(analysis_id: str) -> dict[str, Any]:
             "bytes": local.bytes,
         },
         "countries": payload,
+        "links": _country_links(analysis_id, codes),
         "unknown": unknown.listing(),
         "counts": counts,
         "note": _note(len(ordered), truncated),
