@@ -380,6 +380,15 @@ groups). The header's painting is the static asset `src/assets/top_banner.png`, 
 a CSS background with a left-weighted dark wash so the wordmark stays readable; nothing
 here is drawn per render.
 
+The wordmark is the one place in the shell that moves: a band of pale cyan crosses it on a
+7.5 s cycle, the second word's red glow swells on a 4.6 s one, the `侍` mark breathes behind
+them, and 34 short packets rise out of the bottom edge of the painting and fade before the
+top — a field scattered once from a seeded hash (`HERO_MOTES` in `AppHeader.tsx`), so a
+capture switch or a status change never reshuffles it. Every one of those layers is
+decoration: the packets are `aria-hidden`, carry no count, and are removed outright — not
+frozen — under `prefers-reduced-motion` or this application's motion setting, which leaves
+the artwork and the type as the whole header.
+
 * **One source of truth.** `frontend/src/theme/themes.ts` is the only file in
   `src/**` allowed to contain a colour literal. It defines `ThemeTokens` (surfaces,
   brand, type, `glow`, four severity colours, three status colours, `chart` — exactly
