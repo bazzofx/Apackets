@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 220" width="1200" height="220" preserveAspectRatio="xMidYMid slice">
+  <!--
+    ShinboShark banner: a night landscape behind the header.
+
+    Hand-authored, not generated: a blood moon on the right, mountain ridges, a torii
+    gate and temple roofs, mist, drifting petals and a ninja silhouette in front of the
+    moon. It is one static asset - the header paints it as a background, so it is
+    fetched once and never re-drawn. Everything is vector, so it stays sharp on any
+    display without a second file.
+  -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#060D16"/>
+      <stop offset="0.55" stop-color="#04090F"/>
+      <stop offset="1" stop-color="#03070C"/>
+    </linearGradient>
+    <radialGradient id="moon" cx="0.5" cy="0.45" r="0.5">
+      <stop offset="0" stop-color="#FF4E63"/>
+      <stop offset="0.55" stop-color="#E01034"/>
+      <stop offset="1" stop-color="#8C0A20"/>
+    </radialGradient>
+    <radialGradient id="moonGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FF1744" stop-opacity="0.45"/>
+      <stop offset="0.7" stop-color="#FF1744" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#FF1744" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0.55" stop-color="#03070C" stop-opacity="0"/>
+      <stop offset="1" stop-color="#03070C" stop-opacity="0.95"/>
+    </linearGradient>
+    <linearGradient id="ridgeFar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#10202D"/>
+      <stop offset="1" stop-color="#050B12"/>
+    </linearGradient>
+    <linearGradient id="ridgeNear" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0A1420"/>
+      <stop offset="1" stop-color="#03070C"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="220" fill="url(#sky)"/>
+
+  <!-- stars -->
+  <g fill="#9FB4C9" opacity="0.5">
+    <circle cx="90" cy="34" r="1.1"/><circle cx="168" cy="58" r="0.9"/>
+    <circle cx="248" cy="26" r="1.2"/><circle cx="352" cy="46" r="0.8"/>
+    <circle cx="438" cy="22" r="1"/><circle cx="520" cy="54" r="0.9"/>
+    <circle cx="612" cy="30" r="1.1"/><circle cx="700" cy="62" r="0.8"/>
+    <circle cx="806" cy="38" r="1"/><circle cx="1120" cy="40" r="1.1"/>
+    <circle cx="1162" cy="84" r="0.9"/><circle cx="1044" cy="24" r="0.8"/>
+  </g>
+
+  <!-- the blood moon, right of centre, with its glow -->
+  <circle cx="986" cy="96" r="128" fill="url(#moonGlow)"/>
+  <circle cx="986" cy="96" r="60" fill="url(#moon)"/>
+  <circle cx="986" cy="96" r="60" fill="none" stroke="#FF365F" stroke-opacity="0.35" stroke-width="1.2"/>
+
+  <!-- far ridges -->
+  <path d="M0 168 L104 128 L168 146 L252 104 L338 150 L420 118 L512 158 L590 132 L676 164 L760 138 L840 166 L928 140 L1020 168 L1104 142 L1200 168 L1200 220 L0 220 Z" fill="url(#ridgeFar)" opacity="0.85"/>
+
+  <!-- torii gate, left of centre -->
+  <g fill="#0B1420" stroke="#1B2B3A" stroke-width="1">
+    <rect x="286" y="120" width="7" height="76"/>
+    <rect x="398" y="120" width="7" height="76"/>
+    <rect x="276" y="116" width="139" height="9" rx="2"/>
+    <rect x="286" y="134" width="119" height="6" rx="1"/>
+  </g>
+
+  <!-- temple roofs -->
+  <g fill="#0A1420" stroke="#16242F" stroke-width="1">
+    <path d="M120 196 L146 168 L212 168 L238 196 Z"/>
+    <path d="M112 196 L256 196 L256 202 L112 202 Z"/>
+    <path d="M470 198 L492 176 L544 176 L566 198 Z"/>
+  </g>
+
+  <!-- mist -->
+  <g fill="#8FB6D8" opacity="0.05">
+    <ellipse cx="300" cy="182" rx="260" ry="16"/>
+    <ellipse cx="820" cy="190" rx="320" ry="14"/>
+    <ellipse cx="1080" cy="176" rx="200" ry="10"/>
+  </g>
+
+  <!-- near ridge -->
+  <path d="M0 196 L120 176 L236 190 L360 170 L470 192 L600 174 L720 194 L840 178 L980 198 L1100 182 L1200 196 L1200 220 L0 220 Z" fill="url(#ridgeNear)"/>
+
+  <!-- the ninja: crouched, in front of the moon, holding a blade -->
+  <g fill="#01040A">
+    <path d="M948 150 C948 132 962 120 982 120 C1002 120 1016 132 1016 150 C1016 162 1008 172 996 176 L1000 196 L968 196 L970 176 C956 172 948 162 948 150 Z"/>
+    <path d="M1010 132 L1056 116 L1058 122 L1014 140 Z"/>
+  </g>
+  <!-- a scarf catching the light -->
+  <path d="M1012 140 C1046 148 1072 142 1092 156 C1070 158 1044 162 1016 152 Z" fill="#7A0A1E" opacity="0.85"/>
+
+  <!-- drifting petals -->
+  <g fill="#FF365F" opacity="0.55">
+    <ellipse cx="640" cy="70" rx="4" ry="2" transform="rotate(-24 640 70)"/>
+    <ellipse cx="706" cy="104" rx="3.4" ry="1.7" transform="rotate(18 706 104)"/>
+    <ellipse cx="880" cy="52" rx="3.8" ry="1.9" transform="rotate(-12 880 52)"/>
+    <ellipse cx="1094" cy="64" rx="3.2" ry="1.6" transform="rotate(26 1094 64)"/>
+    <ellipse cx="540" cy="98" rx="3" ry="1.5" transform="rotate(8 540 98)"/>
+  </g>
+
+  <!-- the fade that keeps the content below readable -->
+  <rect y="96" width="1200" height="124" fill="url(#fade)"/>
+</svg>

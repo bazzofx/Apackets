@@ -50,7 +50,7 @@ function readStoredTheme(): ThemeId {
     const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
     if (!isThemeId(stored)) return DEFAULT_THEME_ID
     if (
-      stored === PREVIOUS_DEFAULT &&
+      (stored === PREVIOUS_DEFAULT || stored === 'shinobi') &&
       DEFAULT_THEME_ID !== PREVIOUS_DEFAULT &&
       window.localStorage.getItem(THEME_MIGRATION_KEY) === null
     ) {

@@ -1,8 +1,6 @@
-import { Fragment, type CSSProperties } from 'react'
-import { Suspense } from 'react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Suspense, useCallback, useEffect, useState, type CSSProperties } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import clsx from 'clsx'
 import {
   ArrowLeftRight,
   Database,
@@ -16,11 +14,9 @@ import {
   List,
   Lock,
   Mail,
-  Network,
-  PhoneCall,
   Package,
+  PhoneCall,
   Radar,
-  RefreshCw,
   Scale,
   ScanSearch,
   Search,
@@ -31,44 +27,16 @@ import {
   SlidersHorizontal,
   Terminal,
   Unplug,
-  Upload,
-  type LucideIcon,
 } from 'lucide-react'
-import StatusChip from '@/components/StatusChip'
-import { useAnalysis, useHealth } from '@/hooks/useAnalysis'
 import LoadingState from '@/components/LoadingState'
+import AppHeader from '@/components/layout/AppHeader'
+import Sidebar, { type SidebarItem } from '@/components/layout/Sidebar'
+import { useAnalysis, useHealth } from '@/hooks/useAnalysis'
 import { baselineApi, detectionApi, findingsApi, suricataApi } from '@/services/api'
 import { sectionForRoute } from '@/theme/sections'
 import { formatNumber } from '@/utils/format'
 
-interface NavItem {
-  to: string
-  label: string
-  icon: LucideIcon
-  badge?: string
-  /** `warn` is the same amber the rule tables use for "not at its default". */
-  badgeTone?: 'default' | 'danger' | 'warn'
-  title?: string
-  /** A subsection label rendered immediately above this item. */
-  section?: string
-}
-
-/**
- * A labelled subsection in the sidebar.
- *
- * The rule is always drawn, so the grouping still reads on the icon-only rail below
- * `lg`, where there is no room for the words.
- */
-function NavSection({ label }: { label: string }) {
-  return (
-    <div className="mt-1.5 border-t border-border px-3 pb-1 pt-2">
-      <span className="hidden text-2xs font-semibold uppercase tracking-wider text-faint lg:inline">
-        {label}
-      </span>
-    </div>
-  )
-}
-
+/** The TShark / backend line the sidebar carries above the navigation. */
 function TsharkStatus() {
   const health = useHealth()
 
@@ -117,46 +85,22 @@ function TsharkStatus() {
   )
 }
 
-function AnalysisPicker() {
-  const { analysisId, analyses, setAnalysisId, isLoading } = useAnalysis()
-
-  if (isLoading) {
-    return <div className="h-6 w-56 animate-pulse rounded bg-surface2" aria-hidden />
-  }
-
-  if (analyses.length === 0) {
-    return <span className="text-2xs text-faint">no captures uploaded</span>
-  }
-
-  return (
-    <label className="flex items-center gap-1.5">
-      <span className="sr-only">Active analysis</span>
-      <select
-        className="select max-w-[22rem]"
-        value={analysisId ?? ''}
-        onChange={(event) => setAnalysisId(event.target.value || null)}
-      >
-        {analysisId === null ? <option value="">— select a capture —</option> : null}
-        {analyses.map((analysis) => (
-          <option key={analysis.id} value={analysis.id}>
-            {analysis.original_filename} · {analysis.status}
-            {analysis.packet_count !== null ? ` · ${analysis.packet_count} pkts` : ''}
-          </option>
-        ))}
-      </select>
-    </label>
-  )
-}
-
-/** Application shell: fixed sidebar, dense top bar, scrollable content area. */
+/**
+ * Application shell: the cinematic banner on top, the navigation on the left, and the
+ * scrolling page body inside it.
+ *
+ * The banner spans the full width on purpose - it is the application's identity, not a
+ * toolbar above one column - and the sidebar sits *in flow* under it, so the page body
+ * keeps the definite viewport height the Findings workbench resolves its panes against.
+ */
 export function AppLayout() {
-  const { analysisId, analyses, selected, refresh } = useAnalysis()
+  const { analysisId, analyses, selected, setAnalysisId, refresh } = useAnalysis()
   const queryClient = useQueryClient()
   const location = useLocation()
+  const [fullscreen, setFullscreen] = useState(false)
 
-  /* The whole shell takes its hue from the section being viewed, so the sidebar
-     indicator and the page headline agree. Pages set the same variable again
-     themselves, which keeps `Page` correct outside this shell. */
+  /* The whole shell takes its hue from the section being viewed. Pages set the same
+     variable again themselves, which keeps `Page` correct outside this shell. */
   const section = sectionForRoute(location.pathname)
   const shellStyle = { '--s-accent': `var(${section.hueVar})` } as CSSProperties
 
@@ -167,8 +111,6 @@ export function AppLayout() {
     queryFn: () => findingsApi.list(analysisId as string, { page: 1, page_size: 1 }),
     enabled: ready,
     staleTime: 10_000,
-    // The badge tracks the same findings the Dashboard shows, so it follows the
-    // analysis finishing (or Suricata rules being re-run) without a reload.
     refetchOnWindowFocus: true,
     refetchInterval: ready ? 10_000 : false,
   })
@@ -178,9 +120,9 @@ export function AppLayout() {
     ? counts.high + counts.medium + counts.low + counts.informational
     : findingsCounts.data?.total
 
-  /* Rules that are not running their default, counted across both families. The
-     Alert Settings page reads the same two queries with the same keys, so this is
-     one request per list, not four, and the badge follows an edit made there. */
+  /* Rules that are not running their default, counted across both families. Alert
+     Settings reads the same two queries with the same keys, so this is one request per
+     list, not four, and the badge follows an edit made there. */
   const detectionRules = useQuery({
     queryKey: ['detection-rules', analysisId],
     queryFn: () => detectionApi.rules(analysisId),
@@ -193,8 +135,8 @@ export function AppLayout() {
     staleTime: 10_000,
     refetchOnWindowFocus: true,
   })
-  /* Baseline mode, read here so the indicator is on every page rather than only on
-     the one that sets it. Same query key as PCAP Files, so the two cannot disagree. */
+  /* Baseline mode, read here so the indicator is on every page. Same query key as PCAP
+     Files, so the two cannot disagree. */
   const baseline = useQuery({
     queryKey: ['baseline'],
     queryFn: () => baselineApi.status(),
@@ -206,26 +148,34 @@ export function AppLayout() {
     (detectionRules.data?.items ?? []).filter((rule) => rule.modified).length +
     (suricataStats.data?.modified ?? 0)
 
-  const onRefresh = () => {
+  const onRefresh = useCallback(() => {
     refresh()
     void queryClient.invalidateQueries()
-  }
+  }, [queryClient, refresh])
 
-  /* The order is the order an analyst works in, and every item belongs to one of the
-     five groups the sidebar draws a heading for: the capture at a glance, what it
-     connected to, what it can be asked, what the protocols said, and the plumbing.
-     `section` names the heading *above* the item, so it goes on the first item of each
-     group and nowhere else. */
-  const navItems: NavItem[] = [
+  /* Full screen is the browser's own, and the button reflects it: if the reader leaves
+     with Esc the label has to follow, which is why the state is read from the document
+     rather than assumed. */
+  useEffect(() => {
+    const onChange = () => setFullscreen(document.fullscreenElement !== null)
+    document.addEventListener('fullscreenchange', onChange)
+    onChange()
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  const onToggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement !== null) {
+      void document.exitFullscreen?.()
+      return
+    }
+    void document.documentElement.requestFullscreen?.()
+  }, [])
+
+  const navItems: SidebarItem[] = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard, section: 'Dashboard' },
     { to: '/info', label: 'Info', icon: Info, title: 'Full reference view for this capture' },
-    { to: '/hosts', label: 'Hosts', icon: Server },
-    {
-      to: '/conversations',
-      label: 'Conversations',
-      icon: ArrowLeftRight,
-      section: 'Connections',
-    },
+    { to: '/hosts', label: 'Hosts', icon: Server, title: 'Address inventory for this capture' },
+    { to: '/conversations', label: 'Conversations', icon: ArrowLeftRight, section: 'Analysis' },
     { to: '/packets', label: 'Packets', icon: List },
     {
       to: '/findings',
@@ -270,13 +220,11 @@ export function AppLayout() {
     },
     {
       to: '/credentials',
-      label: 'Users & Passwords',
+      label: 'Users and Passwords',
       icon: KeyRound,
       title:
         'Cleartext users, passwords, keys and tokens the dissectors could read, with the locations the scanner reads and the ones it cannot',
     },
-    /* The protocol browsers are their own group: they answer "what did this protocol
-       say", where everything above answers "what is in this capture". */
     { to: '/http', label: 'HTTP', icon: Globe, section: 'Protocols' },
     { to: '/dns', label: 'DNS', icon: Search },
     { to: '/tls', label: 'TLS', icon: Lock },
@@ -309,137 +257,25 @@ export function AppLayout() {
   ]
 
   return (
-    <div className="min-h-screen bg-bg" style={shellStyle} data-section={section.id}>
-      <aside className="fixed inset-y-0 left-0 z-20 flex w-14 flex-col border-r border-border bg-surface lg:w-52">
-        <div className="flex h-12 items-center gap-2 border-b border-border px-3">
-          <Network size={16} className="shrink-0 text-accent2" aria-hidden />
-          <span className="hidden text-sm font-semibold tracking-wide text-text lg:inline">
-            ShinboShark
-          </span>
-        </div>
+    <div className="flex h-dvh flex-col overflow-hidden bg-bg" style={shellStyle} data-section={section.id}>
+      <AppHeader
+        analyses={analyses}
+        analysisId={analysisId}
+        selected={selected}
+        onSelectAnalysis={setAnalysisId}
+        onRefresh={onRefresh}
+        baseline={baseline.data}
+        fullscreen={fullscreen}
+        onToggleFullscreen={onToggleFullscreen}
+      />
 
-        {/* The shell's one ambient element: a hairline of the section hue along the
-            sidebar edge, breathing on an 11 s cycle in the Shinobi palette only
-            (index.css). It is one gradient, so it composites and costs nothing - and
-            it is the only motion on screen that is not an entrance. */}
-        <span
-          aria-hidden
-          className="shinobi-edge pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-accent/0 via-accent/45 to-accent/0"
-        />
+      {/* The sidebar is in flow under the banner. The content column keeps a definite
+          height, so a page can size its own panes with `h-full` and scroll a list without
+          moving the toolbar or the page underneath it. */}
+      <div className="flex min-h-0 flex-1">
+        <Sidebar items={navItems} status={<TsharkStatus />} />
 
-        <div className="hidden border-b border-border px-3 py-2 lg:block">
-          <TsharkStatus />
-        </div>
-        <div className="flex justify-center border-b border-border px-1 py-2 lg:hidden">
-          <TsharkStatus />
-        </div>
-
-        <nav className="flex-1 overflow-y-auto py-1">
-          {navItems.map((item) => (
-            <Fragment key={item.to}>
-              {item.section !== undefined ? <NavSection label={item.section} /> : null}
-              <NavLink
-                to={item.to}
-                end={item.to === '/'}
-                title={item.label}
-                className={({ isActive }) =>
-                  clsx('nav-link', isActive ? 'nav-link-active' : 'nav-link-idle')
-                }
-              >
-                <item.icon size={15} className="shrink-0" aria-hidden />
-                <span className="hidden flex-1 truncate lg:inline">{item.label}</span>
-                {item.badge !== undefined ? (
-                  <span
-                    className={clsx(
-                      'chip hidden shrink-0 lg:inline-flex',
-                      item.badgeTone === 'danger'
-                        ? 'border-danger/50 bg-danger/15 text-red-300'
-                        : item.badgeTone === 'warn'
-                          ? 'border-warn/50 bg-warn/15 text-warn'
-                          : 'border-border2 bg-surface2 text-muted',
-                    )}
-                    title={item.title}
-                  >
-                    {item.badge}
-                  </span>
-                ) : null}
-              </NavLink>
-            </Fragment>
-          ))}
-        </nav>
-
-        <div className="hidden border-t border-border px-3 py-2 text-2xs text-faint lg:block">
-          Local-only tool · no telemetry
-        </div>
-      </aside>
-
-      {/* The content column is exactly one viewport tall, so `<main>` has a definite
-          height to resolve against and scrolling happens inside it rather than in the
-          document. A page can then size its own panes with `h-full` and scroll a list
-          without moving the toolbar or the page underneath it (the Findings workbench
-          relies on exactly that). `dvh`, not `vh`: on mobile the browser chrome is part of that
-          viewport and 100vh would leave the last row under it. */}
-      <div className="ml-14 flex h-dvh flex-col lg:ml-52">
-        <header className="sticky top-0 z-10 flex h-12 items-center gap-3 border-b border-border bg-surface/95 px-3 backdrop-blur">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            {selected ? (
-              <>
-                <span
-                  className="truncate text-xs font-medium text-text"
-                  title={selected.original_filename}
-                >
-                  {selected.original_filename}
-                </span>
-                <StatusChip status={selected.status} />
-                <span className="hidden mono text-2xs text-muted xl:inline">
-                  {selected.packet_count !== null
-                    ? `${formatNumber(selected.packet_count)} packets`
-                    : 'packet count pending'}
-                </span>
-              </>
-            ) : (
-              <span className="text-xs text-faint">No capture selected</span>
-            )}
-          </div>
-
-          <div className="flex shrink-0 items-center gap-2">
-            {baseline.data?.active ? (
-              <Link
-                to="/baseline-check"
-                className="chip border-warn/60 bg-warn/15 text-warn hover:border-warn"
-                title={
-                  'Baseline mode is enabled: every analysis is compared against ' +
-                  (baseline.data.baseline?.original_filename ?? 'the baseline capture') +
-                  '. Click to see what the current capture adds to it.'
-                }
-              >
-                <Scale size={12} aria-hidden />
-                {/* Exactly 13px, whatever the 2xs token is set to: this indicator has
-                    to be readable at a glance from any page. */}
-                <span className="text-[13px] leading-none">Baseline mode : enabled</span>
-              </Link>
-            ) : null}
-            <AnalysisPicker />
-            <button
-              type="button"
-              className="btn"
-              onClick={onRefresh}
-              title="Refresh analyses and the current view"
-            >
-              <RefreshCw size={13} aria-hidden />
-              <span className="hidden xl:inline">Refresh</span>
-            </button>
-            <Link to="/files" className="btn btn-primary" title="Upload a capture">
-              <Upload size={13} aria-hidden />
-              <span className="hidden xl:inline">Upload</span>
-            </Link>
-          </div>
-        </header>
-
-        <main className="min-h-0 flex-1 overflow-auto p-4">
-          {/* Pages are loaded on demand (App.tsx), and the fallback sits *here*, inside
-              the shell: a chunk arriving must not take the sidebar and the top bar with
-              it, or every first visit to a page would flash the whole application. */}
+        <main className="min-w-0 flex-1 overflow-auto p-3 lg:p-4">
           <Suspense fallback={<LoadingState label="Loading this section…" rows={3} />}>
             <Outlet />
           </Suspense>

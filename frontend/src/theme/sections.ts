@@ -95,8 +95,7 @@ export const SECTIONS = {
     route: '/',
     group: 'Dashboard',
     label: 'Dashboard',
-    purpose:
-      'The capture at a glance: the headline counts, who talked to whom, and how the traffic splits across protocols.',
+    purpose: 'Capture overview, network activity and threat indicators.',
     icon: LayoutDashboard,
     hueVar: '--c-accent',
     variant: 'hero',

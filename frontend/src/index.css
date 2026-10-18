@@ -63,44 +63,44 @@
 /*
  * Theme tokens.
  *
- * The values below are the Shinobi palette (the default) so the application is
+ * The values below are the Shadow Ninja palette (the default) so the application is
  * styled before React runs; src/theme/ThemeProvider.tsx overwrites every one of
  * them on <html> for the active theme. Channels are space separated RGB so
  * Tailwind's `rgb(var(--c-x) / <alpha-value>)` colours work, and the only literal
  * colours in this file are these defaults.
  */
 :root {
-  --c-bg: 5 6 7;
-  --c-surface: 11 13 16;
-  --c-surface2: 18 22 26;
-  --c-border: 29 36 41;
-  --c-border2: 43 52 59;
-  --c-accent: 53 167 255;
-  --c-accent2: 127 210 255;
-  --c-text: 231 237 242;
-  --c-muted: 154 167 178;
-  --c-faint: 101 113 124;
-  --c-glow: rgba(53, 167, 255, 0.38);
-  --c-sev-informational: 107 119 131;
-  --c-sev-low: 76 201 255;
-  --c-sev-medium: 245 165 36;
-  --c-sev-high: 255 77 94;
-  --c-ok: 53 211 145;
-  --c-warn: 245 165 36;
-  --c-danger: 255 77 94;
-  --c-map-private: 53 167 255;
-  --c-map-public: 245 165 36;
-  --c-map-multicast: 176 124 255;
-  --c-map-local: 53 211 145;
-  --c-map-unclassified: 107 119 131;
-  --c-chart-1: 53 167 255;
-  --c-chart-2: 76 201 255;
-  --c-chart-3: 139 157 255;
-  --c-chart-4: 53 211 145;
-  --c-chart-5: 245 165 36;
-  --c-chart-6: 255 138 61;
-  --c-chart-7: 176 124 255;
-  --c-chart-8: 58 214 197;
+  --c-bg: 3 7 12;
+  --c-surface: 5 11 18;
+  --c-surface2: 8 15 24;
+  --c-border: 27 43 58;
+  --c-border2: 38 57 75;
+  --c-accent: 255 23 68;
+  --c-accent2: 0 229 255;
+  --c-text: 232 237 245;
+  --c-muted: 145 160 181;
+  --c-faint: 96 113 135;
+  --c-glow: rgba(255, 23, 68, 0.35);
+  --c-sev-informational: 96 113 135;
+  --c-sev-low: 67 139 255;
+  --c-sev-medium: 255 179 0;
+  --c-sev-high: 255 23 68;
+  --c-ok: 0 229 160;
+  --c-warn: 255 179 0;
+  --c-danger: 255 23 68;
+  --c-map-private: 0 229 255;
+  --c-map-public: 255 23 68;
+  --c-map-multicast: 155 123 255;
+  --c-map-local: 0 229 160;
+  --c-map-unclassified: 96 113 135;
+  --c-chart-1: 255 23 68;
+  --c-chart-2: 0 229 255;
+  --c-chart-3: 67 139 255;
+  --c-chart-4: 0 229 160;
+  --c-chart-5: 255 179 0;
+  --c-chart-6: 255 110 64;
+  --c-chart-7: 155 123 255;
+  --c-chart-8: 38 198 218;
   color-scheme: dark;
 
   /*
@@ -172,16 +172,16 @@
     background-color: rgb(var(--c-surface));
     background-image: linear-gradient(
       180deg,
-      rgb(var(--c-surface2) / 0.6) 0%,
-      rgb(var(--c-surface) / 0) 46%
+      rgb(var(--c-surface2) / 0.55) 0%,
+      rgb(var(--c-surface) / 0) 42%
     );
     border: 1px solid rgb(var(--c-border));
-    border-radius: 0.5rem;
-    box-shadow: 0 1px 2px 0 rgb(var(--c-bg) / 0.55);
+    border-radius: 0.375rem;
+    box-shadow: none;
   }
 
   .panel-header {
-    @apply flex items-center justify-between gap-3 px-3 py-2 border-b border-border;
+    @apply flex items-center justify-between gap-3 px-3 py-1.5 border-b border-border;
   }
 
   /* Card headline, in the display face like the page headline. Was 12px muted
@@ -1699,4 +1699,531 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ==================================================================== */
+/* Shadow Ninja shell                                                   */
+/*                                                                      */
+/* The cinematic banner, the brand mark, the capture capsule and the    */
+/* tactical navigation. Everything else is themed by the palette in      */
+/* themes.ts; only the identity pieces need rules of their own.          */
+/* ==================================================================== */
+
+:root {
+  /* A CJK serif for the 侍 mark: the brush display face carries no CJK glyphs, so the
+     character falls back to whatever Japanese serif the machine has - which is the
+     family a brush character is normally set in. */
+  --font-jp: 'Yu Mincho', 'YuMincho', 'MS Mincho', 'Noto Serif CJK JP', 'Noto Serif JP',
+    'Hiragino Mincho ProN', serif;
+}
+
+@layer components {
+  /* --- row 1: the painting ------------------------------------------ */
+
+  .app-banner {
+    position: relative;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* The painting itself is applied by AppHeader.tsx from the imported asset, so the
+     URL is Vite's. This rule owns how it sits: cover the band, keep the composition
+     centred, and never tile. */
+  .banner-hero {
+    position: relative;
+    isolation: isolate;
+    min-height: 6.5rem;
+    background-color: #020304;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  @media (min-width: 1280px) {
+    .banner-hero {
+      min-height: 10.9375rem;
+    }
+  }
+
+  /* The wash that blends the artwork into the black interface: darkest behind the
+     branding on the left, thinning to the right so the moon and the ninja stay visible,
+     and fading down into the toolbar. */
+  /* A wash, not a curtain: enough shade behind the wordmark on the left to keep it
+     readable, and almost none over the moon and the ninja on the right. */
+  .banner-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--c-bg) / 0.72) 0%,
+      rgb(var(--c-bg) / 0.5) 22%,
+      rgb(var(--c-bg) / 0.18) 46%,
+      rgb(var(--c-bg) / 0.04) 70%,
+      rgb(var(--c-bg) / 0.28) 100%
+    );
+  }
+
+  /* --- branding ------------------------------------------------------ */
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+    text-decoration: none;
+  }
+
+  .brand-jp {
+    font-family: var(--font-jp);
+    font-size: 3.25rem;
+    line-height: 0.9;
+    color: rgb(var(--c-accent));
+    text-shadow: 0 0 22px rgb(var(--c-accent) / 0.45);
+  }
+
+  .brand-words {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    line-height: 1;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    /* Over the painting the wordmark needs its own shadow to hold contrast, instead of
+       a darker wash that would bury the artwork. */
+    text-shadow: 0 1px 10px rgb(var(--c-bg) / 0.95), 0 0 2px rgb(var(--c-bg) / 0.8);
+  }
+
+  .brand-word-shadow {
+    color: rgb(var(--c-text));
+  }
+
+  .brand-word-packets {
+    color: rgb(var(--c-accent));
+  }
+
+  .brand-brush {
+    display: block;
+    width: 8.5rem;
+    height: 3px;
+    margin-top: 0.35rem;
+    border-radius: 999px;
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--c-accent)) 0%,
+      rgb(var(--c-accent) / 0.5) 60%,
+      rgb(var(--c-accent) / 0) 100%
+    );
+  }
+
+  @media (min-width: 1280px) {
+    .brand-jp {
+      font-size: 6.5rem;
+    }
+
+    .brand-words {
+      font-size: 1.875rem;
+    }
+
+    .brand-brush {
+      width: 11rem;
+      height: 4px;
+    }
+  }
+
+  /* --- the capture status capsule ------------------------------------ */
+
+  /* Half the size it had when it sat beside the wordmark: it is a status line now,
+     not the second headline of the header. */
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    max-width: 22rem;
+    height: 1.5rem;
+    padding: 0 0.6rem;
+    border-radius: 999px;
+    border: 1px solid rgb(var(--c-ok) / 0.28);
+    background-color: rgb(2 4 6 / 0.62);
+    backdrop-filter: blur(3px);
+  }
+
+  /* The capture list under the status line: the same select as everywhere else, sized
+     to sit in the header without shouting. */
+  /* Sized with the toolbar buttons it now sits beside, not with the status line it
+     used to sit under. */
+  .capture-field {
+    position: relative;
+    display: block;
+    min-width: 0;
+  }
+
+  /* `appearance: none` is the part that makes centring work: with the native
+     appearance Windows browsers keep their own control and ignore `text-align`.
+     Turning it off means the arrow must be drawn - `capture-chevron` below. */
+  .capture-select {
+    height: 1.75rem;
+    /* The column it sits in is sized by the status line above it, so 100% is exactly
+       that width: the two sit flush. */
+    width: 100%;
+    max-width: 22rem;
+    padding: 0 1.35rem;
+    font-size: 0.9rem;
+    text-align: center;
+    text-align-last: center;
+    appearance: none;
+    -webkit-appearance: none;
+    border-radius: 0.25rem;
+    background-color: rgb(2 4 6 / 0.72);
+    border-color: rgb(var(--c-border2));
+  }
+
+  .capture-chevron {
+    position: absolute;
+    top: 50%;
+    right: 0.45rem;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: rgb(var(--c-muted));
+  }
+
+  .status-pill-idle {
+    border-color: rgb(var(--c-border2));
+  }
+
+  .status-section {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .status-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background-color: rgb(var(--c-ok));
+    box-shadow: 0 0 10px rgb(var(--c-ok) / 0.85);
+  }
+
+  .status-dot-active {
+    animation: status-breathe 2.4s var(--m-ease-drift) infinite;
+  }
+
+  .status-dot-idle {
+    background-color: rgb(var(--c-faint));
+    box-shadow: none;
+  }
+
+  @keyframes status-breathe {
+    0%,
+    100% {
+      opacity: 1;
+      box-shadow: 0 0 10px rgb(var(--c-ok) / 0.85);
+    }
+    50% {
+      opacity: 0.65;
+      box-shadow: 0 0 4px rgb(var(--c-ok) / 0.4);
+    }
+  }
+
+  .status-text {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgb(var(--c-ok));
+    white-space: nowrap;
+  }
+
+  .status-divider {
+    width: 1px;
+    height: 0.875rem;
+    flex-shrink: 0;
+    background-color: rgb(var(--c-border2));
+  }
+
+  .status-wave {
+    flex-shrink: 0;
+    color: rgb(var(--c-ok));
+  }
+
+  .status-count {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgb(var(--c-text));
+    white-space: nowrap;
+  }
+
+  .status-unit {
+    font-size: 0.8125rem;
+    color: rgb(var(--c-muted));
+    white-space: nowrap;
+  }
+
+  .status-progress {
+    font-size: 0.75rem;
+    color: rgb(var(--c-warn));
+  }
+
+  @media (min-width: 1280px) {
+    .status-pill {
+      height: 2rem;
+      gap: 0.6rem;
+      padding: 0 0.75rem;
+      border-radius: 1rem;
+    }
+
+    .status-text,
+    .status-count {
+      font-size: 0.875rem;
+    }
+
+    .status-unit {
+      font-size: 0.75rem;
+    }
+
+    .status-divider {
+      height: 1rem;
+    }
+
+    .status-dot {
+      width: 0.625rem;
+      height: 0.625rem;
+    }
+
+    .capture-select {
+      height: 1.75rem;
+      font-size: 0.9rem;
+    }
+  }
+
+  /* --- the two round utility buttons --------------------------------- */
+
+  .banner-circle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex-shrink: 0;
+    border-radius: 999px;
+    border: 1px solid rgb(var(--c-border2));
+    background-color: rgb(2 4 6 / 0.45);
+    color: rgb(var(--c-muted));
+    transition: color var(--m-short) var(--m-ease-calm),
+      border-color var(--m-short) var(--m-ease-calm),
+      background-color var(--m-short) var(--m-ease-calm);
+  }
+
+  .banner-circle:hover {
+    color: rgb(var(--c-text));
+    border-color: rgb(var(--c-accent) / 0.55);
+    background-color: rgb(var(--c-accent) / 0.1);
+  }
+
+  .banner-circle:focus-visible {
+    outline: 2px solid rgb(var(--c-accent) / 0.8);
+    outline-offset: 2px;
+  }
+
+  @media (min-width: 1280px) {
+    .banner-circle {
+      width: 3.875rem;
+      height: 3.875rem;
+    }
+  }
+
+  /* --- row 2: the control toolbar ------------------------------------ */
+
+  .banner-toolbar {
+    position: relative;
+    min-height: 3.5rem;
+    background-color: #020304;
+    border-top: 1px solid rgb(var(--c-border));
+  }
+
+  @media (min-width: 1280px) {
+    .banner-toolbar {
+      /* The row follows the controls: a 24 px control in a 96 px bar would be a
+         title on a shelf. */
+      min-height: 2.5rem;
+      gap: 1.5rem;
+    }
+  }
+
+  /* 60% smaller than the reference bar: 40/60 px tall becomes 16/24 px. The type
+     cannot follow all the way down (7 px is unreadable), so it stops at 11 px - the
+     footprint shrinks by 60%, the label stays legible. */
+  .toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    height: 1rem;
+    padding: 0 0.35rem;
+    border-radius: 0.25rem;
+    border: 1px solid rgb(var(--c-border2));
+    background-color: #020304;
+    font-size: 0.6875rem;
+    line-height: 1;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: color var(--m-short) var(--m-ease-calm),
+      border-color var(--m-short) var(--m-ease-calm),
+      background-color var(--m-short) var(--m-ease-calm),
+      box-shadow var(--m-short) var(--m-ease-calm);
+  }
+
+  @media (min-width: 1280px) {
+    .toolbar-btn {
+      height: 1.5rem;
+      padding: 0 0.5rem;
+      border-radius: 0.375rem;
+      font-size: 0.6875rem;
+      gap: 0.375rem;
+    }
+  }
+
+  /* Baseline: gold outline and text while the mode is on, quiet while it is not. */
+  .toolbar-baseline.is-on {
+    color: rgb(var(--c-warn));
+    border-color: rgb(var(--c-warn) / 0.6);
+    box-shadow: 0 0 16px rgb(var(--c-warn) / 0.14);
+  }
+
+  .toolbar-baseline.is-on:hover {
+    border-color: rgb(var(--c-warn));
+    box-shadow: 0 0 22px rgb(var(--c-warn) / 0.24);
+  }
+
+  .toolbar-baseline.is-off {
+    color: rgb(var(--c-faint));
+    border-color: rgb(var(--c-border));
+  }
+
+  .toolbar-baseline.is-off:hover {
+    color: rgb(var(--c-muted));
+    border-color: rgb(var(--c-border2));
+  }
+
+  .toolbar-refresh {
+    color: rgb(var(--c-text) / 0.85);
+  }
+
+  .toolbar-refresh:hover {
+    color: rgb(var(--c-text));
+    border-color: rgb(var(--c-border2));
+    background-color: rgb(var(--c-surface2));
+  }
+
+  .toolbar-upload {
+    color: #FFFFFF;
+    border-color: rgb(var(--c-accent));
+    background-color: #8E1028;
+    box-shadow: 0 0 20px rgb(var(--c-accent) / 0.3);
+  }
+
+  .toolbar-upload:hover {
+    background-color: #A5122E;
+    box-shadow: 0 0 28px rgb(var(--c-accent) / 0.45);
+  }
+
+  .nav-link-idle:hover {
+    background-color: rgba(255, 23, 68, 0.07);
+    color: rgb(var(--c-text));
+  }
+
+  .nav-group {
+    margin-top: 0.25rem;
+    border-top: 1px solid rgb(var(--c-border));
+    padding: 0.5rem 0.75rem 0.25rem;
+  }
+
+  .nav-group-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgb(var(--c-faint));
+  }
+
+  /* --- tactical page heading ---------------------------------------- */
+
+  .page-title {
+    font-size: 2.25rem;
+    line-height: 1.1;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  [data-section='dashboard'] .page-title::after {
+    content: '';
+    display: block;
+    width: 6rem;
+    height: 3px;
+    margin-top: 0.4rem;
+    border-radius: 999px;
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--c-accent)) 0%,
+      rgb(var(--c-accent) / 0.45) 60%,
+      rgb(var(--c-accent) / 0) 100%
+    );
+  }
+
+  /* --- metric cards -------------------------------------------------- */
+
+  .metric-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    overflow: hidden;
+    border: 1px solid rgb(var(--c-border));
+    border-radius: 0.375rem;
+    background-color: rgb(var(--c-surface2));
+    padding: 0.6rem 0.7rem;
+    transition: border-color var(--m-short) var(--m-ease-calm),
+      background-color var(--m-short) var(--m-ease-calm);
+  }
+
+  .metric-card::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--metric-hue, var(--c-accent)) / 0.9) 0%,
+      rgb(var(--metric-hue, var(--c-accent)) / 0.12) 55%,
+      transparent 100%
+    );
+  }
+
+  .metric-card:hover {
+    border-color: rgb(var(--c-border2));
+    background-color: rgb(var(--c-surface));
+  }
+
+  .metric-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgb(var(--c-muted));
+  }
+
+  .metric-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.15;
+    color: rgb(var(--c-text));
+  }
+
+  .metric-detail {
+    font-size: 0.6875rem;
+    color: rgb(var(--c-faint));
+  }
+}
+
 

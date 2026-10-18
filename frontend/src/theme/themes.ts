@@ -15,7 +15,7 @@
  * file is the only place in `src/**` allowed to contain a colour literal.
  */
 
-export type ThemeId = 'shinobi' | 'steel-blue' | 'cyber-punk' | 'cyber-samurai' | 'soc'
+export type ThemeId = 'shadow' | 'shinobi' | 'steel-blue' | 'cyber-punk' | 'cyber-samurai' | 'soc'
 
 export interface ThemeTokens {
   /* surfaces */
@@ -62,15 +62,49 @@ export interface ThemeDefinition {
 }
 
 /*
- * Shinobi is the default: jet black, grey and one neon ascent blue. The four
+ * Shadow Ninja is the default: black and charcoal, red neon, cyan telemetry. The
  * palettes that shipped before it remain, and a browser that has already chosen one
  * keeps it - the default only decides what a first visit looks like.
  */
-export const DEFAULT_THEME_ID: ThemeId = 'shinobi'
+export const DEFAULT_THEME_ID: ThemeId = 'shadow'
 
 /** Per-browser preference. A theme is not analysis data, so it stays local. */
 export const THEME_STORAGE_KEY = 'apackets.theme'
 
+/*
+ * Shadow Ninja: the cyber-ninja palette.
+ *
+ * Black and charcoal surfaces, one red neon as the accent, cyan for network telemetry,
+ * green for healthy state and gold for warnings. Red is reserved for what matters -
+ * threats, active navigation, primary actions - so the interface stays tactical rather
+ * than glowing.
+ */
+const SHADOW: ThemeTokens = {
+  bg: '#03070C',
+  surface: '#050B12',
+  surface2: '#080F18',
+  border: '#1B2B3A',
+  border2: '#26394B',
+  accent: '#FF1744',
+  accent2: '#00E5FF',
+  text: '#E8EDF5',
+  muted: '#91A0B5',
+  faint: '#607187',
+  glow: 'rgba(255,23,68,0.35)',
+  sevInformational: '#607187',
+  sevLow: '#438BFF',
+  sevMedium: '#FFB300',
+  sevHigh: '#FF1744',
+  ok: '#00E5A0',
+  warn: '#FFB300',
+  danger: '#FF1744',
+  chart: ['#FF1744', '#00E5FF', '#438BFF', '#00E5A0', '#FFB300', '#FF6E40', '#9B7BFF', '#26C6DA'],
+  mapPrivate: '#00E5FF',
+  mapPublic: '#FF1744',
+  mapMulticast: '#9B7BFF',
+  mapLocal: '#00E5A0',
+  mapUnclassified: '#607187',
+}
 const SHINOBI: ThemeTokens = {
   bg: '#050607',
   surface: '#0b0d10',
@@ -206,6 +240,14 @@ const SOC: ThemeTokens = {
 }
 
 export const THEMES: Record<ThemeId, ThemeDefinition> = {
+  shadow: {
+    id: 'shadow',
+    label: 'Shadow Ninja',
+    description:
+      'Black and charcoal with a red neon accent, cyan telemetry and gold warnings. The default: tactical, quiet, and red only where it matters.',
+    swatch: ['#03070C', '#0B1420', '#FF1744', '#00E5FF', '#E8EDF5'],
+    tokens: SHADOW,
+  },
   shinobi: {
     id: 'shinobi',
     label: 'Shinobi',
@@ -245,6 +287,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
 }
 
 export const THEME_LIST: ThemeDefinition[] = [
+  THEMES.shadow,
   THEMES.shinobi,
   THEMES['steel-blue'],
   THEMES['cyber-punk'],

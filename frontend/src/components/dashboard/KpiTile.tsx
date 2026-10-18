@@ -6,6 +6,26 @@ import { EMPTY, formatBytes, formatDuration, formatNumber } from '@/utils/format
 
 export type KpiFormat = 'number' | 'bytes' | 'duration' | 'raw'
 
+/**
+ * The hue a metric is read in.
+ *
+ * Each figure has one colour and keeps it: telemetry cyan for traffic, red for what
+ * needs attention, gold for volume, blue for addresses. The colour tints the card's top
+ * hairline and the icon - never the number itself, which stays the brightest thing in
+ * the card.
+ */
+export type KpiHue = 'red' | 'cyan' | 'blue' | 'gold' | 'green' | 'violet' | 'muted'
+
+const HUE_VAR: Record<KpiHue, string> = {
+  red: '--c-accent',
+  cyan: '--c-accent2',
+  blue: '--c-sev-low',
+  gold: '--c-warn',
+  green: '--c-ok',
+  violet: '--c-chart-7',
+  muted: '--c-faint',
+}
+
 export interface KpiTileProps {
   label: string
   value: number | string | null | undefined
@@ -13,8 +33,10 @@ export interface KpiTileProps {
   format?: KpiFormat
   /** Small line under the number: units, context or a breakdown. */
   detail?: string
-  /** Emphasise the tile (used for findings). */
+  /** Kept for the callers that emphasise a card; the hue now carries the colour. */
   tone?: 'default' | 'accent' | 'danger'
+  /** The metric's colour. */
+  hue?: KpiHue
   className?: string
   /**
    * The page that holds the rows behind this number. When set the tile becomes a
@@ -41,12 +63,12 @@ function render(value: KpiTileProps['value'], format: KpiFormat): string {
 }
 
 /**
- * Large at-a-glance tile: big number, quiet label, one icon.
+ * A compact metric card: icon, uppercase label, the figure, one short line of context.
  *
- * With `to` the whole tile is a link into the page that holds the underlying rows,
- * and the corner arrow plus the hover border are the only cues added: the figure,
- * the label and the detail line render identically either way, so a tile that has no
- * page to open does not look disabled.
+ * With `to` the whole card is a link into the page that holds the underlying rows, and
+ * the corner arrow plus the hover border are the only cues added: the figure, the label
+ * and the detail line render identically either way, so a card with no page to open
+ * does not look disabled.
  */
 export function KpiTile({
   label,
@@ -55,27 +77,21 @@ export function KpiTile({
   format = 'number',
   detail,
   tone = 'default',
+  hue = 'cyan',
   className,
   to,
   title,
 }: KpiTileProps) {
   const missing = value === null || value === undefined
   const linked = to !== undefined && to !== ''
+  const resolvedHue: KpiHue = tone === 'danger' ? 'red' : hue
+  const hueStyle = { '--metric-hue': `var(${HUE_VAR[resolvedHue]})` } as React.CSSProperties
 
   const body = (
     <>
       <div className="flex items-center gap-1.5">
-        <Icon
-          size={14}
-          className={clsx(
-            'shrink-0',
-            tone === 'danger' ? 'text-danger' : tone === 'accent' ? 'text-accent2' : 'text-faint',
-          )}
-          aria-hidden
-        />
-        <span className="min-w-0 flex-1 truncate text-2xs font-semibold uppercase tracking-wider text-muted">
-          {label}
-        </span>
+        <Icon size={13} className="shrink-0" style={{ color: `var(${HUE_VAR[resolvedHue]})` }} aria-hidden />
+        <span className="metric-label min-w-0 flex-1 truncate">{label}</span>
         {linked ? (
           <ArrowUpRight
             size={12}
@@ -84,34 +100,35 @@ export function KpiTile({
           />
         ) : null}
       </div>
-      <div
-        className={clsx(
-          'mono text-[1.75rem] leading-none tracking-tight',
-          missing ? 'text-faint' : tone === 'danger' ? 'text-red-300' : 'text-text',
-        )}
-      >
+      <div className={clsx('metric-value mono', missing && 'text-faint')}>
         {render(value, format)}
       </div>
       {detail ? (
-        <div className="mt-0.5 truncate text-2xs text-faint" title={detail}>
+        <div className="metric-detail truncate" title={detail}>
           {detail}
         </div>
       ) : null}
     </>
   )
 
-  const shell = clsx(
-    'panel kpi flex flex-col gap-1 px-3 py-3 transition-colors hover:border-border2',
-    tone === 'accent' && 'border-accent/40',
-    tone === 'danger' && 'border-danger/40',
-    linked && 'group h-full cursor-pointer',
-    className,
-  )
+  const shell = clsx('metric-card group', linked && 'h-full cursor-pointer', className)
 
-  if (!linked) return <div className={shell}>{body}</div>
+  if (!linked) {
+    return (
+      <div className={shell} style={hueStyle}>
+        {body}
+      </div>
+    )
+  }
 
   return (
-    <Link to={to as string} className={shell} title={title ?? `Open ${label}`} data-kpi-link={to}>
+    <Link
+      to={to as string}
+      className={shell}
+      style={hueStyle}
+      title={title ?? `Open ${label}`}
+      data-kpi-link={to}
+    >
       {body}
     </Link>
   )

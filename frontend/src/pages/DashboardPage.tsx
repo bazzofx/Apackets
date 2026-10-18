@@ -4,10 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeftRight,
   Clock,
+  Crosshair,
   FileText,
   Globe,
   HardDrive,
   List,
+  Radar,
   Search,
   Server,
   ShieldAlert,
@@ -183,12 +185,13 @@ function DashboardOverview() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="accent-bloom">
-        <div className="relative z-10 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
+      <div>
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
           <KpiTile
             label="DNS requests"
             value={totals.dns_queries}
             icon={Search}
+            hue="red"
             detail="queries seen in this capture"
             to="/dns"
             title="Open the DNS queries behind this number"
@@ -197,6 +200,7 @@ function DashboardOverview() {
             label="Conversations"
             value={totals.conversations}
             icon={ArrowLeftRight}
+            hue="cyan"
             detail="reassembled streams"
             to="/conversations"
             title="Open the conversations behind this number"
@@ -205,6 +209,7 @@ function DashboardOverview() {
             label="Hosts"
             value={totals.hosts}
             icon={Server}
+            hue="blue"
             detail="distinct addresses"
             to="/hosts"
             title="Open the host inventory behind this number"
@@ -213,7 +218,8 @@ function DashboardOverview() {
             label="Findings"
             value={findingsTotal}
             icon={ShieldAlert}
-            tone={severity.high > 0 ? 'danger' : 'accent'}
+            hue={severity.high > 0 ? 'red' : 'gold'}
+            tone={severity.high > 0 ? 'danger' : 'default'}
             detail={`high ${severity.high} · medium ${severity.medium} · low ${severity.low} · info ${severity.informational}`}
             to="/findings"
             title="Open the findings workbench behind this number"
@@ -222,6 +228,7 @@ function DashboardOverview() {
             label="Packets"
             value={totals.packets}
             icon={List}
+            hue="cyan"
             detail="indexed frames"
             to="/packets"
             title="Open the packet browser behind this number"
@@ -231,6 +238,7 @@ function DashboardOverview() {
             value={totals.bytes}
             format="bytes"
             icon={HardDrive}
+            hue="gold"
             detail="on the wire"
             to="/packets"
             title="Open the packet browser, where each frame's length is listed"
@@ -240,6 +248,7 @@ function DashboardOverview() {
           value={totals.duration}
           format="duration"
           icon={Clock}
+          hue="violet"
           detail={`${formatNumber(totals.tcp_packets)} TCP · ${formatNumber(totals.udp_packets)} UDP`}
           to="/info"
           title="Open the capture reference view behind this number"
@@ -251,7 +260,12 @@ function DashboardOverview() {
           first thing to read, and a time series wants the width far more than a
           half column can give it. */}
       <ChartPanel
-        title="Traffic over time"
+        title={
+          <span className="flex items-center gap-1.5">
+            <Crosshair size={13} className="text-accent" aria-hidden />
+            Traffic over time
+          </span>
+        }
         subtitle={
           interval && interval > 0
             ? `${(data.traffic_series ?? []).length} buckets · ${formatDuration(interval)} per bucket`
@@ -266,7 +280,12 @@ function DashboardOverview() {
       </ChartPanel>
 
       <Panel
-        className="shadow-bloom"
+        title={
+          <span className="flex items-center gap-1.5">
+            <Radar size={13} className="text-accent2" aria-hidden />
+            Network map
+          </span>
+        }
         subtitle={
           mapView === 'geo'
             ? 'where the addresses in this capture are, one dot per country'

@@ -371,16 +371,29 @@ the items, and Escape closes it and returns focus to where it came from.
 
 Themes are presentation only, and they are entirely client-side.
 
+**The shell.** `layouts/AppLayout.tsx` composes two extracted pieces:
+`components/layout/AppHeader.tsx` (the Shadow Packets header - a cinematic row carrying
+the `侍` mark, the SHADOW PACKETS wordmark, the live capture-status capsule and the two
+round utility controls, above a quiet control row with the capture selector, the baseline
+state, Refresh and Upload) and `components/layout/Sidebar.tsx` (the five navigation
+groups). The header's painting is the static asset `src/assets/top_banner.png`, painted as
+a CSS background with a left-weighted dark wash so the wordmark stays readable; nothing
+here is drawn per render.
+
 * **One source of truth.** `frontend/src/theme/themes.ts` is the only file in
   `src/**` allowed to contain a colour literal. It defines `ThemeTokens` (surfaces,
   brand, type, `glow`, four severity colours, three status colours, `chart` — exactly
   eight series hues chosen to stay distinguishable and free of the severity ambers
-  and reds — and five network-map classifications) and four palettes:
-  `steel-blue` (default), `cyber-punk`, `cyber-samurai` and `soc`.
+  and reds — and five network-map classifications) and six palettes:
+  `shadow` (default, the Shadow Ninja identity: black and charcoal surfaces, red neon
+  accent, cyan telemetry, green healthy state, gold warnings), `shinobi`, `steel-blue`,
+  `cyber-punk`, `cyber-samurai` and `soc`.
 * **Where the preference lives.** `localStorage` under the key
   `apackets.theme` (`THEME_STORAGE_KEY`), read and written by
   `frontend/src/theme/ThemeProvider.tsx`. Any value that is not a known
-  `ThemeId` falls back to `DEFAULT_THEME_ID = 'steel-blue'`. It is a per-browser
+  `ThemeId` falls back to `DEFAULT_THEME_ID = 'shadow'`, and a browser still holding
+  one of the palettes that used to be the default (`steel-blue`, `shinobi`) adopts the
+  new one once, guarded by an `apackets.theme.default` marker so a later choice sticks. It is a per-browser
   preference, not analysis data, so it never reaches the backend and never enters
   the database.
 * **How it is applied.** `applyTheme()` publishes every channel token as a CSS
