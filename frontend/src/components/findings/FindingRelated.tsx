@@ -38,7 +38,7 @@ export function FindingRelated({ items, truncated, onSelect }: FindingRelatedPro
             </span>
             <span className="ml-auto text-2xs text-faint">open</span>
           </div>
-          <div className="text-xs text-text">{item.title}</div>
+          <div className="text-2xs text-text">{item.title}</div>
           <div className="flex flex-wrap gap-1">
             {item.shared.map((value) => (
               <span key={value} className="chip border-border2 bg-surface2 text-faint">

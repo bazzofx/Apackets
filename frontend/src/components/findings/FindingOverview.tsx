@@ -70,7 +70,7 @@ function EndpointCard({
       </div>
       <button
         type="button"
-        className="mono truncate text-left text-sm text-text hover:text-accent2"
+        className="mono truncate text-left text-2xs text-text hover:text-accent2"
         onClick={() => onPivot(`/packets?ip=${encodeURIComponent(endpoint.ip)}`)}
         title="Show this host's packets"
       >
@@ -167,7 +167,7 @@ export function FindingOverview({ context }: FindingOverviewProps) {
       >
         {alertOpen ? (
           <div className="flex flex-col gap-2 p-3">
-            <div className="text-sm text-text">{finding.title}</div>
+            <div className="text-2xs text-text">{finding.title}</div>
             {finding.description ? (
               <div className="text-2xs text-muted">{finding.description}</div>
             ) : null}

@@ -30,7 +30,7 @@ export function FindingPackets({
 
   if (packets.length === 0) {
     return (
-      <div className="px-3 py-8 text-center text-xs text-muted">
+      <div className="px-3 py-8 text-center text-2xs text-muted">
         This finding recorded no packet numbers, so there is nothing to dissect. That happens for
         rules that describe a host or a summary rather than a single frame.
       </div>

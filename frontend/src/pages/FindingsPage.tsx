@@ -305,7 +305,7 @@ function FindingsWorkbench() {
               <div className="panel flex flex-col">
                 <div className="flex flex-wrap items-center gap-2 px-3 py-2">
                   <SeverityBadge severity={context.data.finding.severity} showLabel />
-                  <span className="min-w-0 flex-1 truncate text-sm text-text" title={context.data.finding.title}>
+                  <span className="min-w-0 flex-1 truncate font-display text-[1.3rem] text-text" title={context.data.finding.title}>
                     {context.data.finding.title}
                   </span>
                   <span className="mono text-2xs text-faint">{context.data.finding.rule_id}</span>
@@ -330,12 +330,12 @@ function FindingsWorkbench() {
                       <button
                         key={entry.id}
                         type="button"
-                        className={clsx('btn btn-tab', tab === entry.id && 'btn-primary')}
+                        className={clsx('btn btn-tab text-[0.7rem]', tab === entry.id && 'btn-primary')}
                         onClick={() => setTab(entry.id)}
                       >
                         <entry.icon size={13} aria-hidden />
                         {entry.label}
-                        {badge !== null ? <span className="mono text-2xs text-faint">{badge}</span> : null}
+                        {badge !== null ? <span className="mono text-faint">{badge}</span> : null}
                       </button>
                     )
                   })}
