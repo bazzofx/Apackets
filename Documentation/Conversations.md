@@ -85,19 +85,22 @@ the rows matching the current filter, in one request.
 * **Thickness is bytes.** Each ribbon's thickness is `minimum + bytes × scale`, scaled so the
   layer fills its height; the minimum is `FLOW_MIN_BAND = 1.5` px so thin flows stay
   clickable. When a layer carries more bands than its height can give 1.5 px to, the floor is
-  dropped for that layer and thickness stays strictly proportional. The legend prints the
-  thinnest band on screen next to the floor, so the distortion is visible rather than
-  implied. A ribbon has one thickness, identical at both ends.
+  dropped for that layer and thickness stays strictly proportional. The page no longer prints
+  the current floor — that line was removed from the legend on request — so the rule lives
+  here, and the hover readout is what a reader has. A ribbon has one thickness, identical at
+  both ends.
 * **Solid TCP, dashed UDP.** A band carries exactly one transport, so a pair of columns
-  carrying both is drawn as two stacked ribbons rather than a blend. The legend counts such
-  pairs, and a footer line counts whole five-stage paths that carry both.
+  carrying both is drawn as two stacked ribbons rather than a blend. The two swatches at the
+  left of the legend are what says so; only a footer line remains for the rarer case, counting
+  whole five-stage paths that carry both.
 * **Colour is the state**, taken from the active theme, with a legend that spells each state
   out in words next to its swatch. In the default theme `established` is `ok` (green),
   `closed` is `muted`, `reset` is `warn` (amber), `half_open` is `accent2` (blue) and
   `unknown` is `mapUnclassified`; a different theme repaints those tokens, which is why the
   legend never relies on colour alone. Where a band mixes states, its colour is the state most
-  of its bytes are in. States are labels, not verdicts; `unknown` is the normal reading for
-  UDP, which carries no TCP state to derive.
+  of its bytes are in. States are labels, not verdicts: `unknown` is the normal reading for
+  UDP, which carries no TCP state to derive. Nothing on the page says that any more — the
+  sentence was removed from the legend on request — so this line is where the reading lives.
 * **IP grouping.** The two IP columns group addresses by subnet so they stay readable. A
   group holding exactly one observed address is labelled with that address instead of its
   CIDR, because the group *is* that address; a group holding two or more carries a `+` marker
@@ -589,9 +592,8 @@ selected it still opens with every action greyed out.
   — which is why it says so under the list.
 * **A band's thickness is proportional to bytes only above the floor, and the floor is
   dropped rather than the proportions.** Where a layer has more bands than its height can give
-  1.5 px each, the whole layer is scaled down proportionally so thickness still means bytes;
-  the legend prints the thinnest band on screen, so a reader can see when the floor is in
-  play. Thickness is never a count of packets, and a band carrying a thousand tiny flows looks
+  1.5 px each, the whole layer is scaled down proportionally so thickness still means bytes.
+  Thickness is never a count of packets, and a band carrying a thousand tiny flows looks
   exactly like a band carrying one large one.
 * **Folding hides entities, and only the count is guaranteed.** A folded node's members are
   listed in its tooltip up to `FLOW_DETAIL_LIMIT = 24` values; the node itself remains

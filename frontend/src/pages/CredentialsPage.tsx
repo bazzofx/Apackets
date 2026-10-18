@@ -15,6 +15,7 @@ import {
   ShieldQuestion,
   TriangleAlert,
 } from 'lucide-react'
+import pageBackground from '@/assets/usernamePass_bg.jpg'
 import AnalysisGuard from '@/components/AnalysisGuard'
 import AddressFlag from '@/components/AddressFlag'
 import EmptyState from '@/components/EmptyState'
@@ -1284,7 +1285,7 @@ function CredentialsContent() {
 /** Credentials: the cleartext credentials this capture carried (docs/CREDENTIALS.md). */
 export function CredentialsPage() {
   return (
-    <Page section={SECTIONS.credentials}>
+    <Page section={SECTIONS.credentials} headerImage={pageBackground}>
       <AnalysisGuard
         emptyDescription="Upload a PCAP/PCAPNG capture or select an existing analysis in the top bar to read its cleartext credentials. The scanner reads only tables that already exist, so it needs a finished analysis."
       >

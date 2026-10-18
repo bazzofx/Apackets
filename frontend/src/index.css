@@ -879,6 +879,34 @@
     z-index: 0;
   }
 
+  /* A page that carries a hero image: the image is the section's own backdrop,
+     washed back to the left and to the bottom so the headline and the purpose line
+     keep their contrast instead of fighting the photograph. The two gradients are
+     stacked above the image in one background-image, so no extra element and no
+     z-index are involved: vertical is opaque at the top edge, clears at 53% so the
+     middle of the artwork reads, and returns at 90% over the bottom edge - the same
+     shape the header banner's own wash uses. */
+  .page-head[data-header-image='true'] {
+    background-image:
+      linear-gradient(
+        90deg,
+        rgb(var(--c-bg) / 0.94) 0%,
+        rgb(var(--c-bg) / 0.78) 34%,
+        rgb(var(--c-bg) / 0.42) 68%,
+        rgb(var(--c-bg) / 0.62) 100%
+      ),
+      linear-gradient(
+        180deg,
+        rgb(var(--c-bg) / 1) 0%,
+        rgb(var(--c-bg) / 0) 53%,
+        rgb(var(--c-bg) / 0.9) 100%
+      ),
+      var(--page-head-image);
+    background-size: cover, cover, cover;
+    background-position: center, center, center;
+    background-repeat: no-repeat;
+  }
+
   /* Section rule: full width under the headline, fading out to the right. */
   .page-head::after {
     content: '';
@@ -975,7 +1003,7 @@
      Settings) - get a boxed head with the section hue along its top edge,
      instead of the open full-bleed head the ledgers and consoles use. Without
      this the two variants would differ only by colour. */
-  .page-split .page-head {
+  .page-split .page-head:not([data-header-image='true']) {
     padding: 1.25rem 1.125rem;
     border: 1px solid rgb(var(--c-border));
     border-radius: 0.5rem;
@@ -983,7 +1011,7 @@
     overflow: hidden;
   }
 
-  .page-split .page-head::before {
+  .page-split .page-head:not([data-header-image='true'])::before {
     inset: 0 0 auto 0;
     height: 2px;
     background-image: linear-gradient(
@@ -994,8 +1022,19 @@
     );
   }
 
-  .page-split .page-head::after {
+  .page-split .page-head:not([data-header-image='true'])::after {
     content: none;
+  }
+
+  /* A `split` head that carries a hero image is not a box at all. The border, the
+     rounded corners and the 2 px hue bar along its top edge drew a frame around the
+     photograph and held it in from the page edges, which is why Hosts and Findings sat
+     inside a panel while the Dashboard sat on the page. With a picture behind it the
+     head takes the Dashboard's treatment instead: full bleed, nothing framing it, the
+     base bloom behind the type, and the section rule underneath - all of which the
+     rules above now leave alone for exactly this case. */
+  .page-split .page-head[data-header-image='true'] {
+    padding: 1.75rem 0 1.375rem;
   }
 
   .page-body {
@@ -1264,7 +1303,7 @@
 
   .profile-tile-title {
     font-family: var(--font-body);
-    font-size: 0.875rem;
+    font-size: 1.1rem;
     font-weight: 600;
     line-height: 1.2;
     color: rgb(var(--c-text));
@@ -2352,98 +2391,83 @@
     }
   }
 
-  /* --- row 2: the control toolbar ------------------------------------ */
+  /* --- the shell actions, in the navigation --------------------------- */
 
-  .banner-toolbar {
-    position: relative;
-    min-height: 3.5rem;
-    background-color: #020304;
+  /* Baseline mode, Refresh and Upload used to live in a second row of the banner:
+     a full-width strip carrying three small controls at its right edge. They are in
+     the navigation now - the reader is already looking there, and the strip cost a
+     row of height on every page for three buttons that belong to the shell.
+
+     They take the navigation's own left inset: a 2 px border and 0.75 rem of padding,
+     exactly what `.nav-link` carries, so their icons line up with the nav icons to the
+     pixel rather than merely to the eye. */
+  .nav-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding: 0.375rem 0;
     border-top: 1px solid rgb(var(--c-border));
   }
 
-  @media (min-width: 1280px) {
-    .banner-toolbar {
-      /* The row follows the controls: a 24 px control in a 96 px bar would be a
-         title on a shelf. */
-      min-height: 2.5rem;
-      gap: 1.5rem;
-    }
-  }
-
-  /* 60% smaller than the reference bar: 40/60 px tall becomes 16/24 px. The type
-     cannot follow all the way down (7 px is unreadable), so it stops at 11 px - the
-     footprint shrinks by 60%, the label stays legible. */
-  .toolbar-btn {
-    display: inline-flex;
+  .nav-action {
+    display: flex;
+    width: 100%;
     align-items: center;
-    gap: 0.3rem;
-    height: 1rem;
-    padding: 0 0.35rem;
-    border-radius: 0.25rem;
-    border: 1px solid rgb(var(--c-border2));
-    background-color: #020304;
-    font-size: 0.6875rem;
-    line-height: 1;
+    gap: 0.5rem;
+    border: 0;
+    border-left: 2px solid transparent;
+    /* The nav link's own box: 2 px of border and 0.75 rem of padding, and its
+       12 px of type, so an action sits in the same rhythm as the links above it. */
+    padding: 0.375rem 0.75rem;
+    background-color: transparent;
+    font-size: 0.75rem;
     font-weight: 600;
-    white-space: nowrap;
-    transition: color var(--m-short) var(--m-ease-calm),
-      border-color var(--m-short) var(--m-ease-calm),
-      background-color var(--m-short) var(--m-ease-calm),
-      box-shadow var(--m-short) var(--m-ease-calm);
-  }
-
-  @media (min-width: 1280px) {
-    .toolbar-btn {
-      height: 1.5rem;
-      padding: 0 0.5rem;
-      border-radius: 0.375rem;
-      font-size: 0.6875rem;
-      gap: 0.375rem;
-    }
-  }
-
-  /* Baseline: gold outline and text while the mode is on, quiet while it is not. */
-  .toolbar-baseline.is-on {
-    color: rgb(var(--c-warn));
-    border-color: rgb(var(--c-warn) / 0.6);
-    box-shadow: 0 0 16px rgb(var(--c-warn) / 0.14);
-  }
-
-  .toolbar-baseline.is-on:hover {
-    border-color: rgb(var(--c-warn));
-    box-shadow: 0 0 22px rgb(var(--c-warn) / 0.24);
-  }
-
-  .toolbar-baseline.is-off {
-    color: rgb(var(--c-faint));
-    border-color: rgb(var(--c-border));
-  }
-
-  .toolbar-baseline.is-off:hover {
+    line-height: 1.2;
+    letter-spacing: 0.02em;
     color: rgb(var(--c-muted));
-    border-color: rgb(var(--c-border2));
+    text-align: left;
+    transition: color var(--m-short) var(--m-ease-calm),
+      background-color var(--m-short) var(--m-ease-calm);
   }
 
-  .toolbar-refresh {
-    color: rgb(var(--c-text) / 0.85);
-  }
-
-  .toolbar-refresh:hover {
+  .nav-action:hover {
     color: rgb(var(--c-text));
-    border-color: rgb(var(--c-border2));
     background-color: rgb(var(--c-surface2));
   }
 
-  .toolbar-upload {
-    color: #FFFFFF;
-    border-color: rgb(var(--c-accent));
-    background-color: #8E1028;
-    box-shadow: 0 0 20px rgb(var(--c-accent) / 0.3);
+  /* The collapsed rail is 56 px wide: the label would not fit, so only the icon is
+     drawn - the same rule the nav links use for their own labels. */
+  .nav-action-label {
+    display: none;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .toolbar-upload:hover {
-    background-color: #A5122E;
-    box-shadow: 0 0 28px rgb(var(--c-accent) / 0.45);
+  @media (min-width: 1024px) {
+    .nav-action-label {
+      display: inline;
+    }
+  }
+
+  /* Baseline mode keeps both of its states: gold while it is on, quiet while not. */
+  .nav-action-baseline.is-on {
+    color: rgb(var(--c-warn));
+  }
+
+  .nav-action-baseline.is-off {
+    color: rgb(var(--c-faint));
+  }
+
+  /* Upload keeps the capture's own red rather than borrowing a status colour. */
+  .nav-action-upload {
+    color: rgb(var(--c-accent));
+  }
+
+  .nav-action-upload:hover {
+    color: rgb(var(--c-text));
+    background-color: rgb(var(--c-accent) / 0.16);
   }
 
   .nav-link-idle:hover {

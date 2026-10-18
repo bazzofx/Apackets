@@ -24,13 +24,13 @@ import {
   Layers,
   List,
   Lock,
-  LayoutDashboard,
   RefreshCw,
   Search,
   ShieldAlert,
   Waypoints,
 } from 'lucide-react'
 import clsx from 'clsx'
+import pageBackground from '@/assets/info_bg.jpg'
 import AnalysisGuard from '@/components/AnalysisGuard'
 import ChartPanel from '@/components/ChartPanel'
 import EmptyState from '@/components/EmptyState'
@@ -149,16 +149,7 @@ function InfoContent() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2 text-2xs text-muted">
-        <Info size={13} className="text-faint" aria-hidden />
-        <span>
-          Reference view: every number the backend derived for this capture, including the caveats.
-        </span>
-        <Link to="/" className="btn ml-auto">
-          <LayoutDashboard size={13} aria-hidden />
-          Visual overview
-        </Link>
-      </div>
+
 
       <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
         <StatCard label="Packets" value={totals.packets} icon={List} />
@@ -575,7 +566,7 @@ function InfoContent() {
 /** Info — the full reference view for one analysis, built from `GET /api/analyses/{id}/summary`. */
 export function InfoPage() {
   return (
-    <Page section={SECTIONS.info}>
+    <Page section={SECTIONS.info} headerImage={pageBackground}>
       <AnalysisGuard>
         <InfoContent />
       </AnalysisGuard>

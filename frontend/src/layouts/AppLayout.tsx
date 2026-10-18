@@ -1,8 +1,10 @@
 import { Suspense, useCallback, useEffect, useState, type CSSProperties } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
+import clsx from 'clsx'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeftRight,
+  Crosshair,
   Database,
   FolderOpen,
   FolderUp,
@@ -17,6 +19,7 @@ import {
   Package,
   PhoneCall,
   Radar,
+  RefreshCw,
   Scale,
   ScanSearch,
   Search,
@@ -27,6 +30,7 @@ import {
   SlidersHorizontal,
   Terminal,
   Unplug,
+  Upload,
 } from 'lucide-react'
 import LoadingState from '@/components/LoadingState'
 import AppHeader from '@/components/layout/AppHeader'
@@ -153,6 +157,45 @@ export function AppLayout() {
     void queryClient.invalidateQueries()
   }, [queryClient, refresh])
 
+  /* The shell's three controls. They are built here rather than inside `Sidebar`
+     because they call queries and a handler; the sidebar only gives them the place.
+     Their markup is the navigation's own: the stylesheet gives `.nav-action` the same
+     left inset as `.nav-link`, so the icons line up rather than nearly line up. */
+  const baselineOn = baseline.data?.active === true
+  const shellActions = (
+    <>
+      <Link
+        to="/baseline-check"
+        className={clsx('nav-action nav-action-baseline', baselineOn ? 'is-on' : 'is-off')}
+        title={
+          baselineOn
+            ? 'Baseline mode is on: every analysis is compared against ' +
+              (baseline.data?.baseline?.original_filename ?? 'the baseline capture')
+            : 'No baseline network is set - choose one on PCAP Files'
+        }
+      >
+        <Crosshair size={15} className="shrink-0" aria-hidden />
+        <span className="nav-action-label">
+          {'Baseline mode : '}
+          {baselineOn ? 'enabled' : 'off'}
+        </span>
+      </Link>
+      <button
+        type="button"
+        className="nav-action"
+        onClick={onRefresh}
+        title="Refresh analyses and the current view"
+      >
+        <RefreshCw size={15} className="shrink-0" aria-hidden />
+        <span className="nav-action-label">Refresh</span>
+      </button>
+      <Link to="/files" className="nav-action nav-action-upload" title="Upload a capture">
+        <Upload size={15} className="shrink-0" aria-hidden />
+        <span className="nav-action-label">Upload</span>
+      </Link>
+    </>
+  )
+
   /* Full screen is the browser's own, and the button reflects it: if the reader leaves
      with Esc the label has to follow, which is why the state is read from the document
      rather than assumed. */
@@ -263,8 +306,6 @@ export function AppLayout() {
         analysisId={analysisId}
         selected={selected}
         onSelectAnalysis={setAnalysisId}
-        onRefresh={onRefresh}
-        baseline={baseline.data}
         fullscreen={fullscreen}
         onToggleFullscreen={onToggleFullscreen}
       />
@@ -273,7 +314,7 @@ export function AppLayout() {
           height, so a page can size its own panes with `h-full` and scroll a list without
           moving the toolbar or the page underneath it. */}
       <div className="flex min-h-0 flex-1">
-        <Sidebar items={navItems} status={<TsharkStatus />} />
+        <Sidebar items={navItems} status={<TsharkStatus />} actions={shellActions} />
 
         <main className="min-w-0 flex-1 overflow-auto p-3 lg:p-4">
           <Suspense fallback={<LoadingState label="Loading this section…" rows={3} />}>

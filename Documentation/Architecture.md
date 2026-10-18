@@ -372,13 +372,53 @@ the items, and Escape closes it and returns focus to where it came from.
 Themes are presentation only, and they are entirely client-side.
 
 **The shell.** `layouts/AppLayout.tsx` composes two extracted pieces:
-`components/layout/AppHeader.tsx` (the Shadow Packets header - a cinematic row carrying
-the `侍` mark, the SHADOW PACKETS wordmark, the live capture-status capsule and the two
-round utility controls, above a quiet control row with the capture selector, the baseline
-state, Refresh and Upload) and `components/layout/Sidebar.tsx` (the five navigation
-groups). The header's painting is the static asset `src/assets/top_banner.png`, painted as
+`components/layout/AppHeader.tsx` (the Shadow Packets header - one cinematic row carrying
+the `侍` mark, the SHADOW PACKETS wordmark, the capture selector, the live capture-status
+capsule and the two round utility controls) and `components/layout/Sidebar.tsx` (the five
+navigation groups, with the shell's three actions - baseline mode, Refresh, Upload - under
+them). The header's painting is the static asset `src/assets/top_banner.png`, painted as
 a CSS background with a left-weighted dark wash so the wordmark stays readable; nothing
 here is drawn per render.
+
+**Section heroes.** A page may paint a photograph behind its own headline: it imports the
+asset and hands it to `Page` as `headerImage`, the shell publishes it as
+`--page-head-image` and sets `data-header-image`, and one stylesheet rule
+(`.page-head[data-header-image='true']`) fits it with `cover` and stacks two dark washes
+above it in the same `background-image` — horizontal, heaviest on the left where the headline
+sits, and vertical, opaque at the top edge, clear at 53% so the middle of the artwork reads,
+and back to 0.9 over the bottom edge. A page that passes no `headerImage` renders exactly the
+header it always did, which is why the protocol, settings and index pages are unaffected.
+
+A picture also changes the head's shape. `split` pages normally get a boxed head — a 1 px
+border, rounded corners, the surface fill and a 2 px hue bar along its top edge — but a head
+carrying a hero image drops all of it (`.page-split .page-head[data-header-image='true']`)
+and takes the Dashboard's open, full-bleed treatment instead, so the photograph is not framed
+in a panel and held in from the page edges. The boxed rules are scoped to
+`:not([data-header-image='true'])`, so PCAP Files, Settings and Alert Settings keep their
+box and Hosts and Findings do not need a rule each.
+
+| Page | Asset in `frontend/src/assets/` |
+|---|---|
+| Dashboard | `dashboard_bg.jpg` |
+| Info | `info_bg.jpg` |
+| Hosts | `hosts_bg.jpg` |
+| Conversations | `conversations_bg.jpg` |
+| Packets | `pacets_bg.jpg` (the file's own spelling) |
+| Findings | `findings_bg.jpg` |
+| Threat Map | `threatMap_bg.jpg` |
+| Baseline Check | `baseline_bg.jpg` |
+| Hunt | `hunt_bg.jpg` |
+| Files and Objects | `files_bg.jpg` |
+| Images | `images_bg.jpg` |
+| Users and Passwords | `usernamePass_bg.jpg` |
+
+The three actions used to be a second row of the header: a full-width strip with the
+controls at its right edge. It cost a row of height on every page for three buttons, so
+they are navigation now, built in `AppLayout.tsx` (they call queries and a handler) and
+placed by `Sidebar.tsx`, which only supplies the slot. The stylesheet gives `.nav-action`
+the same 2 px border and 0.75 rem of padding a `.nav-link` carries, so their icons line up
+with the navigation's icons exactly; the labels hide below `lg`, where the sidebar is a
+56 px rail.
 
 The wordmark is the one place in the shell that moves: a band of pale cyan crosses it on a
 7.5 s cycle, the second word's red glow swells on a 4.6 s one, the `侍` mark breathes behind

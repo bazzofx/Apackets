@@ -19,6 +19,16 @@ that capture already produced; nothing is re-dissected and nothing is estimated.
 
 ## 2. What is on the screen
 
+### 2.0 The headline
+
+The Dashboard paints `frontend/src/assets/dashboard_bg.jpg` behind its own headline: it
+imports the image and passes it to the shared `Page` shell as `headerImage`, which publishes
+it as the `--page-head-image` custom property. The shell never knows which page supplied it —
+it sets `data-header-image`, and the stylesheet fits the image with `cover` and stacks two
+dark washes above it in the same `background-image`. Every section page with a picture of its
+own uses the same prop and the same rule; the list of pages and files, and the wash itself,
+are recorded once in [Architecture.md](Architecture.md) §7.
+
 ### 2.1 The KPI tiles
 
 Seven tiles in a responsive grid

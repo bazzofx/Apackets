@@ -159,7 +159,7 @@ export function QuestionTile({ question, index, capped = false }: QuestionTilePr
       <p className="profile-tile-question">{question.question}</p>
 
       <div className="flex flex-wrap items-baseline gap-x-2" data-profile-tile-headline>
-        <span className={clsx('mono profile-tile-headline text-2xl leading-none', !available && 'opacity-80')}>
+        <span className={clsx('mono profile-tile-headline text-[2.5rem] leading-none', !available && 'opacity-80')}>
           {formatNumber(question.headline.value)}
         </span>
         <span className={clsx('text-xs', TONE_TEXT[question.headline.tone] ?? 'text-text')}>

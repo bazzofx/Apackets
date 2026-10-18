@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   Waypoints,
 } from 'lucide-react'
+import dashboardBackground from '@/assets/dashboard_bg.jpg'
 import AnalysisGuard from '@/components/AnalysisGuard'
 import ChartPanel from '@/components/ChartPanel'
 import EmptyState from '@/components/EmptyState'
@@ -455,7 +456,7 @@ function DashboardOverview() {
 /** Visual overview of one analysis: KPIs, the conversation map, domains and shape. */
 export function DashboardPage() {
   return (
-    <Page section={SECTIONS.dashboard}>
+    <Page section={SECTIONS.dashboard} headerImage={dashboardBackground}>
       <AnalysisGuard>
         <DashboardOverview />
       </AnalysisGuard>

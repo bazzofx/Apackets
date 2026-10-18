@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ImageOff, Package, Search } from 'lucide-react'
+import pageBackground from '@/assets/images_bg.jpg'
 import AnalysisGuard from '@/components/AnalysisGuard'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
@@ -198,7 +199,7 @@ function ImagesBody() {
 
 export function ImagesPage() {
   return (
-    <Page section={SECTIONS.images}>
+    <Page section={SECTIONS.images} headerImage={pageBackground}>
       <AnalysisGuard>
         <ImagesBody />
       </AnalysisGuard>

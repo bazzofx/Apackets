@@ -35,6 +35,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react'
+import pageBackground from '@/assets/files_bg.jpg'
 import AnalysisGuard from '@/components/AnalysisGuard'
 import CopyButton from '@/components/CopyButton'
 import EmptyState from '@/components/EmptyState'
@@ -762,7 +763,7 @@ function ObjectsContent() {
 /** Files and Objects — extracted content, hashes, export and re-extraction. */
 export function ObjectsPage() {
   return (
-    <Page section={SECTIONS.objects}>
+    <Page section={SECTIONS.objects} headerImage={pageBackground}>
       <AnalysisGuard>
         <ObjectsContent />
       </AnalysisGuard>

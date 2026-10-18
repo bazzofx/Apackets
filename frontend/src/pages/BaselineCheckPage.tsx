@@ -10,6 +10,7 @@ import {
   Waypoints,
   Workflow,
 } from 'lucide-react'
+import pageBackground from '@/assets/baseline_bg.jpg'
 import AnalysisGuard from '@/components/AnalysisGuard'
 import CopyButton from '@/components/CopyButton'
 import EmptyState from '@/components/EmptyState'
@@ -622,6 +623,7 @@ export function BaselineCheckPage() {
   return (
     <Page
       section={SECTIONS.baselineCheck}
+      headerImage={pageBackground}
       meta={
         <div className="flex flex-wrap items-center gap-1.5">
           <span

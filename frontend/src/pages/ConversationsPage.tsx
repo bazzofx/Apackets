@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { ArrowLeftRight, Clock, Info } from 'lucide-react'
+import pageBackground from '@/assets/conversations_bg.jpg'
 import AnalysisGuard from '@/components/AnalysisGuard'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
@@ -836,7 +837,7 @@ function ConversationsContent() {
 /** Conversations and stream follow-up view. */
 export function ConversationsPage() {
   return (
-    <Page section={SECTIONS.conversations}>
+    <Page section={SECTIONS.conversations} headerImage={pageBackground}>
       <AnalysisGuard
         emptyDescription={
           <>

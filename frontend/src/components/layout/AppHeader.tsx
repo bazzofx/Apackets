@@ -1,20 +1,11 @@
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import clsx from 'clsx'
-import {
-  Activity,
-  ChevronDown,
-  Crosshair,
-  Maximize,
-  Minimize,
-  RefreshCw,
-  Settings as SettingsIcon,
-  Upload,
-} from 'lucide-react'
+import { Activity, ChevronDown, Maximize, Minimize, Settings as SettingsIcon } from 'lucide-react'
 import StatusChip from '@/components/StatusChip'
 import { formatNumber } from '@/utils/format'
 import bannerUrl from '@/assets/top_banner.png'
-import type { Analysis, BaselineStatus } from '@/types'
+import type { Analysis } from '@/types'
 
 /**
  * The header's rising packets (a purely decorative layer, `aria-hidden` in the markup).
@@ -71,19 +62,21 @@ export interface AppHeaderProps {
   analysisId: string | null
   selected: Analysis | null
   onSelectAnalysis: (id: string | null) => void
-  onRefresh: () => void
-  baseline: BaselineStatus | undefined
   fullscreen: boolean
   onToggleFullscreen: () => void
 }
 
 /**
- * The Shadow Packets header: a cinematic row and a control row.
+ * The Shadow Packets header: one cinematic row.
  *
- *   row 1  the night-landscape artwork with the rising packet field behind it, the 侍
- *          mark, the wordmark, the capture status capsule, and the two round utility
- *          controls;
- *   row 2  the quiet toolbar: the capture selector, the baseline state, Refresh, Upload.
+ *   the night-landscape artwork with the rising packet field behind it, the 侍 mark,
+ *   the wordmark, the capture selector, the capture status capsule and the two round
+ *   utility controls.
+ *
+ * It used to be two rows. The second - a full-width strip carrying baseline mode,
+ * Refresh and Upload at its right edge - was removed when those three controls moved
+ * into the navigation, where the reader is already looking; see `Sidebar.tsx`. A row
+ * of the shell for three buttons was more height than they were worth.
  *
  * The artwork is the supplied PNG (`assets/top_banner.png`), painted as a CSS
  * background and never re-drawn. Sizes follow the reference image at its full desktop
@@ -99,8 +92,6 @@ export function AppHeader({
   analysisId,
   selected,
   onSelectAnalysis,
-  onRefresh,
-  baseline,
   fullscreen,
   onToggleFullscreen,
 }: AppHeaderProps) {
@@ -118,7 +109,6 @@ export function AppHeader({
 
   const dotClass = processing ? 'status-dot status-dot-active' : ready ? 'status-dot' : 'status-dot status-dot-idle'
 
-  const baselineOn = baseline?.active === true
 
   return (
     <header className="app-banner shrink-0">
@@ -238,40 +228,6 @@ export function AppHeader({
               <SettingsIcon size={18} aria-hidden />
             </Link>
           </div>
-        </div>
-      </div>
-
-      {/* ---------------------------------------------------------------- */}
-      {/* row 2: the control toolbar                                         */}
-      {/* ---------------------------------------------------------------- */}
-      <div className="banner-toolbar flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 xl:gap-x-6 xl:px-10 xl:py-0">
-        <div className="ml-auto flex shrink-0 items-center gap-3 xl:gap-6">
-          <Link
-            to="/baseline-check"
-            className={clsx('toolbar-btn toolbar-baseline', baselineOn ? 'is-on' : 'is-off')}
-            title={
-              baselineOn
-                ? 'Baseline mode is on: every analysis is compared against ' +
-                  (baseline?.baseline?.original_filename ?? 'the baseline capture')
-                : 'No baseline network is set - choose one on PCAP Files'
-            }
-          >
-            <Crosshair size={12} aria-hidden />
-            <span className="truncate">
-              {'Baseline mode : '}
-              {baselineOn ? 'enabled' : 'off'}
-            </span>
-          </Link>
-
-          <button type="button" className="toolbar-btn toolbar-refresh" onClick={onRefresh} title="Refresh analyses and the current view">
-            <RefreshCw size={12} aria-hidden />
-            <span>Refresh</span>
-          </button>
-
-          <Link to="/files" className="toolbar-btn toolbar-upload" title="Upload a capture">
-            <Upload size={12} aria-hidden />
-            <span>Upload</span>
-          </Link>
         </div>
       </div>
     </header>

@@ -25,6 +25,7 @@ import {
   Server,
   X,
 } from 'lucide-react'
+import pageBackground from '@/assets/hosts_bg.jpg'
 import AnalysisGuard from '@/components/AnalysisGuard'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
@@ -517,7 +518,7 @@ function HostsContent() {
 /** Hosts — inventory, detail and the observed-connection map. */
 export function HostsPage() {
   return (
-    <Page section={SECTIONS.hosts}>
+    <Page section={SECTIONS.hosts} headerImage={pageBackground}>
       <AnalysisGuard>
         <HostsContent />
       </AnalysisGuard>

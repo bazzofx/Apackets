@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import clsx from 'clsx'
 import { ShieldAlert } from 'lucide-react'
+import pageBackground from '@/assets/threatMap_bg.jpg'
 import AnalysisGuard from '@/components/AnalysisGuard'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
@@ -367,7 +368,7 @@ function ThreatHuntContent() {
 /** Threat Map — the 17 detections of the contract, grouped into tabs. */
 export function ThreatHuntPage() {
   return (
-    <Page section={SECTIONS.threatHunt}>
+    <Page section={SECTIONS.threatHunt} headerImage={pageBackground}>
       <AnalysisGuard emptyDescription="Upload a PCAP/PCAPNG capture or select an existing analysis in the top bar to hunt across its indexed tables. Threat Map reads only tables that already exist, so it needs a finished analysis.">
         <ThreatHuntContent />
       </AnalysisGuard>

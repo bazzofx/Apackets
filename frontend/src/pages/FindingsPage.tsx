@@ -14,6 +14,7 @@ import {
   ShieldAlert,
   Table2,
 } from 'lucide-react'
+import pageBackground from '@/assets/findings_bg.jpg'
 import AnalysisGuard from '@/components/AnalysisGuard'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
@@ -408,7 +409,7 @@ export function FindingsPage() {
   return (
     /* `page-fill` gives the workbench a height to resolve its `h-full min-h-0`
        panes against; without it they collapse to their content height. */
-    <Page section={SECTIONS.findings} className="page-fill">
+    <Page section={SECTIONS.findings} className="page-fill" headerImage={pageBackground}>
       <AnalysisGuard>
         <FindingsWorkbench />
       </AnalysisGuard>

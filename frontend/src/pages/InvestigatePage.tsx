@@ -2,6 +2,7 @@ import { useMemo, type CSSProperties } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { ScanSearch } from 'lucide-react'
+import pageBackground from '@/assets/hunt_bg.jpg'
 import AnalysisGuard from '@/components/AnalysisGuard'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
@@ -353,6 +354,7 @@ export function InvestigatePage() {
   return (
     <Page
       section={SECTIONS.investigate}
+      headerImage={pageBackground}
       meta={
         analysisId !== null ? (
           <EntitySearch

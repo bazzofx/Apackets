@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Hand, Info, Layers, ShieldAlert, X } from 'lucide-react'
+import { ChevronDown, Hand, Layers, ShieldAlert, X } from 'lucide-react'
 import EmptyState from '@/components/EmptyState'
 import Panel from '@/components/Panel'
 import { useThemeTokens } from '@/theme/ThemeProvider'
@@ -26,7 +26,6 @@ import {
   FLOW_COLUMN_LABELS,
   FLOW_COLUMNS,
   FLOW_MAX_SCALE,
-  FLOW_MIN_BAND,
   FLOW_MIN_SCALE,
   FLOW_VIEW,
   clampFlowScale,
@@ -165,35 +164,20 @@ function foldNote(column: FlowColumn, graph: FlowGraph): string | null {
 function Legend({
   graph,
   tokens,
-  thinnest,
   alertLayer,
   alertCounts,
 }: {
   graph: FlowGraph
   tokens: ThemeTokens
-  thinnest: number
   /** True when the alert layer is on, so the legend can explain it. */
   alertLayer: boolean
   alertCounts: { high: number; medium: number }
 }) {
-  const thinnestLabel = Number.isFinite(thinnest) ? thinnest.toFixed(1) : 'n/a'
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-border px-3 py-2">
       <BandSwatch dashed={false} label="TCP solid" />
       <BandSwatch dashed={true} label="UDP dashed" />
-      <span
-        className="text-2xs text-muted"
-        title="Five columns: the IP columns group addresses by /24 (IPv4) or /64 (IPv6) so they stay readable; the port columns show every port that appears. Nothing is invented and nothing is dropped."
-      >
-        source IP → source port → state → destination port → destination IP
-      </span>
-      <span
-        className="text-2xs text-muted"
-        title="Band thickness is proportional to the bytes of the conversations it carries, summed across everything that collapses into it. Each layer adds a 1.5 px floor so thin flows stay clickable; a layer carrying more bands than its height can give 1.5 px to is scaled proportionally instead, so thickness always means bytes."
-      >
-        thickness = bytes · thinnest band here <span className="mono">{thinnestLabel}</span> px (
-        <span className="mono">{FLOW_MIN_BAND}</span> px floor)
-      </span>
+
       <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
         {graph.columns.state.map((node) => (
           <StateSwatch
@@ -211,15 +195,7 @@ function Legend({
           />
         ))}
       </span>
-      {graph.meta.stackedPairs > 0 ? (
-        <span
-          className="text-2xs text-muted"
-          title="One pair of columns can carry both transports. Such a band is drawn as a solid TCP ribbon stacked with a dashed UDP ribbon rather than blended into one."
-        >
-          <span className="mono">{graph.meta.stackedPairs}</span> band pair(s) carry both TCP and UDP — solid
-          stacked on dashed
-        </span>
-      ) : null}
+
       {alertLayer ? (
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span
@@ -239,11 +215,7 @@ function Legend({
           <span className="text-2xs text-faint">showing only the conversations linked to an alert - everything else is filtered out of the diagram, so no highlighting is needed. The counts beside each level are alerts, and one conversation can carry more than one.</span>
         </span>
       ) : null}
-      <span className="ml-auto flex items-center gap-1 text-2xs text-faint">
-        <Info size={12} aria-hidden />
-        drawn only from conversations observed in this capture; unknown is the normal reading for UDP,
-        which carries no TCP state to derive
-      </span>
+
     </div>
   )
 }
@@ -1123,10 +1095,6 @@ export function ConversationFlow({
     if (node.expandable && node.subnet !== null) onToggleSubnet(node.subnet)
   }
 
-  const thinnest = layout.bands.reduce(
-    (minimum, band) => Math.min(minimum, band.thickness),
-    Number.POSITIVE_INFINITY,
-  )
 
   const columnNoun = (column: FlowColumn): string => {
     const nodes = graph.columns[column]
@@ -1157,7 +1125,6 @@ export function ConversationFlow({
       <Legend
         graph={graph}
         tokens={tokens}
-        thinnest={thinnest}
         alertLayer={alertLayerOn}
         alertCounts={alertSummary}
       />

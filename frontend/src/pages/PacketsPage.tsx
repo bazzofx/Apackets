@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Info, List, Search } from 'lucide-react'
+import pageBackground from '@/assets/pacets_bg.jpg'
 import AnalysisGuard from '@/components/AnalysisGuard'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
@@ -317,7 +318,7 @@ function PacketsContent() {
 /** Packet browser. */
 export function PacketsPage() {
   return (
-    <Page section={SECTIONS.packets}>
+    <Page section={SECTIONS.packets} headerImage={pageBackground}>
       <AnalysisGuard
         emptyDescription={
           <>
