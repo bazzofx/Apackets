@@ -318,11 +318,13 @@
     stroke: rgb(var(--c-accent) / 0.75);
   }
 
+  /* Connection paths: thin, dashed, crimson, drifting outward from the origin. */
   .world-arc {
     fill: none;
-    stroke: rgb(var(--c-accent) / 0.45);
-    stroke-width: 1;
+    stroke: rgb(var(--c-accent) / 0.5);
+    stroke-width: 1.1;
     stroke-dasharray: 5 9;
+    filter: drop-shadow(0 0 2px rgb(var(--c-accent) / 0.5));
     animation: world-flow 7s linear infinite;
   }
 
@@ -349,17 +351,22 @@
     outline: none;
   }
 
+  /* A destination: a bright red centre inside a darker ring, with a crimson bloom. The
+     glow is one filter per dot, kept small so a capture with thirty countries still
+     pans smoothly. */
   .world-dot {
     fill: rgb(var(--c-accent));
-    stroke: rgb(var(--c-bg));
-    stroke-width: 1;
+    stroke: rgb(var(--c-accent) / 0.35);
+    stroke-width: 2.5;
+    filter: drop-shadow(0 0 3px rgb(var(--c-accent) / 0.75));
     transition: fill 160ms ease-out;
   }
 
   .world-dot-group:hover .world-dot,
   .world-dot-group:focus-visible .world-dot {
     fill: rgb(var(--c-accent2));
-    stroke: rgb(var(--c-text));
+    stroke: rgb(var(--c-accent2) / 0.45);
+    filter: drop-shadow(0 0 6px rgb(var(--c-accent2) / 0.8));
   }
 
   .world-dot-pulse {

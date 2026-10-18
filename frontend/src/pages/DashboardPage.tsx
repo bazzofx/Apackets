@@ -23,10 +23,10 @@ import LoadingState from '@/components/LoadingState'
 import Page from '@/components/Page'
 import Panel from '@/components/Panel'
 import SeverityBadge from '@/components/SeverityBadge'
-import CountryList from '@/components/dashboard/CountryList'
 import DomainBars from '@/components/dashboard/DomainBars'
 import KpiTile from '@/components/dashboard/KpiTile'
 import NetworkMap from '@/components/dashboard/NetworkMap'
+import DestinationSummary from '@/components/dashboard/DestinationSummary'
 import WorldMap, { BuildDatasetButton } from '@/components/dashboard/WorldMap'
 import ProtocolMix from '@/components/dashboard/ProtocolMix'
 import TrafficExtremeCard from '@/components/dashboard/TrafficExtremeCard'
@@ -51,6 +51,11 @@ const FRESH_POLL_MS = 5000
  */
 type MapView = 'geo' | 'graph'
 
+/**
+ * The three tabs above the map. Two switch the panel's own view; the third is the
+ * inventory page, because "host inventory" is a page, not a drawing - it navigates
+ * rather than pretending to be another map mode.
+ */
 function MapViewToggle({ view, onChange }: { view: MapView; onChange: (next: MapView) => void }) {
   return (
     <span className="flex items-center gap-1 rounded border border-border bg-surface2 p-0.5" role="tablist">
@@ -63,8 +68,8 @@ function MapViewToggle({ view, onChange }: { view: MapView; onChange: (next: Map
           data-map-view={each}
           className={
             view === each
-              ? 'rounded bg-accent/15 px-2 py-0.5 text-2xs text-text'
-              : 'rounded px-2 py-0.5 text-2xs text-muted hover:text-text'
+              ? 'rounded-sm border-b-2 border-accent px-2 py-0.5 text-2xs font-semibold text-text'
+              : 'rounded-sm border-b-2 border-transparent px-2 py-0.5 text-2xs text-muted transition-colors hover:text-text'
           }
           title={
             each === 'geo'
@@ -76,6 +81,15 @@ function MapViewToggle({ view, onChange }: { view: MapView; onChange: (next: Map
           {each === 'geo' ? 'Geography' : 'Conversations'}
         </button>
       ))}
+      <Link
+        to="/hosts"
+        role="tab"
+        aria-selected={false}
+        className="rounded-sm border-b-2 border-transparent px-2 py-0.5 text-2xs text-muted transition-colors hover:text-text"
+        title="Open the host inventory for this capture"
+      >
+        Host Inventory
+      </Link>
     </span>
   )
 }
@@ -279,11 +293,15 @@ function DashboardOverview() {
         <TrafficSparkline series={data.traffic_series ?? []} />
       </ChartPanel>
 
+      {/* Geography and its ranking share one row: the map takes three quarters and the
+          intelligence panel the last quarter, and the capture status sits under both. */}
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-4">
       <Panel
+        className="xl:col-span-3"
         title={
           <span className="flex items-center gap-1.5">
             <Radar size={13} className="text-accent2" aria-hidden />
-            Network map
+            Network geography
           </span>
         }
         subtitle={
@@ -292,15 +310,7 @@ function DashboardOverview() {
             : 'who talked to whom in this capture, sized by bytes'
         }
         flush
-        actions={
-          <>
-            <MapViewToggle view={mapView} onChange={setMapView} />
-            <Link to="/hosts" className="btn">
-              <Server size={13} aria-hidden />
-              Host inventory
-            </Link>
-          </>
-        }
+        actions={<MapViewToggle view={mapView} onChange={setMapView} />}
       >
         {mapView === 'graph' ? (
           <div className="p-2">
@@ -343,17 +353,22 @@ function DashboardOverview() {
                 />
               }
             />
-            <div className="mt-2 border-t border-border">
-              <CountryList
-                data={geography.data}
-                focused={focusedCountry}
-                onFocus={setFocusedCountry}
-                onSelectIp={openIp}
-              />
-            </div>
           </div>
         ) : null}
       </Panel>
+
+      {/* The ranking that goes with the map. It reads the same geography response and the
+          same summary ports the rest of the Dashboard already fetched. */}
+      <div className="min-h-[22rem] xl:col-span-1">
+        <DestinationSummary
+          geography={geography.data}
+          topPorts={data.top_ports ?? []}
+          selected={selected}
+          focused={focusedCountry}
+          onFocus={setFocusedCountry}
+        />
+      </div>
+      </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <TrafficExtremeCard

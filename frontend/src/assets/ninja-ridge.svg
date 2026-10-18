@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 96" width="220" height="96" role="img" aria-label="Ninja on a ridge">
+  <!-- Decorative only: a silhouette on a rock, two brush strokes, a few sparks. -->
+  <defs>
+    <linearGradient id="ridgeFade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FF1744" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#FF1744" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <path d="M14 66 C44 52 78 50 108 58 C138 66 170 60 206 46" fill="none" stroke="url(#ridgeFade)" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M20 74 C56 64 92 62 126 68 C156 73 186 68 210 58" fill="none" stroke="#FF1744" stroke-opacity="0.16" stroke-width="1.6" stroke-linecap="round"/>
+
+  <path d="M0 88 L40 74 L86 80 L128 70 L170 80 L220 72 L220 96 L0 96 Z" fill="#01040A"/>
+  <path d="M0 88 L40 74 L86 80 L128 70 L170 80 L220 72" fill="none" stroke="#FF1744" stroke-opacity="0.25" stroke-width="1"/>
+
+  <g fill="#01040A">
+    <path d="M146 70 C146 58 153 50 162 50 C171 50 178 58 178 70 C178 77 174 82 168 84 L170 92 L154 92 L156 84 C150 82 146 77 146 70 Z"/>
+    <path d="M176 56 L196 48 L197 52 L177 61 Z"/>
+  </g>
+  <path d="M177 61 C190 64 200 60 210 66 C199 67 189 70 178 66 Z" fill="#7A0A1E" opacity="0.9"/>
+
+  <g fill="#FF365F" opacity="0.7">
+    <circle cx="128" cy="40" r="1.6"/>
+    <circle cx="96" cy="30" r="1.2"/>
+    <circle cx="62" cy="44" r="1.4"/>
+    <circle cx="184" cy="30" r="1.1"/>
+  </g>
+</svg>

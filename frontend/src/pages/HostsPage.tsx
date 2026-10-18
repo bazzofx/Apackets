@@ -41,7 +41,7 @@ import HostsTable, {
   isHostSortKey,
   type HostSortKey,
 } from '@/components/hosts/HostsTable'
-import NetworkGraph from '@/components/hosts/NetworkGraph'
+import NetworkMap from '@/components/dashboard/NetworkMap'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { hostsApi, type HostListParams } from '@/services/api'
 import { SECTIONS } from '@/theme/sections'
@@ -328,7 +328,7 @@ function HostsContent() {
             onClick={() => updateParams({ view: 'graph' })}
           >
             <Network size={13} aria-hidden />
-            Network map
+            Conversation map
           </button>
         </div>
         <span className="text-2xs text-faint">
@@ -351,23 +351,17 @@ function HostsContent() {
       </div>
 
       {view === 'graph' ? (
-        graphQuery.isLoading ? (
-          <LoadingState label="Loading the observed-connection map…" rows={6} />
-        ) : graphQuery.error ? (
-          <ErrorState
-            error={graphQuery.error}
-            title="Could not load the network map"
-            onRetry={() => void graphQuery.refetch()}
-          />
-        ) : graphQuery.data ? (
-          <NetworkGraph graph={graphQuery.data} selectedIp={selectedIp} onSelect={onSelect} />
-        ) : (
-          <EmptyState
-            icon={Network}
-            title="No graph data"
-            description="The backend returned no graph payload for this analysis."
-          />
-        )
+        /* The same component the Dashboard's graph view draws: one node per host, one edge
+           per observed conversation, from the same `GET /hosts/graph` payload. Its own
+           loading, error and empty states are used, so this page does not repeat them. */
+        <NetworkMap
+          nodes={graphQuery.data?.nodes ?? []}
+          edges={graphQuery.data?.edges ?? []}
+          isLoading={graphQuery.isLoading}
+          error={graphQuery.error}
+          onRetry={() => void graphQuery.refetch()}
+          onSelect={onSelect}
+        />
       ) : (
         <Panel
           title="Host inventory"
