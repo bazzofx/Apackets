@@ -413,25 +413,11 @@ function DashboardOverview() {
         </div>
       </Panel>
 
-      {/* Protocol mix is full width now that the time series has moved above the
-          map: one chart alone in a two-column grid would have sat in half the
-          width with nothing beside it. */}
-      <ChartPanel
-        title="Protocol mix"
-        subtitle={`top ${Math.min(7, (data.protocol_distribution ?? []).length)} protocols`}
-        height={210}
-        isEmpty={(data.protocol_distribution ?? []).length === 0}
-        emptyTitle="No protocol distribution"
-        emptyDescription="No packets were indexed for this capture."
-      >
-        <ProtocolMix distribution={data.protocol_distribution ?? []} />
-      </ChartPanel>
 
       <div className="flex flex-wrap items-center gap-2 px-1 pb-1 text-2xs text-muted">
         <FileText size={13} className="text-faint" aria-hidden />
         <span>
-          Full detail for this capture — top talkers, top ports, conversations, protocol hierarchy,
-          findings and the analysis limitations — lives on the Info page.
+          Full detail for this capture — lives on the Info page.
         </span>
         <Link to="/info" className="btn ml-auto">
           <FileText size={13} aria-hidden />
@@ -439,16 +425,7 @@ function DashboardOverview() {
         </Link>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 px-1 text-2xs text-faint">
-        <Globe size={12} aria-hidden />
-        <span>
-          Every figure is derived from this capture&apos;s own packets; nothing is estimated. Values
-          that could not be derived are shown as “—”, and empty panels stay empty rather than being
-          filled with placeholders.
-        </span>
-        {severity.high > 0 ? <SeverityBadge severity="high" count={severity.high} /> : null}
-        <Waypoints size={12} className="ml-auto" aria-hidden />
-      </div>
+
     </div>
   )
 }

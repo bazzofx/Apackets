@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import MonoCell from '@/components/MonoCell'
+import { IpLabel } from './IpFlag'
 import type { ThreatHuntBarsVisual } from '@/types'
 import { VisualFrame, VisualNoData, formatUnitValue, useSeriesColour } from './visualKit'
 
@@ -59,11 +60,11 @@ export function BarsVisual({ visual }: BarsVisualProps) {
                     className="block truncate mono text-2xs text-accent2 hover:underline"
                     title={`Open ${item.label}`}
                   >
-                    {item.label}
+                    <IpLabel text={item.label} />
                   </Link>
                 ) : (
-                  <MonoCell className="text-2xs text-text" maxWidth={176}>
-                    {item.label}
+                  <MonoCell className="text-2xs text-text" title={item.label} maxWidth={176}>
+                    <IpLabel text={item.label} />
                   </MonoCell>
                 )}
               </span>

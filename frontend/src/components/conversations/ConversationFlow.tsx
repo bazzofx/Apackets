@@ -161,17 +161,104 @@ function foldNote(column: FlowColumn, graph: FlowGraph): string | null {
   )
 }
 
+/** The diagram's view controls, drawn at the end of the legend row. */
+interface LegendZoom {
+  freeView: boolean
+  percent: number
+  canZoomIn: boolean
+  canZoomOut: boolean
+  onIn: () => void
+  onOut: () => void
+  onFit: () => void
+  onOneToOne: () => void
+  onToggleFreeView: () => void
+}
+
+function ZoomControls({ zoom }: { zoom: LegendZoom }) {
+  const hint = zoom.freeView ? undefined : 'Enable Free View to zoom the diagram'
+  return (
+    <span className="ml-auto flex flex-wrap items-center gap-1" data-flow-zoom>
+      <button
+        type="button"
+        className="btn px-2 py-1"
+        aria-label="Zoom in"
+        title={zoom.freeView ? 'Zoom in (+)' : hint}
+        onClick={zoom.onIn}
+        disabled={!zoom.freeView || !zoom.canZoomIn}
+      >
+        +
+      </button>
+      <button
+        type="button"
+        className="btn px-2 py-1"
+        aria-label="Zoom out"
+        title={zoom.freeView ? 'Zoom out (-)' : hint}
+        onClick={zoom.onOut}
+        disabled={!zoom.freeView || !zoom.canZoomOut}
+      >
+        −
+      </button>
+      <button
+        type="button"
+        className="btn px-2 py-1"
+        aria-label="Fit diagram to view"
+        title={zoom.freeView ? 'Fit the whole diagram (0)' : hint}
+        onClick={zoom.onFit}
+        disabled={!zoom.freeView}
+      >
+        Fit
+      </button>
+      <button
+        type="button"
+        className="btn px-2 py-1"
+        aria-label="Zoom to actual size"
+        title={zoom.freeView ? '100%: one diagram unit per screen pixel' : hint}
+        onClick={zoom.onOneToOne}
+        disabled={!zoom.freeView}
+      >
+        1:1
+      </button>
+      <span
+        className="mono ml-1 text-2xs text-muted"
+        role="status"
+        aria-live="polite"
+        aria-label={'Zoom ' + String(zoom.percent) + ' percent'}
+      >
+        {String(zoom.percent) + '%'}
+      </span>
+      <button
+        type="button"
+        className={'btn ml-1 px-2 py-1' + (zoom.freeView ? ' btn-primary' : '')}
+        aria-pressed={zoom.freeView}
+        aria-label="Enable Free View"
+        data-free-view={zoom.freeView ? 'on' : 'off'}
+        title={
+          zoom.freeView
+            ? 'Free View is on: the wheel zooms and a drag pans. Click to lock the diagram again.'
+            : 'Enable Free View: zoom with the wheel, pan by dragging. While it is off the wheel scrolls the page normally.'
+        }
+        onClick={zoom.onToggleFreeView}
+      >
+        <Hand size={12} aria-hidden />
+        {zoom.freeView ? 'Free View on' : 'Enable Free View'}
+      </button>
+    </span>
+  )
+}
 function Legend({
   graph,
   tokens,
   alertLayer,
   alertCounts,
+  zoom,
 }: {
   graph: FlowGraph
   tokens: ThemeTokens
   /** True when the alert layer is on, so the legend can explain it. */
   alertLayer: boolean
   alertCounts: { high: number; medium: number }
+  /** The diagram's own controls, drawn at the end of the same row. */
+  zoom: LegendZoom
 }) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-border px-3 py-2">
@@ -215,7 +302,7 @@ function Legend({
           <span className="text-2xs text-faint">showing only the conversations linked to an alert - everything else is filtered out of the diagram, so no highlighting is needed. The counts beside each level are alerts, and one conversation can carry more than one.</span>
         </span>
       ) : null}
-
+      <ZoomControls zoom={zoom} />
     </div>
   )
 }
@@ -1127,6 +1214,17 @@ export function ConversationFlow({
         tokens={tokens}
         alertLayer={alertLayerOn}
         alertCounts={alertSummary}
+        zoom={{
+          freeView,
+          percent: zoomPercent,
+          canZoomIn: view.scale < FLOW_MAX_SCALE,
+          canZoomOut: view.scale > FLOW_MIN_SCALE,
+          onIn: () => zoomTo(view.scale * 1.25),
+          onOut: () => zoomTo(view.scale / 1.25),
+          onFit: fit,
+          onOneToOne: oneToOne,
+          onToggleFreeView: toggleFreeView,
+        }}
       />
       <SelectionBar
         graph={graph}
@@ -1138,54 +1236,7 @@ export function ConversationFlow({
       />
 
       <div className="flex flex-wrap items-center gap-1 border-b border-border px-3 py-1.5">
-        <button
-          type="button"
-          className="btn px-2 py-1"
-          aria-label="Zoom in"
-          title={freeView ? 'Zoom in (+)' : 'Enable Free View to zoom the diagram'}
-          onClick={() => zoomTo(view.scale * 1.25)}
-          disabled={!freeView || view.scale >= FLOW_MAX_SCALE}
-        >
-          +
-        </button>
-        <button
-          type="button"
-          className="btn px-2 py-1"
-          aria-label="Zoom out"
-          title={freeView ? 'Zoom out (-)' : 'Enable Free View to zoom the diagram'}
-          onClick={() => zoomTo(view.scale / 1.25)}
-          disabled={!freeView || view.scale <= FLOW_MIN_SCALE}
-        >
-          −
-        </button>
-        <button
-          type="button"
-          className="btn px-2 py-1"
-          aria-label="Fit diagram to view"
-          title={freeView ? 'Fit the whole diagram (0)' : 'Enable Free View to zoom the diagram'}
-          onClick={fit}
-          disabled={!freeView}
-        >
-          Fit
-        </button>
-        <button
-          type="button"
-          className="btn px-2 py-1"
-          aria-label="Zoom to actual size"
-          title={freeView ? '100%: one diagram unit per screen pixel' : 'Enable Free View to zoom the diagram'}
-          onClick={oneToOne}
-          disabled={!freeView}
-        >
-          1:1
-        </button>
-        <span
-          className="mono ml-1 text-2xs text-muted"
-          role="status"
-          aria-live="polite"
-          aria-label={'Zoom ' + String(zoomPercent) + ' percent'}
-        >
-          {String(zoomPercent) + '%'}
-        </span>
+
         {onToggleAlerts !== undefined ? (
           <span className="flex flex-wrap items-center gap-1">
             <button
@@ -1246,33 +1297,9 @@ export function ConversationFlow({
         {labelPlan.suppressed > 0 ? (
           <span className="text-2xs text-muted">
             labels shown for the largest <span className="mono">{formatNumber(labelPlan.shown)}</span>{' '}
-            nodes — zoom in to reveal the rest (every node still has its tooltip)
+            nodes
           </span>
         ) : null}
-        <span className="ml-auto text-2xs text-faint">
-          {freeView
-            ? 'drag to pan · wheel to zoom · arrows pan, +/− zoom, 0 fits'
-            : 'wheel scrolls the page · the diagram is fixed until you enable Free View'}
-        </span>
-        {/* The switch for the whole canvas behaviour, at the right-hand end of the
-            toolbar where a view control is looked for. Off by default, so the wheel
-            scrolls the page instead of zooming a diagram the reader was passing. */}
-        <button
-          type="button"
-          className={'btn ml-1 px-2 py-1' + (freeView ? ' btn-primary' : '')}
-          aria-pressed={freeView}
-          aria-label="Enable Free View"
-          data-free-view={freeView ? 'on' : 'off'}
-          title={
-            freeView
-              ? 'Free View is on: the wheel zooms and a drag pans. Click to lock the diagram again.'
-              : 'Enable Free View: zoom with the wheel, pan by dragging. While it is off the wheel scrolls the page normally.'
-          }
-          onClick={toggleFreeView}
-        >
-          <Hand size={12} aria-hidden />
-          {freeView ? 'Free View on' : 'Enable Free View'}
-        </button>
       </div>
 
       <div className="relative">

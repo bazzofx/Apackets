@@ -209,6 +209,39 @@
     @apply mt-0.5 truncate text-[0.8rem] leading-tight text-faint;
   }
 
+  /* The two endpoints of a conversation, in a card headline: `ip:port - ip:port`.
+   *
+   * The address and the port are told apart by colour and both are set in the mono
+   * face, so the pair can be read at a glance rather than parsed. The separator keeps
+   * the id's own hyphen, with a space either side of it, and stays quiet so it never
+   * competes with the two things it divides. */
+  .endpoint-pair {
+    font-family: var(--font-mono);
+    letter-spacing: 0;
+    /* The card headline is uppercased; an address and a port are not words, so this
+       part keeps the case it was written in - `tcp:10.0.0.1:80 - 10.0.0.2:443`. */
+    text-transform: none;
+  }
+
+  .endpoint-ip {
+    color: rgb(var(--c-text));
+  }
+
+  .endpoint-port {
+    color: rgb(var(--c-accent2));
+  }
+
+  .endpoint-sep {
+    color: rgb(var(--c-faint));
+  }
+
+  /* The facts line of a conversation: each entry carries 20 px of its own left
+     padding, so the list is inset from the card's edge by a column of its own rather
+     than starting hard against it. */
+  .conversation-facts > * {
+    padding-left: 1.25rem;
+  }
+
   /* ------------------------------------------------------------------ */
   /* help and explanation panels                                        */
   /*                                                                    */
@@ -1713,6 +1746,17 @@
      computer is not a computer. Same size as a flag, as asked. */
   .host-flag-local {
     object-fit: contain;
+  }
+
+  /* An address printed inside a caption, a chip or a table cell, with its flag beside
+     it. `inline-flex` keeps the pair on one line; `vertical-align` keeps that line in
+     the text's own rhythm, so a label that carries an address mid-sentence does not
+     jitter against the words around it. */
+  .ip-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    vertical-align: middle;
   }
 
 /* ---------------------------------------------------------------- */

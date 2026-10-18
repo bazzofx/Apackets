@@ -192,6 +192,18 @@ everywhere:
    with nothing to draw is omitted entirely rather than drawn empty.
 5. **The availability notice** — when the indicator is not `ok`, the reason is
    shown here: the threshold that was applied, or the table that was empty.
+   **Addresses inside a visual carry their flag.** A detection's labels are text —
+   `3.254.239.146 (115 pkt)`, `192.168.8.178:22 (SSH)`, and the pair rows in a table —
+   so `components/threat/IpFlag.tsx` splits an address back out of the label and draws
+   the same 1.3 rem flag box the Dashboard's map and the host inventory use
+   (`AddressFlag`, `.host-flag`). The country comes from `/geography`, read through the
+   query key the Dashboard already uses, so visiting both sections costs one request;
+   nothing is added to this section's own payload. A private address gets the
+   local-machine icon, and a public address the geography list does not carry gets no
+   flag rather than a guessed one — each country lists its top 50 addresses there, so a
+   long tail of rare addresses is expected in a large capture. Every flag is decorative
+   (`alt=""`): the address is always printed beside it, in the same characters it
+   arrived in.
 6. **"What it may indicate"** — the interpretation: what a pattern like this is
    usually associated with. It is deliberately worded as *may*, because it is a
    reading of the pattern, not a conclusion about the traffic.

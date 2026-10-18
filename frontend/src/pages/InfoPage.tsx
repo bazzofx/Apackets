@@ -529,24 +529,6 @@ function InfoContent() {
         )}
       </Panel>
 
-      <Panel
-        title="Analysis limitations"
-        subtitle="real caveats recorded by the backend for this capture"
-        flush
-      >
-        {notes.length === 0 ? (
-          <InlineEmpty message="No limitations were recorded. Absence of a note is not proof that the capture is complete." />
-        ) : (
-          <ul className="flex flex-col gap-1.5 px-3 py-2.5">
-            {notes.map((note, index) => (
-              <li key={index} className="flex items-start gap-2 text-xs leading-relaxed text-muted">
-                <Info size={13} className="mt-0.5 shrink-0 text-faint" aria-hidden />
-                <span>{note}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Panel>
 
       <div className="flex items-center gap-2 px-1 pb-1 text-2xs text-faint">
         <Activity size={12} aria-hidden />

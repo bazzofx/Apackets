@@ -14,6 +14,7 @@ import IndicatorCard from '@/components/threat/IndicatorCard'
 import DetectionGrid, { type DetectionGroup } from '@/components/threat/DetectionGrid'
 import DetectionSignal from '@/components/threat/DetectionSignal'
 import StatusDonut from '@/components/threat/StatusDonut'
+import { IpCountryProvider } from '@/components/threat/IpFlag'
 import {
   KpiCard,
   STATUS_META,
@@ -277,7 +278,7 @@ function ThreatHuntContent() {
           description="The threat-hunt endpoint answered with an empty indicator list for this capture. The cockpit is not padded with placeholders: an absent detection is absent, not clean."
         />
       ) : (
-        <>
+        <IpCountryProvider analysisId={analysisId}>
           {missing.length > 0 ? (
             <SectionNote tone="warn">
               {`The contract lists ${String(CONTRACT_INDICATOR_IDS.length)} indicators and this response has no card for ${missing.join(', ')}. A missing detection is reported here rather than silently omitted.`}
@@ -474,7 +475,7 @@ function ThreatHuntContent() {
               )}
             </aside>
           </div>
-        </>
+        </IpCountryProvider>
       )}
 
       <div className="flex items-center gap-2 px-1 pb-1 text-2xs text-faint">

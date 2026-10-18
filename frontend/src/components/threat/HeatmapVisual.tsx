@@ -3,6 +3,7 @@ import MonoCell from '@/components/MonoCell'
 import { formatNumber } from '@/utils/format'
 import type { ThreatHuntHeatmapVisual } from '@/types'
 import { VisualFrame, VisualNoData, formatUnitValue, useSeriesColour } from './visualKit'
+import { IpLabel } from './IpFlag'
 
 export interface HeatmapVisualProps {
   visual: ThreatHuntHeatmapVisual
@@ -68,7 +69,7 @@ export function HeatmapVisual({ visual }: HeatmapVisualProps) {
               <th className="text-left">{unit !== null && unit.trim() !== '' ? unit : 'value'}</th>
               {columns.map((column, index) => (
                 <th key={`${column}-${index}`} className="text-right" title={column}>
-                  {column}
+                  <IpLabel text={column} />
                 </th>
               ))}
             </tr>
@@ -77,8 +78,8 @@ export function HeatmapVisual({ visual }: HeatmapVisualProps) {
             {rows.map((row, rowIndex) => (
               <tr key={`${row.label}-${rowIndex}`}>
                 <td>
-                  <MonoCell className="text-2xs text-text" maxWidth={176}>
-                    {row.label}
+                  <MonoCell className="text-2xs text-text" title={row.label} maxWidth={176}>
+                    <IpLabel text={row.label} />
                   </MonoCell>
                 </td>
                 {columns.map((column, columnIndex) => {

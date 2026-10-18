@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useThemeTokens } from '@/theme/ThemeProvider'
 import type { ThreatHuntScatterVisual } from '@/types'
 import { VisualFrame, VisualNoData, formatUnitValue, useSeriesColour } from './visualKit'
+import { IpLabel } from './IpFlag'
 
 const WIDTH = 620
 const HEIGHT = 160
@@ -137,7 +138,7 @@ export function ScatterVisual({ visual }: ScatterVisualProps) {
               className="chip border-border2 bg-surface2 text-accent2 hover:border-accent hover:bg-accent/10"
               title={point.to as string}
             >
-              {point.label}
+              <IpLabel text={point.label} />
             </Link>
           ))}
           {linked.length > named.length ? (

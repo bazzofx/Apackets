@@ -134,8 +134,10 @@ thickness still means bytes at any zoom and hit testing stays with the browser.
 
 **Free View — and why it starts off.** The diagram is a tall element in the middle of a page,
 so a canvas that takes the wheel makes the page impossible to scroll past: an aimed scroll
-at the table below lands inside a magnified band instead. The toolbar's right-hand end
-therefore carries **Enable Free View** (off by default, `aria-pressed`, hand icon):
+at the table below lands inside a magnified band instead. **Enable Free View** therefore
+sits at the right-hand end of the diagram's own legend row — the line carrying *TCP solid*,
+*UDP dashed* and the state swatches — together with the zoom controls (off by default,
+`aria-pressed`, hand icon):
 
 | Free View | Wheel over the diagram | Drag | Zoom buttons, arrows, +/− | Diagram cursor |
 |---|---|---|---|---|
@@ -146,6 +148,10 @@ Clicks select conversations in both states — what Free View governs is only th
 it off returns the diagram to its fitted view first, so a reader cannot strand the diagram at a
 zoom they can no longer change. The switch also removes `touch-none` from the SVG, so on a
 touch screen the page can be scrolled past the diagram again.
+
+The five controls (`+`, `−`, **Fit**, **1:1**, the zoom percentage, and the Free View switch)
+live in that legend row, so the diagram's explanation and its controls are one band rather than
+two. The row above the diagram now carries only the `Alerts only` filter and the label census.
 
 | Control | Effect |
 |---|---|
@@ -159,8 +165,8 @@ touch screen the page can be scrolled past the diagram again.
 
 Labels are drawn at a constant size on screen, so zooming in gives each node more room and
 reveals more labels. Which labels fit is decided by a deterministic collision pass over the
-largest nodes first; when any are suppressed the toolbar says `labels shown for the largest
-N nodes — zoom in to reveal the rest (every node still has its tooltip)`. A label is never
+largest nodes first; when any are suppressed the row above the diagram says `labels shown for
+the largest N nodes`. A label is never
 truncated into nonsense: ports and state names are dropped rather than cut, addresses and
 CIDRs shorten by their middle, and a CIDR keeps its prefix length.
 
@@ -321,7 +327,7 @@ three panels, each from its own data:
 
 | Panel | Where its data comes from |
 |---|---|
-| Summary strip | The selected `conversations` row: state chip, transport, start, end, duration, packet and byte totals, protocols. When the row is not on the current page it says the summary is limited to what the index holds |
+| Summary strip | The selected `conversations` row: state chip, transport, start, end, duration, packet and byte totals, protocols. When the row is not on the current page it says the summary is limited to what the index holds. Each entry carries 20 px of its own left padding (`.conversation-facts`) |
 | **Packets in this conversation** | `GET /packets?stream_id=<id>&transport=<tcp\|udp>&page_size=50&sort=number&order=asc` — every indexed frame of the stream, shared with the Info tab so both list the same frames in the same order |
 | **Timeline of events** | `GET /packets?stream_id=<id>&transport=<tcp\|udp>&filter=<event filter>&page_size=500&sort=number&order=asc` — the frames that carry protocol meaning |
 | **Follow stream** | `GET /streams/<id>?mode=` — TShark's reassembly, exactly the panel §2.6 describes |
@@ -333,6 +339,13 @@ filter the backend would reject turns the panel into an error state:
 |---|---|
 | `tcp` | `http or dns or tls or tcp.flags.syn==1 or tcp.flags.fin==1 or tcp.flags.reset==1` |
 | `udp` | `dns or tls` |
+
+**The panel's headline** is `Timeline of conversation <transport>:<ip>:<port> - <ip>:<port>`.
+It is drawn from the row's own `ip_a` / `port_a` / `ip_b` / `port_b` fields rather than from
+the joined `conv_id`, so the two addresses and the two ports can be told apart: the addresses
+take the foreground colour, the ports the telemetry cyan, and both are set in the mono face
+(`.endpoint-pair`, `.endpoint-ip`, `.endpoint-port`). The hyphen between the endpoints keeps
+the id's own separator with a space either side of it.
 
 Each event row shows the clock time, a protocol chip, the frame number as a link to the
 Packets page, and a label that prefers dissected fields over the raw summary — an HTTP

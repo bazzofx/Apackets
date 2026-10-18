@@ -134,9 +134,29 @@ export function ConversationTimeline({
       <Panel
         flush
         title={
-          conversation
-            ? `Timeline of conversation ${conversation.conv_id}`
-            : `Timeline of ${target.transport} stream ${target.streamId}`
+          conversation ? (
+            <>
+              Timeline of conversation{' '}
+              {/* The two endpoints, drawn from their own fields rather than the joined
+                  `conv_id`, so the address and the port can be told apart by colour and
+                  set in the mono face. The separator is the same string the id uses, with
+                  a space on either side of it. */}
+              <span className="endpoint-pair">
+                {conversation.transport}:
+                <span className="endpoint-ip">{conversation.ip_a}</span>
+                {conversation.port_a === null ? null : (
+                  <span className="endpoint-port">:{String(conversation.port_a)}</span>
+                )}
+                <span className="endpoint-sep"> - </span>
+                <span className="endpoint-ip">{conversation.ip_b}</span>
+                {conversation.port_b === null ? null : (
+                  <span className="endpoint-port">:{String(conversation.port_b)}</span>
+                )}
+              </span>
+            </>
+          ) : (
+            `Timeline of ${target.transport} stream ${target.streamId}`
+          )
         }
         subtitle={
           conversation
@@ -149,7 +169,7 @@ export function ConversationTimeline({
           </button>
         }
       >
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 p-3 text-2xs text-muted">
+        <div className="conversation-facts flex flex-wrap items-center gap-x-3 gap-y-1 p-3 text-2xs text-muted">
           {conversation ? (
             <>
               <StateChip state={conversation.state} />

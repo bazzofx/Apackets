@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import clsx from 'clsx'
 import SeverityBadge, { isSeverity } from '@/components/SeverityBadge'
+import { IpLabel } from './IpFlag'
 import { EMPTY } from '@/utils/format'
 import type { ThreatHuntTableVisual } from '@/types'
 import { TONE_TEXT, VisualFrame, VisualNoData } from './visualKit'
@@ -82,10 +83,10 @@ export function TableVisual({ visual }: TableVisualProps) {
                         <SeverityBadge severity={text} />
                       ) : linked ? (
                         <Link to={cell.to as string} className="text-accent2 hover:underline">
-                          {text}
+                          <IpLabel text={text} />
                         </Link>
                       ) : (
-                        text
+                        <IpLabel text={text} />
                       )}
                     </td>
                   )

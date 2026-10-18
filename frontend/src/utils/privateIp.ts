@@ -21,6 +21,18 @@ const BLOCKS: Array<[string, number]> = [
   ['240.0.0.0', 4], // reserved, including 255.255.255.255
 ]
 
+/**
+ * True when the whole string is a dotted IPv4 address - no port, no suffix.
+ *
+ * The Threat Map draws a flag before every address it prints inside a visual label, and
+ * a label like `192.168.8.178:22 (SSH)` has to be split back into an address and the rest.
+ * This is that test, sharing `toInt` with the private-block check so the two readings of
+ * "is this an address" cannot drift apart.
+ */
+export function isIpv4(value: string): boolean {
+  return toInt(value.trim()) !== null
+}
+
 /** "a.b.c.d" as one 32-bit number, or null. */
 function toInt(address: string): number | null {
   const parts = address.split('.')
