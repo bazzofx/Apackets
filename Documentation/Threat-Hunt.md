@@ -119,34 +119,53 @@ capture, not a defect.
 
 ---
 
-## 4. The tabs
+## 4. The cockpit
 
-Seventeen cards is too many to stack, so the page groups them into the phases an
-analyst actually works in. The grouping is **presentation only** — it does not
-change the payload — and it may never hide a detection: an id no group claims is
-shown under *Other*, and an id the response omits is reported in a banner.
+Seventeen cards is too many to stack, so the page is a cockpit: a command strip, two
+summary plots, a grid of every detection, and one investigation panel. The grouping is
+**presentation only** — it does not change the payload — and it may never hide a
+detection: an id no group claims is shown under *Other*, and an id the response omits is
+reported in a banner.
 
-| Tab (`?tab=`) | Label | Detections it owns | Count |
-|---|---|---|---|
-| `overview` | Overview | — (one compact row per detection) | 17 rows |
-| `recon` | Recon and movement | `network_scanning`, `high_fan_out`, `rare_pairs`, `unusual_ports`, `failed_connections`, `lateral_movement` | 6 |
-| `c2` | C2 and name resolution | `c2_beaconing`, `dns_anomalies`, `dns_tunnelling`, `suspicious_tls` | 4 |
-| `exfil` | Exfiltration and staging | `data_exfiltration`, `unusual_egress`, `data_staging`, `malware_download` | 4 |
-| `web` | Web and alerts | `suspicious_http`, `traffic_bursts`, `ids_matches` | 3 |
+**Layer A — the command strip.** Six KPI cards over one line that says what the run was
+computed from (`packets_scanned`, the bucket width and `top`, all from the payload). The
+cards are: detections (17), with matches, nothing matched, not computable, reported
+signal, and coverage. *Reported signal* is the sum of the headline measures of the
+detections that computed a result — the measures are unlike things (events, hosts,
+ports), so the card is a sense of volume and its tooltip says it is not a count of
+incidents. Coverage is `computed / total`, drawn on a thin bar because it has a real
+denominator.
 
-The active tab lives in the URL (`?tab=…`), so a group is shareable and survives
-a reload; an unknown value falls back to `overview`. Each non-overview tab shows
-an `n/m` count of how many of its detections computed something for this capture.
+**Layer B — the plots.**
 
-**Overview** is one compact line per detection: the availability chip, the title,
-the headline label and the headline number. Clicking a row opens the tab that owns
-that detection — it is a routing surface, not a summary you are meant to read in
-full.
+* *Detection signal*: one row per detection that computed a result, ranked by its own
+  headline measure, each row naming its own unit. The bars share one scale but the
+  measures do not, so the panel says it is a triage order rather than a comparison. Each
+  row is a button.
+* *Detection status*: a donut of the three states with the total in the centre. A slice
+  or its legend row filters the grid to that state and back; the filter rides in the URL.
 
-Above the tabs sits the header: the scope note, stating what the section can and
-cannot say. It starts collapsed — the section is seventeen answers, not a primer —
-and opens from the *show* toggle in its own header. No other control sits above the
-tabs, and the page does not report a generated-at time.
+**Layer B/C — the grid.** Every detection, in seven groups by the question it asks. A
+card carries the status icon, the detection's title, its headline measure and a bar on
+the page's shared scale, so the grid can be swept without opening anything. The seven
+groups are *Network behaviour*, *Connection anomalies*, *DNS and command-and-control*,
+*TLS and encrypted traffic*, *Data movement and exfiltration*, *HTTP and payload
+analysis* and *IDS and signature detection*.
+
+**Layer C — the investigation panel.** Clicking a row or a card opens that detection's
+full card — the same `IndicatorCard` the page has always rendered: question, headline,
+availability and its reason, every visual the backend built for it, what the pattern may
+indicate, the caveat, and the links into the rows behind it. It is pinned on the right
+above `xl`, so the grid stays clickable while it is read, and it closes with its own
+button.
+
+Two parameters ride in the URL: `?detection=<id>` and `?status=ok|empty|not_applicable`.
+An unknown value is ignored rather than guessed, and the page falls back to nothing
+selected.
+
+Above all of it sits the scope note, stating what the section can and cannot say. It
+starts collapsed — the section is seventeen answers, not a primer — and opens from the
+*show* toggle in its own header.
 
 ---
 
