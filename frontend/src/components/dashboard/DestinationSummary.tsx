@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import clsx from 'clsx'
 import ninjaMark from '@/assets/ninja-ridge.svg'
+import { flagUrl } from '@/theme/countryFlags'
 import { countryName } from '@/theme/worldMap'
 import { formatBytes, formatNumber } from '@/utils/format'
 import type { Analysis, GeographyResponse, TopPort } from '@/types'
@@ -19,8 +20,9 @@ export interface DestinationSummaryProps {
   onFocus: (code: string | null) => void
 }
 
-/** One ranking row: label, count, share, and a thin bar in the metric's hue. */
+/** One ranking row: optional flag, label, count, share, and a thin bar in the metric's hue. */
 function RankRow({
+  icon,
   label,
   hint,
   value,
@@ -29,6 +31,7 @@ function RankRow({
   active,
   onClick,
 }: {
+  icon?: React.ReactNode
   label: string
   hint?: string
   value: string
@@ -49,7 +52,8 @@ function RankRow({
       )}
       title={hint}
     >
-      <span className="flex w-full items-baseline gap-2">
+      <span className="flex w-full items-center gap-2">
+        {icon}
         <span className={clsx('min-w-0 flex-1 truncate text-xs', active ? 'text-text' : 'text-muted')}>
           {label}
         </span>
@@ -138,26 +142,47 @@ export function DestinationSummary({
             </p>
           ) : (
             <>
-              {countries.rows.map((country) => (
-                <RankRow
-                  key={country.code}
-                  label={country.name ?? countryName(country.code)}
-                  hint={
-                    country.code +
-                    ' · ' +
-                    formatNumber(country.addresses) +
-                    ' address(es) · ' +
-                    formatNumber(country.packets) +
-                    ' packet(s) · ' +
-                    formatBytes(country.bytes)
-                  }
-                  value={formatNumber(country.addresses)}
-                  percent={countries.total === 0 ? 0 : (100 * country.addresses) / countries.total}
-                  tone="red"
-                  active={focused === country.code}
-                  onClick={() => onFocus(focused === country.code ? null : country.code)}
-                />
-              ))}
+              {countries.rows.map((country) => {
+                /* The flag comes from the same resolver the host and credential tables use:
+                   a code the build has no flag for draws a small code chip instead, never a
+                   neighbour's flag and never a guessed placeholder. */
+                const flag = flagUrl(country.code)
+                return (
+                  <RankRow
+                    key={country.code}
+                    icon={
+                      flag !== null ? (
+                        <img
+                          src={flag}
+                          alt=""
+                          aria-hidden
+                          data-country={country.code}
+                          className="host-flag shrink-0"
+                        />
+                      ) : (
+                        <span className="mono w-4 shrink-0 text-center text-2xs text-faint" aria-hidden>
+                          {country.code === 'ZZ' ? '—' : country.code.slice(0, 2)}
+                        </span>
+                      )
+                    }
+                    label={country.name ?? countryName(country.code)}
+                    hint={
+                      country.code +
+                      ' · ' +
+                      formatNumber(country.addresses) +
+                      ' address(es) · ' +
+                      formatNumber(country.packets) +
+                      ' packet(s) · ' +
+                      formatBytes(country.bytes)
+                    }
+                    value={formatNumber(country.addresses)}
+                    percent={countries.total === 0 ? 0 : (100 * country.addresses) / countries.total}
+                    tone="red"
+                    active={focused === country.code}
+                    onClick={() => onFocus(focused === country.code ? null : country.code)}
+                  />
+                )
+              })}
               {unknown !== undefined && unknown.addresses > 0 ? (
                 <div className="flex items-center justify-between border-t border-border/60 px-2.5 py-1.5 text-2xs text-faint">
                   <span>not placed</span>

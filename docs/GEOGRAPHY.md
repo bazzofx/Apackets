@@ -1,7 +1,7 @@
 # Geography contract
 
 **Status:** normative for the geographic view of the Dashboard's map panel — the world map,
-the arcs to destination countries, and the country list beneath it. `docs/CONTRACT.md`
+the arcs to destination countries, and the country ranking beside it. `docs/CONTRACT.md`
 governs everything older; where the two touch, that document wins.
 
 ---
@@ -330,8 +330,7 @@ panel is the same shape.
 * The response's `note` is still served — it is the one-sentence statement of §7 in the payload,
   and the tests assert it — but by request the **panel does not print it**: a paragraph of limits
   at the foot of a list of addresses outweighed the addresses. The same limits stay on the page
-  in the country list under the map, which carries *a country is where the address block is
-  registered, not where the host is* with the full sentence in its tooltip.
+  as the world map's destination-count chip, whose tooltip is the response's own `note`.
 
 ## 7. Honest limits, stated on the page
 
@@ -347,7 +346,8 @@ panel is the same shape.
 * **No city, no coordinates, no confidence.** This is a country code and nothing else: the
   feature does not claim a city, an ASN, an organisation or a coordinate.
 * **A dot is a destination, not a person.** One address in a country means one address in a
-  country; the country list says how many, so a single CDN edge never reads as a campaign.
+  country; the ranking panel gives the address count, so a single CDN edge never reads as a
+  campaign.
 * **The dataset ages.** `dataset_month` and `fetched_at` are both shown, because a stale
   country table is a different claim from a fresh one.
 
@@ -370,5 +370,6 @@ panel is the same shape.
 | Geography + GeoIP routes | `backend/app/api/routes_geo.py` |
 | World outline asset | `frontend/src/theme/worldMap.ts` (generated; generator recorded in the file's header and in this contract) |
 | World map component | `frontend/src/components/dashboard/WorldMap.tsx` |
-| Country list | `frontend/src/components/dashboard/CountryList.tsx` |
+| Country ranking panel | `frontend/src/components/dashboard/DestinationSummary.tsx` |
+| Country flags | `frontend/src/theme/countryFlags.ts`, `frontend/src/country-flags/*.ico` |
 | Dashboard integration | `frontend/src/pages/DashboardPage.tsx`, `frontend/src/components/dashboard/NetworkMap.tsx` |

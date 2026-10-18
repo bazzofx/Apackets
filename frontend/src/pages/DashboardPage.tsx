@@ -296,78 +296,78 @@ function DashboardOverview() {
       {/* Geography and its ranking share one row: the map takes three quarters and the
           intelligence panel the last quarter, and the capture status sits under both. */}
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-4">
-      <Panel
-        className="xl:col-span-3"
-        title={
-          <span className="flex items-center gap-1.5">
-            <Radar size={13} className="text-accent2" aria-hidden />
-            Network geography
-          </span>
-        }
-        subtitle={
-          mapView === 'geo'
-            ? 'where the addresses in this capture are, one dot per country'
-            : 'who talked to whom in this capture, sized by bytes'
-        }
-        flush
-        actions={<MapViewToggle view={mapView} onChange={setMapView} />}
-      >
-        {mapView === 'graph' ? (
-          <div className="p-2">
-            <NetworkMap
-              nodes={graph.data?.nodes ?? []}
-              edges={graph.data?.edges ?? []}
-              isLoading={graph.isLoading}
-              error={graph.error}
-              onRetry={() => void graph.refetch()}
-              onSelect={openIp}
-            />
-          </div>
-        ) : geography.isLoading && geography.data === undefined ? (
-          <div className="p-3">
-            <LoadingState label="Placing this capture's addresses…" rows={4} />
-          </div>
-        ) : geography.error ? (
-          <div className="p-3">
-            <ErrorState
-              error={geography.error}
-              title="Could not load the geographic view"
-              onRetry={() => void geography.refetch()}
-            />
-          </div>
-        ) : geography.data !== undefined ? (
-          <div className="p-2">
-            <WorldMap
-              data={geography.data}
-              analysisId={analysisId as string}
-              focused={focusedCountry}
-              onFocus={setFocusedCountry}
-              onSelectIp={openIp}
-              datasetAction={
-                <BuildDatasetButton
-                  onBuild={() => buildDataset.mutate()}
-                  building={buildDataset.isPending}
-                  error={buildDataset.error}
-                  jobId={buildDataset.data?.job_id}
-                  waiting={waitingForDataset}
-                />
-              }
-            />
-          </div>
-        ) : null}
-      </Panel>
+        <Panel
+          className="xl:col-span-3"
+          title={
+            <span className="flex items-center gap-1.5">
+              <Radar size={13} className="text-accent2" aria-hidden />
+              Network geography
+            </span>
+          }
+          subtitle={
+            mapView === 'geo'
+              ? 'where the addresses in this capture are, one dot per country'
+              : 'who talked to whom in this capture, sized by bytes'
+          }
+          flush
+          actions={<MapViewToggle view={mapView} onChange={setMapView} />}
+        >
+          {mapView === 'graph' ? (
+            <div className="p-2">
+              <NetworkMap
+                nodes={graph.data?.nodes ?? []}
+                edges={graph.data?.edges ?? []}
+                isLoading={graph.isLoading}
+                error={graph.error}
+                onRetry={() => void graph.refetch()}
+                onSelect={openIp}
+              />
+            </div>
+          ) : geography.isLoading && geography.data === undefined ? (
+            <div className="p-3">
+              <LoadingState label="Placing this capture's addresses…" rows={4} />
+            </div>
+          ) : geography.error ? (
+            <div className="p-3">
+              <ErrorState
+                error={geography.error}
+                title="Could not load the geographic view"
+                onRetry={() => void geography.refetch()}
+              />
+            </div>
+          ) : geography.data !== undefined ? (
+            <div className="p-2">
+              <WorldMap
+                data={geography.data}
+                analysisId={analysisId as string}
+                focused={focusedCountry}
+                onFocus={setFocusedCountry}
+                onSelectIp={openIp}
+                datasetAction={
+                  <BuildDatasetButton
+                    onBuild={() => buildDataset.mutate()}
+                    building={buildDataset.isPending}
+                    error={buildDataset.error}
+                    jobId={buildDataset.data?.job_id}
+                    waiting={waitingForDataset}
+                  />
+                }
+              />
+            </div>
+          ) : null}
+        </Panel>
 
-      {/* The ranking that goes with the map. It reads the same geography response and the
-          same summary ports the rest of the Dashboard already fetched. */}
-      <div className="min-h-[22rem] xl:col-span-1">
-        <DestinationSummary
-          geography={geography.data}
-          topPorts={data.top_ports ?? []}
-          selected={selected}
-          focused={focusedCountry}
-          onFocus={setFocusedCountry}
-        />
-      </div>
+        {/* The ranking that goes with the map. It reads the same geography response and the
+            same summary ports the rest of the Dashboard already fetched. */}
+        <div className="min-h-[22rem] xl:col-span-1">
+          <DestinationSummary
+            geography={geography.data}
+            topPorts={data.top_ports ?? []}
+            selected={selected}
+            focused={focusedCountry}
+            onFocus={setFocusedCountry}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

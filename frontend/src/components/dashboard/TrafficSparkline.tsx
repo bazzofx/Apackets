@@ -78,12 +78,16 @@ export function TrafficSparkline({ series, height = 190, initialMetric = 'both' 
   const lastPoint = series[lastIndex]
   const pulseDot = (props: DotRenderProps) => {
     const { cx, cy, index, payload } = props
+    // Recharts calls this once per point and collects the results into a list, so EVERY
+    // element returned needs its own stable key - including the empty ones, or React
+    // warns "Each child in a list should have a unique key prop" inside <Area>.
+    const key = 'traffic-dot-' + String(index ?? 0)
     // Recharts passes the point index; some versions omit it, so the datum is checked
     // as well. Either way only the newest point draws, and the rest draw nothing.
     const isLast = index === lastIndex || payload === lastPoint
-    if (!isLast || cx === undefined || cy === undefined) return <g />
+    if (!isLast || cx === undefined || cy === undefined) return <g key={key} />
     return (
-      <g className="heart-dot" key="heart-dot">
+      <g className="heart-dot" key={key}>
         <circle
           className="heart-dot-halo"
           cx={cx}

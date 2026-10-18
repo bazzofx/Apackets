@@ -481,7 +481,7 @@ export function WorldMap({
             <CornerChip
               title={
                 available
-                  ? `${formatNumber(unknown.addresses)} address(es) have no country in the dataset and are drawn nowhere. They are listed under the map.`
+                  ? `${formatNumber(unknown.addresses)} address(es) have no country in the dataset and are drawn nowhere. They are counted as not placed in the ranking beside the map.`
                   : 'No location dataset is installed yet.'
               }
             >

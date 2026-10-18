@@ -98,8 +98,8 @@ Back returns to the other. The panel's other header action is a **Host inventory
 #### 2.3.1 Geography — where the capture's addresses are
 
 `frontend/src/components/dashboard/WorldMap.tsx` draws it and
-`frontend/src/components/dashboard/CountryList.tsx` lists it underneath. The contract for the
-whole feature — the dataset, its licence and provenance, the endpoint, the caps and the limits
+`frontend/src/components/dashboard/DestinationSummary.tsx` ranks it in the panel beside the map.
+The contract for the whole feature — the dataset, its licence and provenance, the endpoint, the caps and the limits
 — is [`docs/GEOGRAPHY.md`](../docs/GEOGRAPHY.md); this is what a reader sees.
 
 | Element | Meaning |
@@ -111,9 +111,11 @@ whole feature — the dataset, its licence and provenance, the endpoint, the cap
 | Dot label | Drawn for the six largest countries and for whichever is focused, as `US · 16` — the code and the address count. |
 | Hover readout | Under the map: the country's name, addresses, volume, packets, and its first four addresses as buttons that open the host page. |
 | Corner chips | Top-left counts the destinations and located addresses; top-right counts the addresses **not placed** in any country. |
-| Country list | Under the map, one row per country in the API's order (bytes descending): code, name, address count, volume, packet count, and the addresses themselves as buttons. |
-| Own-network row | The first row: the capture's own addresses, with a note that a private address has no country. |
-| Unknown row | The addresses the dataset could not place, listed separately and never folded into a country's totals. |
+| Ranking panel | Beside the map: the same countries ranked by **address count** — the metric the corner chip counts, so the panel and the map can never describe different populations — largest first, each row reading its share of the ranked total on a thin bar. A row is a button that pins the same country its dot pins, and the focused country's row is highlighted, so panel and map always agree. |
+| Country flag | Each ranked row opens with the country's flag, from the same resolver the host and credential tables use (`frontend/src/theme/countryFlags.ts`, bundled icons, no network). A code the build has no flag for draws a small code chip instead — never a neighbour's flag, and never a guessed placeholder. |
+| Top ports tab | The panel's second tab ranks the summary's `top_ports` by packets, with the service name when known. Both tabs read responses the Dashboard already fetched, so nothing is aggregated a second time and nothing is invented. |
+| Not placed | Under the ranked countries: the count of addresses the dataset could not place, kept separate and never folded into a country's totals. |
+| Capture line | Under the tabs: the shown capture's state dot, its filename and its packet count. |
 | Provenance line | Under the map, when the dataset is installed: the dataset's own month, its range count and the licence attribution (*IP geolocation by DB-IP*), which CC BY 4.0 requires. |
 
 Motion is a promise, not decoration: the arcs move slowly and the pinned dot pulses, and both

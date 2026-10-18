@@ -497,7 +497,7 @@ security model and the known limitations.
 | How the front end talks to the API | `frontend/src/services/api.ts`, `frontend/vite.config.ts` |
 | The pages and their routes | `frontend/src/pages/`, `frontend/src/App.tsx`, `frontend/src/layouts/AppLayout.tsx` |
 | The five protocol-session pages, which are one component with a family | `frontend/src/pages/ProtocolSessionsPage.tsx`, `frontend/src/components/protocols/sessionCatalog.ts`, `SessionDetail.tsx` |
-| The world map, its zoom, its country list, the destination panel a dot opens, and the generated outline asset | `frontend/src/components/dashboard/WorldMap.tsx`, `CountryList.tsx`, `DestinationPanel.tsx`, `frontend/src/theme/worldMap.ts` |
+| The world map, its zoom, the country ranking beside it, the destination panel a dot opens, and the generated outline asset | `frontend/src/components/dashboard/WorldMap.tsx`, `DestinationSummary.tsx`, `DestinationPanel.tsx`, `frontend/src/theme/worldMap.ts` |
 
 ---
 
