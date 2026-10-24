@@ -1,6 +1,6 @@
 # Deployment
 
-How to run ShinboShark on another machine: one image, one container, one port. The
+How to run ShadowPackets on another machine: one image, one container, one port. The
 whole application — the Python API, TShark, and the built interface — is inside it, and
 FastAPI serves the interface itself, so there is no nginx and no proxy to configure.
 
@@ -19,8 +19,8 @@ docker compose up --build        # then open http://127.0.0.1:8080
 or without compose:
 
 ```
-docker build -t shinobishark .
-docker run --rm -p 127.0.0.1:8080:8000 -v shinobishark-data:/data shinobishark
+docker build -t shadowpackets .
+docker run --rm -p 127.0.0.1:8080:8000 -v shadowpackets-data:/data shadowpackets
 ```
 
 Both bind to **loopback only**. The container listens on `0.0.0.0` inside its own network
@@ -28,6 +28,26 @@ namespace — it has to, or nothing could reach it — and the published mapping
 `127.0.0.1:8080:8000` is what keeps the capture data on this machine. There is no
 authentication in this application, so publishing it on `0.0.0.0` would hand the capture
 library to the network.
+
+On the first start with an empty `/data` volume, the application imports the vendored
+Suricata rules automatically (about 1,600 rules). Later starts leave the rule table alone,
+so edits and analyst uploads are preserved; **Import bundled** on `/settings` refreshes
+them explicitly.
+
+## 1.1 Renamed from ShinboShark
+
+The application was renamed to **ShadowPackets**, and three names moved with it. An
+installation made before the rename keeps its data, because each move is adopted once, on
+first start:
+
+| What moved | Before | Now | What happens on the first start |
+|---|---|---|---|
+| The database file | `data/apackets.db` | `data/shadowpackets.db` | If the new file is absent and the old one exists, the old one is copied into it with SQLite's backup API. The old file is left in place, as a backup |
+| Environment variables | `APACKETS_*` | `SHADOWPACKETS_*` | Any old-prefixed variable — in the process environment or a `.env` file — is read once as its new name. Set the new names to make the move permanent |
+| Browser preferences | `apackets.theme`, `apackets.motion`, `apackets.analysisId` | `shadowpackets.*` | Read once from the old key and written to the new one, so a chosen palette, a motion setting and the selected capture survive |
+| Docker volume | `apackets-data` (or `shinobishark-data`) | `shadowpackets-data` | **Not automatic.** Compose creates a new, empty volume, so re-attach the old one or copy it across: `docker volume create shadowpackets-data` and copy `/data` between the two containers, or keep the old volume by overriding `services.app.volumes` in a compose file of your own |
+
+The old database file is safe to delete once the new one is serving the library you expect.
 
 ## 2. The image, stage by stage (`Dockerfile`)
 
@@ -73,20 +93,22 @@ Scale by putting captures on separate installations, not by forking this process
 
 ## 5. Configuration
 
-Every value is an `APACKETS_*` environment variable, and every one has a default — an
+Every value is an `SHADOWPACKETS_*` environment variable, and every one has a default — an
 empty `.env` is a working installation. Copy `.env.example` and edit it; `docker-compose.yml`
 passes the interesting ones through.
 
 | Variable | Default | What it changes |
 |---|---|---|
-| `APACKETS_MAX_UPLOAD_MB` | 512 | Largest accepted capture |
-| `APACKETS_TSHARK_TIMEOUT_S` | 300 | Per TShark call |
-| `APACKETS_WORKER_THREADS` | 2 | Analysis pipeline threads |
-| `APACKETS_RETAIN_UPLOADS` | true | Keep the uploaded file (the packet pivot and stream views need it) |
-| `APACKETS_MAX_OBJECT_BYTES` | 50 MiB | Largest extracted object |
-| `APACKETS_BASELINE_AUTO_RECALC` | true | Recompute baseline findings after a baseline change |
-| `APACKETS_LOG_LEVEL` | INFO | `DEBUG` slows a large analysis noticeably |
-| `APACKETS_PORT_HOST` | 8080 | Host port the compose file publishes |
+| `SHADOWPACKETS_MAX_UPLOAD_MB` | 512 | Largest accepted capture |
+| `SHADOWPACKETS_TSHARK_TIMEOUT_S` | 300 | Per TShark call |
+| `SHADOWPACKETS_WORKER_THREADS` | 2 | Analysis pipeline threads |
+| `SHADOWPACKETS_RETAIN_UPLOADS` | true | Keep the uploaded file (the packet pivot and stream views need it) |
+| `SHADOWPACKETS_MAX_OBJECT_BYTES` | 50 MiB | Largest extracted object |
+| `SHADOWPACKETS_BASELINE_AUTO_RECALC` | true | Recompute baseline findings after a baseline change |
+| `SHADOWPACKETS_SURICATA_AUTO_SEED` | true | Import bundled Suricata rules when the rule table is empty |
+| `SHADOWPACKETS_LOG_LEVEL` | INFO | `DEBUG` slows a large analysis noticeably |
+| `SHADOWPACKETS_PORT_HOST` | 8080 | Host port the compose file publishes |
+| `SHADOWPACKETS_PUBLIC_URL` | unset | URL printed at startup; Compose derives it from the host port |
 
 ## 6. Verifying a deployment
 

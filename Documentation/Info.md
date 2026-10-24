@@ -100,7 +100,7 @@ transport, so the same port number can appear twice — `SpaceX_111025.pcapng` l
 The **Service** column is looked up in a fixed table of 51 well-known ports declared in
 `routes_analyses.py` as `KNOWN_PORTS` (IANA service names such as `https` for 443,
 `microsoft-ds` for 445). A port that is not in that table renders as `—`. The table is
-application data shipped with ShinboShark, not a fact about the capture, and it is a different
+application data shipped with ShadowPackets, not a fact about the capture, and it is a different
 mechanism from the operating-system service lookup the Findings page uses.
 
 The endpoint also returns a `bytes` figure per port; this table does not show it.

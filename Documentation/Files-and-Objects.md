@@ -243,7 +243,7 @@ to that exported name. They are `complete` because nothing disproved completenes
 completeness was verified.
 
 The same pattern holds across the library: of the 129 rows in `objects` in
-`data/apackets.db`, every row is `complete`, 33 carry no `stream_id` and 48 list no frames.
+`data/shadowpackets.db`, every row is `complete`, 33 carry no `stream_id` and 48 list no frames.
 
 ## 5. Links into the rest of the app
 

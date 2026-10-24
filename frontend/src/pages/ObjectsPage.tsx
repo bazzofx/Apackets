@@ -373,7 +373,7 @@ function ObjectsContent() {
               Extracted content is untrusted — handle it as potentially malicious
             </div>
             <p className="mt-1 text-2xs leading-relaxed text-muted">
-              Every file listed here was carved out of the capture. ShinboShark stores it inside the
+              Every file listed here was carved out of the capture. ShadowPackets stores it inside the
               local analysis directory on this machine, <strong className="text-text">never
               executes it</strong>, never previews it as HTML and never builds a download link from a
               capture-supplied file name — downloads use the server-generated object id only. Object

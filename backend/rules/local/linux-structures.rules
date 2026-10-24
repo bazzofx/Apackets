@@ -1,4 +1,4 @@
-# ShinboShark local rule layer - corrections to the vendored daffainfo set.
+# ShadowPackets local rule layer - corrections to the vendored daffainfo set.
 #
 # Origin of the corrected rules: backend/rules/daffainfo/http/web-attacks/
 # linux-structures.rules (SIDs 50200001-50200016), vendored verbatim from

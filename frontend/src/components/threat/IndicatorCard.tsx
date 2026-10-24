@@ -93,7 +93,7 @@ function IndicatorVisual({ visual }: { visual: ThreatHuntVisual }) {
       const unknown = visual as { kind?: unknown }
       return (
         <p className="text-2xs leading-relaxed text-warn" data-threat-visual-unknown={String(unknown.kind)}>
-          The backend returned a visual of kind “{String(unknown.kind)}”, which this build of ShinboShark does
+          The backend returned a visual of kind “{String(unknown.kind)}”, which this build of ShadowPackets does
           not know how to draw.
         </p>
       )

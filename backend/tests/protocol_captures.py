@@ -409,7 +409,7 @@ SIP_INVITE = (
     b"To: Bob <sip:bob@lab.test>\r\n"
     b"Call-ID: 8f9e1c0a4d2b@lab.test\r\n"
     b"CSeq: 1 INVITE\r\n"
-    b"User-Agent: APackets-TestUA/1.0\r\n"
+    b"User-Agent: ShadowPackets-TestUA/1.0\r\n"
     b"Content-Type: application/sdp\r\n"
     b"Content-Length: 121\r\n"
     b"\r\n"
@@ -428,7 +428,7 @@ def sip_exchanges() -> list[tuple[str, bytes]]:
             b"SIP/2.0 200 OK\r\nVia: SIP/2.0/UDP 10.10.0.10:5062\r\n"
             b"From: Alice <sip:alice@lab.test>;tag=1a2b\r\nTo: Bob <sip:bob@lab.test>;tag=9f8e\r\n"
             b"Call-ID: 8f9e1c0a4d2b@lab.test\r\nCSeq: 1 INVITE\r\n"
-            b"User-Agent: APackets-TestUAS/1.0\r\nContent-Type: application/sdp\r\nContent-Length: 96\r\n"
+            b"User-Agent: ShadowPackets-TestUAS/1.0\r\nContent-Type: application/sdp\r\nContent-Length: 96\r\n"
             b"\r\nv=0\r\no=bob 1 1 IN IP4 10.10.0.20\r\ns=call\r\n"
             b"c=IN IP4 10.10.0.20\r\nt=0 0\r\nm=audio 5004 RTP/AVP 0\r\n",
         ),

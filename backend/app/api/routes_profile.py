@@ -24,7 +24,7 @@ from app.core.errors import unprocessable
 from app.core.logging import get_logger
 from app.services import entity_profile
 
-log = get_logger("apackets.api.profile")
+log = get_logger("shadowpackets.api.profile")
 
 router = APIRouter(prefix="/api/analyses/{analysis_id}", tags=["profile"])
 

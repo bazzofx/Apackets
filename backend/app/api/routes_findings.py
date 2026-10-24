@@ -28,7 +28,7 @@ from app.core.logging import get_logger
 from app.db import database as db
 from app.services import detection_engine, stream_analyzer, suricata_rules
 
-log = get_logger("apackets.api.findings")
+log = get_logger("shadowpackets.api.findings")
 
 router = APIRouter(prefix="/api/analyses", tags=["findings"])
 

@@ -57,7 +57,7 @@ function TsharkStatus() {
     return (
       <div
         className="flex items-center gap-1.5 text-2xs text-danger"
-        title="The ShinboShark backend is not reachable on this port."
+        title="The ShadowPackets backend is not reachable on this port."
       >
         <Unplug size={12} aria-hidden />
         <span className="hidden lg:inline">backend offline</span>

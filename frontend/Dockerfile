@@ -1,4 +1,4 @@
-# ShinboShark frontend image: build the Vite bundle, then serve it with nginx and
+# ShadowPackets frontend image: build the Vite bundle, then serve it with nginx and
 # proxy /api to the backend container.
 
 FROM node:22-bookworm-slim AS build

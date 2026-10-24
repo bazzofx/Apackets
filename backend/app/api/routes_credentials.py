@@ -37,7 +37,7 @@ from app.db import database as db
 from app.services import credential_analyzer as ca
 from app.services.jobs import jobs
 
-log = get_logger("apackets.api.credentials")
+log = get_logger("shadowpackets.api.credentials")
 
 router = APIRouter(prefix="/api/analyses/{analysis_id}", tags=["credentials"])
 

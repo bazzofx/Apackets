@@ -34,7 +34,7 @@ from app.core.logging import get_logger
 from app.db import database as db
 from app.services import suricata_engine, suricata_rules as sr
 
-log = get_logger("apackets.api.suricata")
+log = get_logger("shadowpackets.api.suricata")
 
 router = APIRouter(prefix="/api", tags=["suricata"])
 
@@ -178,7 +178,7 @@ def get_suricata_config() -> dict:
         "bundled_rules_dir": str(sr.RULES_DIR),
         "bundled_files": len(sr.load_bundled_files()),
         "engine": {
-            "engine": "apackets-native-matcher",
+            "engine": "shadowpackets-native-matcher",
             "suricata_binary": None,
             "note": (
                 "Rules are matched against TShark-extracted fields. The Suricata binary is "

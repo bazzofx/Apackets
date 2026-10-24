@@ -62,7 +62,7 @@ from app import __version__
 from app.core.logging import get_logger
 from app.db import database as db
 
-log = get_logger("apackets.ip_lookup")
+log = get_logger("shadowpackets.ip_lookup")
 
 # --------------------------------------------------------------------------
 # caps and constants (docs/IP_LOOKUP.md §6)
@@ -80,7 +80,7 @@ MIN_REQUEST_TIMEOUT_S = 0.5        # never hand a socket a timeout that rounds t
 
 #: A reader can see who asked for an address, and why it left the host.
 USER_AGENT = (
-    f"APackets/{__version__} (local PCAP forensics; "
+    f"ShadowPackets/{__version__} (local PCAP forensics; "
     "one RDAP record and one origin-AS query for the single address an analyst asked about)"
 )
 

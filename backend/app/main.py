@@ -22,10 +22,10 @@ from app.core.config import settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import get_logger, setup_logging
 from app.db import database as db
-from app.services import tshark, wireshark
+from app.services import suricata_rules, tshark, wireshark
 from app.services.jobs import jobs
 
-log = get_logger("apackets.main")
+log = get_logger("shadowpackets.main")
 
 # (module, attribute, required)
 ROUTER_SPECS: tuple[tuple[str, str], ...] = (
@@ -66,9 +66,32 @@ async def lifespan(_: FastAPI):
     else:
         log.warning("TShark is not available; uploads will be rejected until it is installed")
 
-    log.info("APackets %s ready — data directory %s", __version__, settings.data_dir)
+    if settings.suricata_auto_seed:
+        try:
+            seeded = suricata_rules.seed_bundled_rules_if_empty()
+        except Exception as exc:  # a rule-store problem must not stop the API
+            log.warning("could not import the bundled Suricata rules: %s", exc)
+        else:
+            if seeded is not None:
+                if seeded["files"] == 0:
+                    log.warning("no bundled Suricata rule files were found")
+                else:
+                    log.info(
+                        "imported %s bundled Suricata rules from %s files",
+                        seeded["imported"],
+                        seeded["files"],
+                    )
+                    if seeded["errors"]:
+                        log.warning(
+                            "bundled Suricata import reported %s parse errors",
+                            len(seeded["errors"]),
+                        )
+
+    log.info("ShadowPackets %s ready — data directory %s", __version__, settings.data_dir)
     log.info("listening on http://%s:%s (local-only: %s)", settings.host, settings.port,
              settings.host in {"127.0.0.1", "localhost", "::1"})
+    if settings.public_url:
+        log.info("open the interface at %s", settings.public_url)
     try:
         yield
     finally:
@@ -76,7 +99,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="APackets — Local PCAP Analyzer",
+    title="ShadowPackets — Local PCAP Analyzer",
     version=__version__,
     description=(
         "Locally hosted PCAP/PCAPNG analysis. All dissection is performed by "

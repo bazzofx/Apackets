@@ -1,9 +1,9 @@
 # Getting Started
 
-Install ShinboShark on one machine, run it, upload a first capture and know what the
+Install ShadowPackets on one machine, run it, upload a first capture and know what the
 processing stages are doing while you wait.
 
-ShinboShark is a **locally hosted** workbench: TShark dissects the capture on this
+ShadowPackets is a **locally hosted** workbench: TShark dissects the capture on this
 host, the result is indexed into SQLite, and a React front end serves it over
 loopback. Nothing is uploaded anywhere and there is no telemetry — see
 [Architecture.md](Architecture.md) for why that holds.
@@ -36,8 +36,8 @@ sudo dnf install wireshark-cli
 brew install --cask wireshark
 ```
 
-The application resolves the binaries from `APACKETS_TSHARK_PATH` /
-`APACKETS_CAPINFOS_PATH` first, then `PATH`, then the usual Wireshark install
+The application resolves the binaries from `SHADOWPACKETS_TSHARK_PATH` /
+`SHADOWPACKETS_CAPINFOS_PATH` first, then `PATH`, then the usual Wireshark install
 directories (`C:\Program Files\Wireshark`, `C:\Program Files (x86)\Wireshark`,
 `/usr/bin`, `/usr/local/bin`) — see `resolve_binary()` in
 `backend/app/services/tshark.py`. Live capture is deliberately not supported, so
@@ -55,14 +55,14 @@ docker compose up --build
 
 Then open **<http://127.0.0.1:8080>**. Both containers publish on loopback only
 (`127.0.0.1:8080:80` for the frontend, `127.0.0.1:8000:8000` for the backend), and
-analysis data lives in the `shinobishark-data` named volume mounted at `/data`.
+analysis data lives in the `shadowpackets-data` named volume mounted at `/data`.
 
 ```bash
 docker compose down        # stop, keep the stored analyses
 docker compose down -v     # stop and delete the data volume
 ```
 
-To keep captures in a directory you control, set `APACKETS_DATA_HOST` in `.env`
+To keep captures in a directory you control, set `SHADOWPACKETS_DATA_HOST` in `.env`
 and use the bind mount that is commented out in `docker-compose.yml`. The
 containers run with `no-new-privileges:true` and all capabilities dropped (the
 frontend's nginx adds back only `CHOWN`, `SETGID`, `SETUID`,
@@ -97,7 +97,7 @@ npm run dev
 
 Open <http://127.0.0.1:5173>. The Vite dev server listens on `127.0.0.1:5173`
 and proxies `/api` to `http://127.0.0.1:8000` (`frontend/vite.config.ts`); the
-proxy target is overridable with `APACKETS_BACKEND_URL`. The front end builds
+proxy target is overridable with `SHADOWPACKETS_BACKEND_URL`. The front end builds
 every request URL from `API_PREFIX = '/api'` in `frontend/src/services/api.ts`,
 so the same code works behind the proxy and behind the backend-served bundle.
 
@@ -119,31 +119,34 @@ client-route fallback for SPA paths.
 
 ### 2.4 Configuration
 
-Copy `.env.example` to `.env`; every value is optional and uses the `APACKETS_`
-prefix. The ones that matter on a first run are `APACKETS_DATA_DIR` (default
-`./data`, resolved against the repository root), `APACKETS_MAX_UPLOAD_MB` (512),
-`APACKETS_WORKER_THREADS` (2), `APACKETS_HOST` (127.0.0.1) and
-`APACKETS_RETAIN_UPLOADS` (true). Upload limit, object-size limit, body-preview
+Copy `.env.example` to `.env`; every value is optional and uses the `SHADOWPACKETS_`
+prefix. For a local run, `python backend/tools/init_env.py` fills the default
+TShark and Capinfos paths for the current OS (Windows `C:\Program Files\Wireshark`,
+Linux `/usr/bin`) and keeps any value already present. The ones that matter on a
+first run are `SHADOWPACKETS_DATA_DIR` (default
+`./data`, resolved against the repository root), `SHADOWPACKETS_MAX_UPLOAD_MB` (512),
+`SHADOWPACKETS_WORKER_THREADS` (2), `SHADOWPACKETS_HOST` (127.0.0.1) and
+`SHADOWPACKETS_RETAIN_UPLOADS` (true). Upload limit, object-size limit, body-preview
 size, TShark timeout and upload retention can also be changed at runtime from
 `/settings`.
 
 Binding anything other than loopback exposes unauthenticated capture data, so
 there is one rule worth repeating: **there is no authentication**. Remote access
 belongs behind an authenticating proxy or an SSH tunnel
-(`ssh -L 8080:127.0.0.1:8080 user@workstation`).
+(`ssh -L <host-port>:127.0.0.1:<host-port> user@workstation`).
 
 ---
 
 ## 3. What the first run does
 
-On startup the application's lifespan handler runs four things, in this order
+On startup the application's lifespan handler runs five things, in this order
 (`backend/app/main.py`):
 
 1. `setup_logging(settings.log_level)` — logging at `INFO` unless changed.
 2. `settings.ensure_dirs()` — creates `data/`, `data/uploads/`, `data/analyses/`
-   and `data/exports/` (and the data directory if `APACKETS_DATA_DIR` points
+   and `data/exports/` (and the data directory if `SHADOWPACKETS_DATA_DIR` points
    somewhere that does not exist yet).
-3. `db.init_db()` — opens `data/apackets.db` and executes
+3. `db.init_db()` — opens `data/shadowpackets.db` and executes
    `backend/app/db/schema.sql`. The schema is written with
    `CREATE TABLE IF NOT EXISTS`, so this is idempotent: on a fresh checkout it
    creates all fifteen tables, on a later start it leaves them alone. No sample
@@ -153,15 +156,18 @@ On startup the application's lifespan handler runs four things, in this order
    be rejected until it is installed"`); it does not stop the server, and
    `GET /api/health` then reports `"status": "degraded"` with the resolved
    `path` and `error` under `tshark`.
+5. `suricata_rules.seed_bundled_rules_if_empty()` — on a fresh database, imports
+   the rule sets vendored under `backend/rules/`. It is skipped when the rule
+   table already holds any rule, so an analyst's edits or uploads are never
+   overwritten on restart.
 
 It then logs the version, the data directory and the bind address, including
 whether that address is local-only. Two things it deliberately does **not** do:
 
-* **No Suricata rules are imported.** The vendored rule sets in
-  `backend/rules/` are inert until you press **Import bundled** on `/settings`
-  (`POST /api/suricata/rules/seed`, idempotent). Until then the `suricata` stage
-  runs over an empty rule table and contributes no findings.
-* **No analysis is queued.** Nothing is processed until you upload something.
+* **Re-import Suricata rules on every start.** The bundled sets are imported only
+  while the store is empty; **Import bundled** on `/settings`
+  (`POST /api/suricata/rules/seed`, idempotent) refreshes them on demand.
+* **Queue an analysis.** Nothing is processed until you upload something.
 
 `GET /api/capabilities` reports which feature areas this build actually has, by
 trying to import each router module, plus whether TShark is available.
@@ -176,7 +182,7 @@ trying to import each router module, plus whether TShark is available.
    immediately with the analysis row.
 2. The upload is validated before any analysis is created:
    * **extension** must be one of `.pcap`, `.pcapng`, `.cap` (the default of
-     `allowed_extensions`, env `APACKETS_ALLOWED_EXTENSIONS`, in
+     `allowed_extensions`, env `SHADOWPACKETS_ALLOWED_EXTENSIONS`, in
      `backend/app/core/config.py`), else `415 unsupported_file_type`;
    * **size** is streamed to disk and checked against the upload ceiling
      (512 MB by default), else `413 file_too_large`;
@@ -236,7 +242,7 @@ checkpoint rather than mid-write.
 
 Wall clock is dominated by stage 2, because TShark has to walk every frame.
 Measured on this machine from `jobs.started_at` → `jobs.finished_at` in
-`data/apackets.db`:
+`data/shadowpackets.db`:
 
 | Capture | Packets indexed | Wall clock |
 |---|---|---|
@@ -281,7 +287,7 @@ than being shown as a measured zero.
 
 The library in `data/` currently holds **22** rows in `analyses` and 19 rows in
 `jobs` (measured with an immutable read-only connection to
-`data/apackets.db`), not the 21 the surrounding brief mentions; the extra row is
+`data/shadowpackets.db`), not the 21 the surrounding brief mentions; the extra row is
 `ef79e0d702094c53a2ee3e823d072dec` / `nmap_sn_livehosts.pcapng`, the most
 recently created. Two of the 22 (`dddd…`, `eeee…`) are 32-character ids used as
 test fixtures.
@@ -318,8 +324,8 @@ things worth knowing before you debug a failure:
 * sets `XDG_CACHE_HOME` to `<repo>/.cache` and `XDG_CONFIG_HOME` to
   `<repo>/.config` **before** Scapy or the application is imported, because
   Scapy wants a writable cache directory;
-* redirects `APACKETS_DATA_DIR` to a throwaway `<repo>/.tmp/pytest-data-<pid>`
-  directory, so the suite never touches `data/apackets.db` or your uploads, and
+* redirects `SHADOWPACKETS_DATA_DIR` to a throwaway `<repo>/.tmp/pytest-data-<pid>`
+  directory, so the suite never touches `data/shadowpackets.db` or your uploads, and
   deletes it when the session ends;
 * gives every test a `fresh_db` fixture that empties the per-analysis tables and
   removes uploaded files, plus a `client` (FastAPI `TestClient`) and a
@@ -351,7 +357,7 @@ npx tsc --noEmit
 
 | Symptom | Cause |
 |---|---|
-| Uploads rejected with `503`, or `/api/health` reports `degraded` | TShark is not on `PATH`. Check `tshark --version`, then add the Wireshark directory to `PATH` or set `APACKETS_TSHARK_PATH` / `APACKETS_CAPINFOS_PATH`. |
+| Uploads rejected with `503`, or `/api/health` reports `degraded` | TShark is not on `PATH`. Check `tshark --version`, then add the Wireshark directory to `PATH` or set `SHADOWPACKETS_TSHARK_PATH` / `SHADOWPACKETS_CAPINFOS_PATH`. |
 | Upload returns `415 unsupported_file_type` | The magic bytes are not PCAP/PCAPNG. Truncated or renamed files are rejected on purpose. |
 | Upload returns `400 invalid_capture` | Valid header, but TShark cannot read it — usually a truncated capture. |
 | `/files` shows a finished analysis with warnings | An optional stage failed; the message names the stage and the exception. The rest of the analysis is intact. |

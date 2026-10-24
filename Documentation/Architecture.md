@@ -41,7 +41,7 @@ the wire shapes of the API, [Reference/API.md](Reference/API.md).
                                             │
                         ┌───────────────────┴────────────────────┐
                         ▼                                        ▼
-              SQLite index (data/apackets.db)          original capture
+              SQLite index (data/shadowpackets.db)          original capture
               packets, conversations, streams,         (data/uploads/)
               http, dns, tls, hosts, findings,         extracted objects
               objects, indicators                      (data/analyses/<id>/)
@@ -123,20 +123,20 @@ Notes that matter when reading the code:
 
 ## 4. Where the data lives
 
-Everything runtime lives under `APACKETS_DATA_DIR` (default `./data`, resolved
+Everything runtime lives under `SHADOWPACKETS_DATA_DIR` (default `./data`, resolved
 against the repository root).
 
 | Path | What it holds | Created by |
 |---|---|---|
-| `data/apackets.db` | The whole index, all analyses, plus settings and Suricata rules. SQLite, WAL mode, `synchronous=NORMAL`, `foreign_keys=ON`, 30 s connect timeout / 10 s busy timeout. | `db.init_db()` at startup |
+| `data/shadowpackets.db` | The whole index, all analyses, plus settings and Suricata rules. SQLite, WAL mode, `synchronous=NORMAL`, `foreign_keys=ON`, 30 s connect timeout / 10 s busy timeout. | `db.init_db()` at startup |
 | `data/uploads/<analysis-id>.<ext>` | The original capture, under a server-generated name. Needed by packet detail, stream reassembly, display filters and object export. | the upload route |
 | `data/analyses/<analysis-id>/` | Per-analysis directory. | the upload route |
 | `data/analyses/<analysis-id>/objects/` | Files recovered from the capture, named after their server-generated object id and never executed. | `object_extractor` |
 | `data/exports/` | Created by `settings.ensure_dirs()`; CSV and stream exports are streamed from memory rather than written here. | startup |
 
-The database is small and self-contained: on this machine `data/apackets.db` is
+The database is small and self-contained: on this machine `data/shadowpackets.db` is
 24,440,832 bytes for 22 analyses holding **18,578** indexed packet rows totalling
-13,726,676 frame bytes (measured read-only from `data/apackets.db`). Deleting an
+13,726,676 frame bytes (measured read-only from `data/shadowpackets.db`). Deleting an
 analysis removes its rows from twelve tables
 (`packets`, `conversations`, `streams`, `http_transactions`, `dns_queries`,
 `tls_sessions`, `hosts`, `findings`, `objects`, `stats_cache`, `jobs`,
@@ -179,8 +179,8 @@ work is scheduled, so moving the worker into its own process later is a containe
 change.
 
 * **Pool.** One lazily created `ThreadPoolExecutor`, `max_workers =
-  settings.worker_threads` (**2** by default, `APACKETS_WORKER_THREADS`), with
-  threads named `apackets-job`. Jobs beyond that queue.
+  settings.worker_threads` (**2** by default, `SHADOWPACKETS_WORKER_THREADS`), with
+  threads named `shadowpackets-job`. Jobs beyond that queue.
 * **Record.** `submit()` inserts a `jobs` row (`status='queued'`, message
   "Waiting for a worker") and keeps a `JobContext` in an in-memory registry keyed
   by job id.
@@ -230,7 +230,7 @@ file:
 * **No name resolution.** Every run carries `-n`, so analysis never sends a
   packet or does a DNS lookup, and a capture full of private addresses cannot
   cause a query.
-* **A hard wall-clock budget.** `APACKETS_TSHARK_TIMEOUT_S` (300 s default),
+* **A hard wall-clock budget.** `SHADOWPACKETS_TSHARK_TIMEOUT_S` (300 s default),
   overridable at runtime from `/settings`; exceeding it raises `TsharkTimeout`.
 * **Streaming, never buffering the capture.** `stream_fields()` yields one dict
   per frame, and `packet_indexer` writes in batches, so a large capture is never
@@ -247,7 +247,7 @@ file:
 
 Consequences that show up in behaviour:
 
-* **Display filters are TShark's, not ShinboShark's.** `POST /api/analyses/{id}/filter`
+* **Display filters are TShark's, not ShadowPackets's.** `POST /api/analyses/{id}/filter`
   and the `filter` parameter on the packets list pass the expression straight to
   TShark (`-Y`), which is why a filter that compiles but matches nothing is
   reported as **0 results** while an unparsable one is `422 invalid_filter` with
@@ -263,7 +263,7 @@ Consequences that show up in behaviour:
   evaluation do the same. Extracted objects are stored as files, so their download
   serves those stored bytes — but re-running extraction
   (`POST /api/analyses/{id}/objects/extract`) needs the capture again. That is why
-  `APACKETS_RETAIN_UPLOADS=false` makes packet detail, stream views and object
+  `SHADOWPACKETS_RETAIN_UPLOADS=false` makes packet detail, stream views and object
   extraction unavailable.
 * **No payload inspection anywhere else.** HTTP bodies are previewed, not
   interpreted; TLS is not decrypted; Threat Map reads metadata only — see
@@ -319,7 +319,7 @@ narrowly as one can be:
   running. A pid that is already gone therefore proves nothing about whether the
   window opened; it is reported for the log's sake, not as a handle on the GUI.
 * **Absence is reported, not guessed.** `resolve_binary()` looks in the
-  configured path (`APACKETS_WIRESHARK_PATH`), on `PATH`, next to the TShark this
+  configured path (`SHADOWPACKETS_WIRESHARK_PATH`), on `PATH`, next to the TShark this
   application already uses, and in the known install directories, then reports the
   path as it exists on disk. When there is no GUI, `GET
   /api/analyses/{id}/wireshark` says so and the menu shows the reason instead of a
@@ -438,11 +438,11 @@ the artwork and the type as the whole header.
   accent, cyan telemetry, green healthy state, gold warnings), `shinobi`, `steel-blue`,
   `cyber-punk`, `cyber-samurai` and `soc`.
 * **Where the preference lives.** `localStorage` under the key
-  `apackets.theme` (`THEME_STORAGE_KEY`), read and written by
+  `shadowpackets.theme` (`THEME_STORAGE_KEY`), read and written by
   `frontend/src/theme/ThemeProvider.tsx`. Any value that is not a known
   `ThemeId` falls back to `DEFAULT_THEME_ID = 'shadow'`, and a browser still holding
   one of the palettes that used to be the default (`steel-blue`, `shinobi`) adopts the
-  new one once, guarded by an `apackets.theme.default` marker so a later choice sticks. It is a per-browser
+  new one once, guarded by an `shadowpackets.theme.default` marker so a later choice sticks. It is a per-browser
   preference, not analysis data, so it never reaches the backend and never enters
   the database.
 * **How it is applied.** `applyTheme()` publishes every channel token as a CSS
@@ -456,7 +456,7 @@ the artwork and the type as the whole header.
 * **The pre-paint script.** `frontend/index.html` runs a small inline script
   before first paint so a reload does not flash Steel Blue. It duplicates **only
   three hints per theme** — the `r g b` triples for `bg`, `surface` and
-  `surface2`, the largest painted areas — reads the same `apackets.theme` key,
+  `surface2`, the largest painted areas — reads the same `shadowpackets.theme` key,
   sets `data-theme`, and then `ThemeProvider` replaces every token on mount. Whole
   palettes are deliberately not duplicated in HTML.
 * **The picker** is the `ThemePanel` on `/settings`
@@ -477,7 +477,7 @@ nothing.
 The application is designed to be fully functional with networking disabled, and
 the build holds to it:
 
-* **Loopback by default.** `APACKETS_HOST` defaults to `127.0.0.1` and the
+* **Loopback by default.** `SHADOWPACKETS_HOST` defaults to `127.0.0.1` and the
   lifespan logs whether the bind address is local-only;
   `GET /api/health` reports `local_only`. Docker Compose publishes both ports as
   `127.0.0.1:8080:80` and `127.0.0.1:8000:8000`, so the containers are reachable
@@ -493,13 +493,13 @@ the build holds to it:
 * **No threat-intelligence lookup, ever.** Detection is local and rule-based.
   The Suricata-compatible rule sets are vendored in `backend/rules/` and are never
   downloaded at runtime: rules arrive from that tree or from an analyst upload.
-  A rule that would need an engine feature ShinboShark cannot honour is stored,
+  A rule that would need an engine feature ShadowPackets cannot honour is stored,
   listed and flagged as skipped rather than approximated.
 * **Extracted files are never executed and never fetched.** Objects are written
   under `data/analyses/<id>/objects/`, and served only through the explicit
   download endpoint, with `X-Content-Type-Options: nosniff` and
   `Cache-Control: no-store`.
-* **CORS is loopback-only.** The default `APACKETS_CORS_ORIGINS` is the Vite dev
+* **CORS is loopback-only.** The default `SHADOWPACKETS_CORS_ORIGINS` is the Vite dev
   origins (`127.0.0.1:5173`, `localhost:5173`, `127.0.0.1:4173`);
   `allow_credentials` is false.
 * **The containers are defensive.** `no-new-privileges`, all capabilities dropped

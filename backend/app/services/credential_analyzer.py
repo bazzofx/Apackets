@@ -58,7 +58,7 @@ from app.db import database as db
 from app.services import http_analyzer, protocol_analyzer, tshark
 from app.services.jobs import JobContext
 
-log = get_logger("apackets.credentials")
+log = get_logger("shadowpackets.credentials")
 
 # --------------------------------------------------------------------------
 # caps (docs/CREDENTIALS.md §9)

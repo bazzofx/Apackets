@@ -494,7 +494,7 @@ export function PcapFilesPage() {
                 <>Choosing a baseline recomputes the baseline findings for every analysis automatically.</>
               ) : (
                 <>Automatic recalculation is switched off on this installation (
-                  <span className="mono">APACKETS_BASELINE_AUTO_RECALC=0</span>).</>
+                  <span className="mono">SHADOWPACKETS_BASELINE_AUTO_RECALC=0</span>).</>
               )}
             </span>
             <button

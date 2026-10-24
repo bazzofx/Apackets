@@ -187,7 +187,7 @@ clearing a baseline schedules a sweep:
 * **Manual repeat.** `POST /api/baseline/recalculate` runs the same sweep on demand -
   useful after re-enabling a baseline rule in [Alert Settings](Alert-Settings.md) - and the
   PCAP Files strip carries it as a **Recalculate** button.
-* **Switched off.** `APACKETS_BASELINE_AUTO_RECALC=false` leaves the stored findings alone
+* **Switched off.** `SHADOWPACKETS_BASELINE_AUTO_RECALC=false` leaves the stored findings alone
   until someone asks: the sweep reports `auto: false` and the endpoints never schedule
   one. The test suite runs with it off, so a sweep can never write while a test asserts.
 

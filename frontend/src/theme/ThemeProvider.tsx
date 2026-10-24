@@ -41,18 +41,39 @@ const ThemeContext = createContext<ThemeContextValue | null>(null)
  * before. The marker makes it one-time: choosing Steel Blue afterwards sticks.
  */
 const PREVIOUS_DEFAULT: ThemeId = 'steel-blue'
-const THEME_MIGRATION_KEY = 'apackets.theme.default'
+const THEME_MIGRATION_KEY = 'shadowpackets.theme.default'
+
+/* The key this preference used before the application was renamed. It is read
+   once, when the new key is absent, so a browser that had already chosen a
+   palette keeps it instead of silently falling back to the default. */
+const LEGACY_THEME_STORAGE_KEY = 'apackets.theme'
+const LEGACY_THEME_MIGRATION_KEY = 'apackets.theme.default'
+
+/** The stored theme, under the current key or - once - under the old one. */
+function storedThemeValue(storage: Storage): string | null {
+  const current = storage.getItem(THEME_STORAGE_KEY)
+  if (current !== null) return current
+  const legacy = storage.getItem(LEGACY_THEME_STORAGE_KEY)
+  if (legacy === null) return null
+  try {
+    storage.setItem(THEME_STORAGE_KEY, legacy)
+  } catch {
+    // Nothing to do: the value is still returned and used for this view.
+  }
+  return legacy
+}
 
 /** `localStorage` can throw (private mode, disabled storage), so read defensively. */
 function readStoredTheme(): ThemeId {
   if (typeof window === 'undefined') return DEFAULT_THEME_ID
   try {
-    const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
+    const stored = storedThemeValue(window.localStorage)
     if (!isThemeId(stored)) return DEFAULT_THEME_ID
     if (
       (stored === PREVIOUS_DEFAULT || stored === 'shinobi') &&
       DEFAULT_THEME_ID !== PREVIOUS_DEFAULT &&
-      window.localStorage.getItem(THEME_MIGRATION_KEY) === null
+      (window.localStorage.getItem(THEME_MIGRATION_KEY) ??
+        window.localStorage.getItem(LEGACY_THEME_MIGRATION_KEY)) === null
     ) {
       window.localStorage.setItem(THEME_STORAGE_KEY, DEFAULT_THEME_ID)
       window.localStorage.setItem(THEME_MIGRATION_KEY, '1')

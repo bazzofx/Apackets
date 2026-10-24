@@ -23,7 +23,7 @@ from app.core.logging import get_logger
 from app.db import database as db
 from app.services.tshark import JobCancelled
 
-log = get_logger("apackets.jobs")
+log = get_logger("shadowpackets.jobs")
 
 
 @dataclass
@@ -90,7 +90,7 @@ class JobManager:
         with self._lock:
             if self._pool is None:
                 self._pool = ThreadPoolExecutor(
-                    max_workers=self._workers, thread_name_prefix="apackets-job"
+                    max_workers=self._workers, thread_name_prefix="shadowpackets-job"
                 )
             return self._pool
 

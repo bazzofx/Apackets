@@ -738,7 +738,7 @@ export function WorldMap({
               <p className="text-xs leading-relaxed text-muted">
                 <span className="text-text">No location dataset yet.</span>{' '}
                 {data.dataset?.reason ??
-                  'The world outline is part of ShinboShark; the address-to-country table is not.'}{' '}
+                  'The world outline is part of ShadowPackets; the address-to-country table is not.'}{' '}
                 It is one public CC BY 4.0 file (DB-IP Lite, country), downloaded only when you ask
                 for it — no account, no key, and no capture data is ever sent.
               </p>

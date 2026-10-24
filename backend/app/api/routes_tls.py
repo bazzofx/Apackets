@@ -23,7 +23,7 @@ from app.api.deps import (
     pagination,
 )
 
-log = get_logger("apackets.api.tls")
+log = get_logger("shadowpackets.api.tls")
 
 router = APIRouter(prefix="/api/analyses/{analysis_id}", tags=["tls"])
 

@@ -26,7 +26,7 @@ from app.core.logging import get_logger
 from app.schemas import WiresharkRequest
 from app.services import wireshark
 
-log = get_logger("apackets.api.wireshark")
+log = get_logger("shadowpackets.api.wireshark")
 
 router = APIRouter(prefix="/api/analyses/{analysis_id}", tags=["wireshark"])
 

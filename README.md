@@ -1,4 +1,4 @@
-# ShinboShark — Local PCAP Analyzer
+# ShadowPackets — Local PCAP Analyzer
 
 A locally hosted web application for network traffic analysis and digital
 forensics. Upload a PCAP or PCAPNG capture, and inspect packets, conversations,
@@ -53,7 +53,7 @@ functional with networking disabled.
                                             │
                         ┌───────────────────┴────────────────────┐
                         ▼                                        ▼
-              SQLite index (data/apackets.db)          original capture
+              SQLite index (data/shadowpackets.db)          original capture
               packets, conversations, streams,         (data/uploads/)
               http, dns, tls, hosts, findings,         extracted objects
               objects, indicators                      (data/analyses/<id>/)
@@ -105,7 +105,10 @@ brew install --cask wireshark
 ```
 
 The application auto-detects the binaries on `PATH` and in the usual Windows
-install locations. If yours live elsewhere, set `APACKETS_TSHARK_PATH`.
+install locations. For a local run, `python backend/tools/init_env.py` writes the
+default paths for this OS into `.env` (Windows `C:\Program Files\Wireshark`,
+Linux `/usr/bin`); existing values are kept. If yours live elsewhere, set
+`SHADOWPACKETS_TSHARK_PATH` explicitly.
 
 > Live capture is deliberately not supported, so TShark does **not** need
 > capture privileges / `CAP_NET_RAW`. Only file reading is used.
@@ -118,21 +121,27 @@ install locations. If yours live elsewhere, set `APACKETS_TSHARK_PATH`.
 docker compose up --build
 ```
 
-Then open **<http://127.0.0.1:8080>**.
+Then open **<http://127.0.0.1:8081>**. This checkout sets
+`SHADOWPACKETS_PORT_HOST=8081` in `.env`; the container itself listens on `8000`.
+The startup log prints the exact URL (`open the interface at ...`).
 
 One image, one container: the API, TShark and the built interface are inside it, and
 FastAPI serves the interface on the same port. It publishes only on loopback, so the
 capture library never leaves this machine. Analysis data is kept in the
-`shinobishark-data` named volume.
+`shadowpackets-data` named volume.
 
 Without compose:
 
 ```bash
-docker build -t shinobishark .
-docker run --rm -p 127.0.0.1:8080:8000 -v shinobishark-data:/data shinobishark
+docker build -t shadowpackets .
+docker run --rm \
+  -p 127.0.0.1:8081:8000 \
+  -e SHADOWPACKETS_PUBLIC_URL=http://127.0.0.1:8081 \
+  -v shadowpackets-data:/data \
+  shadowpackets
 ```
 
-To keep captures in a directory you control instead, set `APACKETS_DATA_HOST` in `.env`
+To keep captures in a directory you control instead, set `SHADOWPACKETS_DATA_HOST` in `.env`
 and use the bind mount commented in `docker-compose.yml`.
 
 Stop and remove everything, including the stored analyses:
@@ -202,24 +211,27 @@ page shows the same information inline and polls while work is in flight.
 ## Configuration
 
 Copy `.env.example` to `.env`; every value is optional. Environment variables use
-the `APACKETS_` prefix.
+the `SHADOWPACKETS_` prefix.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `APACKETS_DATA_DIR` | `./data` | Uploads, analyses, exports and the SQLite database. |
-| `APACKETS_MAX_UPLOAD_MB` | `512` | Upload size ceiling. |
-| `APACKETS_TSHARK_PATH` | auto | Explicit path to `tshark`. |
-| `APACKETS_CAPINFOS_PATH` | auto | Explicit path to `capinfos`. |
-| `APACKETS_TSHARK_TIMEOUT_S` | `300` | Per-invocation wall-clock budget. |
-| `APACKETS_MAX_OBJECT_BYTES` | `52428800` | Largest file that may be extracted from a capture. |
-| `APACKETS_BODY_PREVIEW_BYTES` | `262144` | How much HTTP body is retained for display. |
-| `APACKETS_MAX_EXPORT_ROWS` | `200000` | Row cap for a single CSV export. |
-| `APACKETS_RETAIN_UPLOADS` | `true` | Keep the source capture. **Required** for packet detail and stream views. |
-| `APACKETS_WORKER_THREADS` | `2` | Concurrent analysis jobs. |
-| `APACKETS_HOST` | `127.0.0.1` | Bind address. |
-| `APACKETS_PORT` | `8000` | Bind port. |
-| `APACKETS_CORS_ORIGINS` | loopback dev ports | Comma-separated or JSON array. |
-| `APACKETS_LOG_LEVEL` | `INFO` | `DEBUG`…`ERROR`. |
+| `SHADOWPACKETS_DATA_DIR` | `./data` | Uploads, analyses, exports and the SQLite database. |
+| `SHADOWPACKETS_MAX_UPLOAD_MB` | `512` | Upload size ceiling. |
+| `SHADOWPACKETS_TSHARK_PATH` | auto | Explicit path to `tshark`. |
+| `SHADOWPACKETS_CAPINFOS_PATH` | auto | Explicit path to `capinfos`. |
+| `SHADOWPACKETS_TSHARK_TIMEOUT_S` | `300` | Per-invocation wall-clock budget. |
+| `SHADOWPACKETS_MAX_OBJECT_BYTES` | `52428800` | Largest file that may be extracted from a capture. |
+| `SHADOWPACKETS_BODY_PREVIEW_BYTES` | `262144` | How much HTTP body is retained for display. |
+| `SHADOWPACKETS_MAX_EXPORT_ROWS` | `200000` | Row cap for a single CSV export. |
+| `SHADOWPACKETS_RETAIN_UPLOADS` | `true` | Keep the source capture. **Required** for packet detail and stream views. |
+| `SHADOWPACKETS_WORKER_THREADS` | `2` | Concurrent analysis jobs. |
+| `SHADOWPACKETS_HOST` | `127.0.0.1` | Bind address. |
+| `SHADOWPACKETS_PORT` | `8000` | Bind port inside the container. |
+| `SHADOWPACKETS_PORT_HOST` | `8080` (8081 in `.env`) | Host port Compose publishes; the startup log prints the URL. |
+| `SHADOWPACKETS_PUBLIC_URL` | derived | URL printed at startup; Compose derives it from `SHADOWPACKETS_PORT_HOST`. |
+| `SHADOWPACKETS_SURICATA_AUTO_SEED` | `true` | Import the vendored Suricata rules when the rule store is empty. |
+| `SHADOWPACKETS_CORS_ORIGINS` | loopback dev ports | Comma-separated or JSON array. |
+| `SHADOWPACKETS_LOG_LEVEL` | `INFO` | `DEBUG`…`ERROR`. |
 
 These can also be changed at runtime from the **Settings** page (upload limit,
 object size limit, body preview size, TShark timeout, upload retention); runtime
@@ -233,8 +245,10 @@ need remote access, put it behind an authenticating reverse proxy or an SSH
 tunnel:
 
 ```bash
-ssh -L 8080:127.0.0.1:8080 user@analyst-workstation
+ssh -L 8081:127.0.0.1:8081 user@analyst-workstation
 ```
+
+Use the host port from `SHADOWPACKETS_PORT_HOST` on both sides.
 
 ---
 
@@ -280,7 +294,7 @@ states are never conflated.
 
 ## Suricata rule based detection
 
-ShinboShark can evaluate Suricata rules. Two rule sets are vendored with the
+ShadowPackets can evaluate Suricata rules. Two rule sets are vendored with the
 application and an analyst can upload more; matches become ordinary findings,
 alongside the ones the built-in rules produce.
 
@@ -314,7 +328,7 @@ Rules parse into `suricata_rules`, a table defined in `backend/app/db/schema.sql
 and keyed by SID. The verbatim rule text is stored, so a rule can be shown,
 edited and re-imported unchanged. Of the 1,615 vendored rules, **1,114 are
 evaluable** by the matcher and **501 are skipped** because they need engine
-features ShinboShark cannot honour. A skipped rule is stored, listed and clearly
+features ShadowPackets cannot honour. A skipped rule is stored, listed and clearly
 flagged in the UI; it is never partially matched.
 
 ### What is evaluated
@@ -343,7 +357,7 @@ A rule is skipped, and flagged as skipped in the UI, when it uses `flowbits`,
 `xbits`, `threshold`, `detection_filter`, `byte_test` / `byte_jump` /
 `byte_extract`, engine / app-layer / decode / stream events, content that has no
 buffer selector and needs raw packet payload bytes, PCRE-only flags, or a
-protocol ShinboShark does not dissect (`smb`, `smtp`, `ike`, `mqtt`, `mdns`, `dnp3`,
+protocol ShadowPackets does not dissect (`smb`, `smtp`, `ike`, `mqtt`, `mdns`, `dnp3`,
 `modbus`, `http2`, `pkthdr`).
 
 ### Findings and the pipeline
@@ -366,10 +380,11 @@ progress band. Rules can also be re-run on demand for an existing analysis.
 
 ### Workflow
 
-1. **Import.** The **Upload .rules** control on the Settings page accepts one or
-   more `.rules` files (multipart, `.rules` only). **Import bundled** imports the
-   vendored sets; it is idempotent, so re-importing refreshes rule text while
-   keeping the enabled/disabled choice.
+1. **Import.** The vendored sets are imported automatically on first start when
+   the rule store is empty. The **Upload .rules** control on the Settings page
+   accepts one or more `.rules` files (multipart, `.rules` only). **Import
+   bundled** refreshes the vendored sets; it is idempotent, so re-importing
+   refreshes rule text while keeping the enabled/disabled choice.
 2. **Review.** The **Suricata rules** panel shows totals by severity and source,
    search plus severity / enabled / matcher-support / source filters, and a
    paginated table of SID, severity, protocol, action, message, category, source,
@@ -564,8 +579,8 @@ Windows installs to `C:\Program Files\Wireshark\` and does not add itself to
 `PATH`. Either add that directory to `PATH` or set an explicit path:
 
 ```
-APACKETS_TSHARK_PATH=C:\Program Files\Wireshark\tshark.exe
-APACKETS_CAPINFOS_PATH=C:\Program Files\Wireshark\capinfos.exe
+SHADOWPACKETS_TSHARK_PATH=C:\Program Files\Wireshark\tshark.exe
+SHADOWPACKETS_CAPINFOS_PATH=C:\Program Files\Wireshark\capinfos.exe
 ```
 
 **`GET /api/health` reports `"status": "degraded"`**
@@ -656,7 +671,7 @@ These are real and intentional for a proof of concept:
     implemented; the hex/ASCII dump itself is.
 11. **Certificate metadata depends on the capture.** TLS 1.3 certificates are
     usually encrypted and therefore unavailable.
-12. **`APACKETS_RETAIN_UPLOADS=false`** makes packet detail, stream views and
+12. **`SHADOWPACKETS_RETAIN_UPLOADS=false`** makes packet detail, stream views and
     object export unavailable, because those features re-read the original file.
 13. **A signature match is not a verdict.** A Suricata rule that fires records
     that a known pattern was present in the extracted fields. It does not prove

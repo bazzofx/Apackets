@@ -43,7 +43,7 @@ function NotFoundPage() {
     <EmptyState
       icon={FileQuestion}
       title="Page not found"
-      description="That route does not exist in ShinboShark."
+      description="That route does not exist in ShadowPackets."
       action={
         <Link to="/" className="btn btn-primary">
           Back to Dashboard

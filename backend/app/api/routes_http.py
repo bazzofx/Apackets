@@ -24,7 +24,7 @@ from app.api.deps import (
     resolve_sort,
 )
 
-log = get_logger("apackets.api.http")
+log = get_logger("shadowpackets.api.http")
 
 router = APIRouter(prefix="/api/analyses/{analysis_id}", tags=["http"])
 

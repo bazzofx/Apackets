@@ -497,7 +497,7 @@ export function IpMenuBody({
       {!inert && !available && !checking ? (
         <p className="ip-menu-note">
           {unavailableReason ?? 'No Wireshark GUI was found on this machine.'} Install Wireshark, or
-          set <span className="mono">APACKETS_WIRESHARK_PATH</span> to the executable.
+          set <span className="mono">SHADOWPACKETS_WIRESHARK_PATH</span> to the executable.
         </p>
       ) : null}
 

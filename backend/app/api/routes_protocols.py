@@ -28,7 +28,7 @@ from app.db import database as db
 from app.services import protocol_analyzer
 from app.services.jobs import jobs
 
-log = get_logger("apackets.api.protocols")
+log = get_logger("shadowpackets.api.protocols")
 
 router = APIRouter(prefix="/api/analyses/{analysis_id}", tags=["protocols"])
 

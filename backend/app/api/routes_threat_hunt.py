@@ -16,7 +16,7 @@ from app.api import deps
 from app.core.logging import get_logger
 from app.services import threat_hunt
 
-log = get_logger("apackets.api.threat_hunt")
+log = get_logger("shadowpackets.api.threat_hunt")
 
 router = APIRouter(prefix="/api/analyses/{analysis_id}", tags=["threat-hunt"])
 
@@ -46,7 +46,7 @@ def get_threat_hunt(
 ) -> dict:
     """Every Threat Hunt indicator for this analysis, in the order of §1.
 
-    The response is an aggregate over the index APackets built for the capture —
+    The response is an aggregate over the index ShadowPackets built for the capture —
     no capture is re-read — so it stays fast and keeps working after the upload
     has been purged. Each indicator reports whether it could be computed at all
     (``availability``), the threshold it applied when it found nothing, and what

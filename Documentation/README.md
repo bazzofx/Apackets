@@ -1,6 +1,6 @@
-# ShinboShark — documentation
+# ShadowPackets — documentation
 
-ShinboShark is a **locally hosted** PCAP/PCAPNG forensics workbench. It dissects a capture
+ShadowPackets is a **locally hosted** PCAP/PCAPNG forensics workbench. It dissects a capture
 with TShark on this machine, indexes the result into SQLite, and serves a dark-themed
 analyst UI. No capture data leaves the host.
 

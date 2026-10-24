@@ -310,7 +310,7 @@ function SettingsContent() {
         <div className="flex items-start gap-2">
           <ShieldCheck size={14} className="mt-0.5 shrink-0 text-ok" aria-hidden />
           <p className="leading-relaxed">
-            ShinboShark runs entirely on this machine. Capture files, decoded packets, extracted
+            ShadowPackets runs entirely on this machine. Capture files, decoded packets, extracted
             objects, hashes and findings never leave it: the frontend talks only to the local
             backend on <span className="mono">127.0.0.1</span> through{' '}
             <span className="mono">/api</span>.
@@ -320,7 +320,7 @@ function SettingsContent() {
           <HardDrive size={14} className="mt-0.5 shrink-0 text-faint" aria-hidden />
           <p className="leading-relaxed">
             There is no telemetry, no analytics and no update check. The only outbound behaviour is
-            whatever your own TShark configuration does, which ShinboShark does not modify.
+            whatever your own TShark configuration does, which ShadowPackets does not modify.
           </p>
         </div>
         <div className="flex items-start gap-2">

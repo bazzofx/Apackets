@@ -6,14 +6,12 @@ import {
   Clock,
   Crosshair,
   FileText,
-  Globe,
   HardDrive,
   List,
   Radar,
   Search,
   Server,
   ShieldAlert,
-  Waypoints,
 } from 'lucide-react'
 import dashboardBackground from '@/assets/dashboard_bg.jpg'
 import AnalysisGuard from '@/components/AnalysisGuard'
@@ -23,13 +21,11 @@ import ErrorState from '@/components/ErrorState'
 import LoadingState from '@/components/LoadingState'
 import Page from '@/components/Page'
 import Panel from '@/components/Panel'
-import SeverityBadge from '@/components/SeverityBadge'
 import DomainBars from '@/components/dashboard/DomainBars'
 import KpiTile from '@/components/dashboard/KpiTile'
 import NetworkMap from '@/components/dashboard/NetworkMap'
 import DestinationSummary from '@/components/dashboard/DestinationSummary'
 import WorldMap, { BuildDatasetButton } from '@/components/dashboard/WorldMap'
-import ProtocolMix from '@/components/dashboard/ProtocolMix'
 import TrafficExtremeCard from '@/components/dashboard/TrafficExtremeCard'
 import TrafficSparkline from '@/components/dashboard/TrafficSparkline'
 import { useAnalysis, useAnalysisSummary } from '@/hooks/useAnalysis'

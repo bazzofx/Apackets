@@ -1,4 +1,4 @@
-"""Suricata-compatible rule matching over the data APackets already indexed.
+"""Suricata-compatible rule matching over the data ShadowPackets already indexed.
 
 This is a *matcher*, not the Suricata IDS: there is no Suricata binary in this
 project and none is required. Every rule is evaluated against the fields TShark
@@ -32,7 +32,7 @@ from app.db import database as db
 from app.services import suricata_rules as sr
 from app.services.detection_engine import finding_id
 
-log = get_logger("apackets.suricata.engine")
+log = get_logger("shadowpackets.suricata.engine")
 
 # Buffers that only exist for a completed HTTP transaction.
 HTTP_ONLY_BUFFERS: frozenset[str] = frozenset(

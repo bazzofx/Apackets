@@ -634,7 +634,7 @@ export function PacketFilterBar({
               <input
                 className="input py-1"
                 value={filters.protocol}
-                list="apackets-protocol-hints"
+                list="shadowpackets-protocol-hints"
                 spellCheck={false}
                 autoComplete="off"
                 placeholder="HTTP"
@@ -660,7 +660,7 @@ export function PacketFilterBar({
               <input
                 className="input py-1"
                 value={filters.tcpFlags}
-                list="apackets-tcp-flag-hints"
+                list="shadowpackets-tcp-flag-hints"
                 spellCheck={false}
                 autoComplete="off"
                 placeholder="S"
@@ -768,12 +768,12 @@ export function PacketFilterBar({
       ) : null}
 
       {/* Shared hint lists, referenced by the protocol and tcp-flags inputs. */}
-      <datalist id="apackets-protocol-hints">
+      <datalist id="shadowpackets-protocol-hints">
         {PROTOCOL_HINTS.map((hint) => (
           <option key={hint} value={hint} />
         ))}
       </datalist>
-      <datalist id="apackets-tcp-flag-hints">
+      <datalist id="shadowpackets-tcp-flag-hints">
         {TCP_FLAG_HINTS.map((hint) => (
           <option key={hint} value={hint} />
         ))}

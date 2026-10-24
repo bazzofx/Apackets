@@ -17,7 +17,7 @@ from app.core.errors import ApiError
 from app.core.logging import get_logger
 from app.services import storage, tshark
 
-log = get_logger("apackets.capture")
+log = get_logger("shadowpackets.capture")
 
 _PARSE_ERROR_MARKERS = (
     "isn't a capture file",

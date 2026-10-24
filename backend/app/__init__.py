@@ -1,3 +1,3 @@
-"""ShinboShark backend package."""
+"""ShadowPackets backend package."""
 
 __version__ = "0.1.0"

@@ -16,7 +16,7 @@ background are [Baseline.md](Baseline.md) §5.
 | Layer | Method | What it can and cannot show |
 |---|---|---|
 | Backend endpoints | `Invoke-RestMethod` + `Stopwatch` against the running server, twice per URL (cold = first request after a restart, warm = the next one) | Real HTTP latency including JSON serialisation; not CPU-attributed |
-| Backend internals | The same functions called directly on a **copy** of `data/apackets.db`, timed per helper (`.tmp/perf_summary.py`, `.tmp/perf_indexes.py`) | Isolates the query from the request; the copy is written to, never the live database |
+| Backend internals | The same functions called directly on a **copy** of `data/shadowpackets.db`, timed per helper (`.tmp/perf_summary.py`, `.tmp/perf_indexes.py`) | Isolates the query from the request; the copy is written to, never the live database |
 | Frontend | Source bytes per module, split into what the first paint loads and what is now behind a route (`frontend/src` walk) | Source bytes are a *proxy*: the production bundle is minified and shared. A `vite build` cannot run in this environment (esbuild's service process is refused by the sandbox), so no chunk sizes are quoted anywhere in this document |
 
 ---

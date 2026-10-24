@@ -24,7 +24,7 @@ from app.core.logging import get_logger
 from app.schemas import DetectionRuleUpdate
 from app.services import detection_engine
 
-log = get_logger("apackets.api.detection")
+log = get_logger("shadowpackets.api.detection")
 
 router = APIRouter(prefix="/api", tags=["detection"])
 

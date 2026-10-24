@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="referrer" content="no-referrer" />
     <meta name="color-scheme" content="dark" />
-    <title>ShinboShark — Local PCAP Analyzer</title>
+    <title>ShadowPackets — Local PCAP Analyzer</title>
     <script>
       /*
        * Runs before first paint so a stored theme never flashes Steel Blue.
@@ -17,7 +17,7 @@
        */
       (function () {
         try {
-          var key = 'apackets.theme'
+          var key = 'shadowpackets.theme'
           var hints = {
             shadow: ['3 7 12', '5 11 18', '8 15 24'],
             shinobi: ['5 6 7', '11 13 16', '18 22 26'],
@@ -29,6 +29,9 @@
           var stored = null
           try {
             stored = window.localStorage.getItem(key)
+            /* The key the preference had before the application was renamed: read
+               once, so a reader who had chosen a palette keeps it. */
+            if (stored === null) stored = window.localStorage.getItem('apackets.theme')
           } catch (storageError) {
             stored = null
           }
@@ -38,7 +41,10 @@
              here so the first painted frame is already the new default, without a flash
              of Steel Blue - and without overriding a palette chosen on purpose later. */
           try {
-            if ((id === 'steel-blue' || id === 'shinobi') && window.localStorage.getItem('apackets.theme.default') === null) {
+            var marked =
+              window.localStorage.getItem('shadowpackets.theme.default') ??
+              window.localStorage.getItem('apackets.theme.default')
+            if ((id === 'steel-blue' || id === 'shinobi') && marked === null) {
               id = 'shadow'
             }
           } catch (migrateError) {
@@ -56,7 +62,9 @@
            */
           var motion = 'calm'
           try {
-            var storedMotion = window.localStorage.getItem('apackets.motion')
+            var storedMotion =
+              window.localStorage.getItem('shadowpackets.motion') ??
+              window.localStorage.getItem('apackets.motion')
             if (storedMotion === 'off' || storedMotion === 'calm') motion = storedMotion
           } catch (motionError) {
             motion = 'calm'

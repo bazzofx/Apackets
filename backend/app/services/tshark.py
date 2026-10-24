@@ -28,7 +28,7 @@ from pathlib import Path
 from app.core.config import REPO_ROOT, settings
 from app.core.logging import get_logger
 
-log = get_logger("apackets.tshark")
+log = get_logger("shadowpackets.tshark")
 
 # Windows: do not flash a console window for every dissection run.
 _CREATE_NO_WINDOW = 0x08000000
@@ -98,7 +98,12 @@ def resolve_binary(name: str = "tshark") -> str | None:
         return _binary_cache[name]
 
     candidates: list[str] = []
-    configured = settings.tshark_path if name == "tshark" else settings.capinfos_path
+    if name == "tshark":
+        configured = settings.tshark_path
+    elif name == "capinfos":
+        configured = settings.capinfos_path
+    else:
+        configured = None
     if configured and configured not in {"tshark", "capinfos"}:
         candidates.append(configured)
 

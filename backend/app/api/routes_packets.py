@@ -36,7 +36,7 @@ from app.db import database as db
 from app.schemas import FilterRequest
 from app.services import tshark
 
-log = get_logger("apackets.api.packets")
+log = get_logger("shadowpackets.api.packets")
 
 router = APIRouter(prefix="/api/analyses/{analysis_id}", tags=["packets"])
 

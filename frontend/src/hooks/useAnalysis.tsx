@@ -12,15 +12,22 @@ import { analysesApi, healthApi, toApiError, type ApiError } from '@/services/ap
 import type { Analysis, AnalysisDetail, AnalysisSummary, HealthResponse } from '@/types'
 
 /** localStorage key holding the app-wide active analysis id. */
-export const ANALYSIS_STORAGE_KEY = 'apackets.analysisId'
+export const ANALYSIS_STORAGE_KEY = 'shadowpackets.analysisId'
+
+/** The key this selection used before the rename; read once, then migrated. */
+const LEGACY_ANALYSIS_STORAGE_KEY = 'apackets.analysisId'
 
 export const ANALYSES_QUERY_KEY = ['analyses'] as const
 export const HEALTH_QUERY_KEY = ['health'] as const
 
 function readStoredId(): string | null {
   try {
-    const raw = window.localStorage.getItem(ANALYSIS_STORAGE_KEY)
-    return raw && raw.trim() !== '' ? raw : null
+    const raw =
+      window.localStorage.getItem(ANALYSIS_STORAGE_KEY) ??
+      window.localStorage.getItem(LEGACY_ANALYSIS_STORAGE_KEY)
+    if (raw === null || raw.trim() === '') return null
+    window.localStorage.setItem(ANALYSIS_STORAGE_KEY, raw)
+    return raw
   } catch {
     return null
   }

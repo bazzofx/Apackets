@@ -15,7 +15,7 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.db import database as db
 
-log = get_logger("apackets.runtime_settings")
+log = get_logger("shadowpackets.runtime_settings")
 
 OVERRIDES_KEY = "app_settings"
 

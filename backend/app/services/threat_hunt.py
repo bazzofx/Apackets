@@ -1,6 +1,6 @@
 """Threat Hunt indicator engine.
 
-One entry point, :func:`analyze`, turns the rows APackets already indexed for an
+One entry point, :func:`analyze`, turns the rows ShadowPackets already indexed for an
 analysis into the indicator envelope described in ``docs/THREAT_HUNT.md`` §3.
 
 Everything here is a SQL aggregate over ``packets``, ``conversations``,
@@ -43,7 +43,7 @@ from app.db import database as db
 from app.services.detection_engine import COMMON_PORTS
 from app.services.host_analyzer import address_scope, is_private_address
 
-log = get_logger("apackets.threat_hunt")
+log = get_logger("shadowpackets.threat_hunt")
 
 # --------------------------------------------------------------------------
 # caps and thresholds
@@ -183,7 +183,7 @@ STRONG_DNS_FLAGS: tuple[str, ...] = (
 )
 
 PAGE_NOTE = (
-    "Every figure on this page is an aggregate over the index APackets built from this "
+    "Every figure on this page is an aggregate over the index ShadowPackets built from this "
     "capture — packets, conversations, DNS, HTTP, TLS, hosts and findings. The capture "
     "itself is not re-read, so the page keeps working after the upload has been purged. "
     "An indicator is a lead to investigate, not a verdict: each one states the threshold "

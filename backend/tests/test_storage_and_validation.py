@@ -138,7 +138,7 @@ def test_ensure_analysis_dirs_creates_objects_subdirectory():
 # --------------------------------------------------------------------------
 
 def test_hash_file_returns_real_digests(scratch_dir: Path):
-    payload = b"apackets" * 1000
+    payload = b"shadowpackets" * 1000
     target = scratch_dir / "hashme.bin"
     target.write_bytes(payload)
 

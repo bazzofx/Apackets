@@ -2180,7 +2180,7 @@ export interface GeographyResponse {
  */
 export interface BaselineRecalc {
   running: boolean
-  /** Whether the deployment allows the sweep at all (`APACKETS_BASELINE_AUTO_RECALC`). */
+  /** Whether the deployment allows the sweep at all (`SHADOWPACKETS_BASELINE_AUTO_RECALC`). */
   auto: boolean
   trigger: string | null
   started_at: number | null

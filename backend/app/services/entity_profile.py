@@ -47,7 +47,7 @@ from app.db import database as db
 from app.services.detection_engine import COMMON_PORTS
 from app.services.host_analyzer import address_scope, is_private_address
 
-log = get_logger("apackets.entity_profile")
+log = get_logger("shadowpackets.entity_profile")
 
 # --------------------------------------------------------------------------
 # caps and bounds (§3)
@@ -2666,7 +2666,7 @@ _IP_SPECS: tuple[_Spec, ...] = (
         ),
         caveat=(
             "Frames are counted, not decoded. Encrypted payloads are not opened anywhere in "
-            "APackets, so a TLS session shows as TLS whatever it carries."
+            "ShadowPackets, so a TLS session shows as TLS whatever it carries."
         ),
         shapes=("bars", "table"),
     ),

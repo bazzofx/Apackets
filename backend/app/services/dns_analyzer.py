@@ -25,7 +25,7 @@ from app.db import database as db
 from app.services import tshark
 from app.services.jobs import JobContext
 
-log = get_logger("apackets.dns")
+log = get_logger("shadowpackets.dns")
 
 # Field order of the INSERT below — keep the two in sync.
 COLUMNS: tuple[str, ...] = (

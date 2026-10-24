@@ -20,7 +20,6 @@ import {
   Clock,
   Globe,
   HardDrive,
-  Info,
   Layers,
   List,
   Lock,
@@ -135,7 +134,6 @@ function InfoContent() {
   const conversations = data.top_conversations ?? []
   const findings = data.findings_summary ?? []
   const hierarchy = data.protocol_hierarchy ?? []
-  const notes = data.notes ?? []
   const severityTotals = SEVERITY_ORDER.map((severity) => ({
     severity,
     count: severityCount(data.severity_counts, severity),

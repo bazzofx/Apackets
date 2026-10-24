@@ -69,7 +69,7 @@ export interface ThemeDefinition {
 export const DEFAULT_THEME_ID: ThemeId = 'shadow'
 
 /** Per-browser preference. A theme is not analysis data, so it stays local. */
-export const THEME_STORAGE_KEY = 'apackets.theme'
+export const THEME_STORAGE_KEY = 'shadowpackets.theme'
 
 /*
  * Shadow Ninja: the cyber-ninja palette.

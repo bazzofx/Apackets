@@ -35,7 +35,7 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.services import tshark
 
-log = get_logger("apackets.wireshark")
+log = get_logger("shadowpackets.wireshark")
 
 #: The longest display filter this module will compose. A guard against a
 #: pathological address finding its way in, not a limit anyone will meet.
@@ -282,7 +282,7 @@ def open_capture(
     binary = resolve_binary()
     if not binary:
         raise WiresharkError(
-            "the Wireshark GUI was not found; install Wireshark, or set APACKETS_WIRESHARK_PATH"
+            "the Wireshark GUI was not found; install Wireshark, or set SHADOWPACKETS_WIRESHARK_PATH"
         )
     if not capture.is_file():
         raise WiresharkError("the capture is no longer on disk, so there is nothing to open")

@@ -1166,7 +1166,7 @@ def test_the_log_lines_carry_no_value(insert_http, run_scan, caplog):
         content_type="application/json",
         request_body=json.dumps({"password": secret}),
     )
-    with caplog.at_level(logging.DEBUG, logger="apackets.credentials"):
+    with caplog.at_level(logging.DEBUG, logger="shadowpackets.credentials"):
         rows, _ = run_scan()
     assert rows, "the fixture must produce findings for this test to mean anything"
     assert secret not in caplog.text

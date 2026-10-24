@@ -29,7 +29,7 @@ from app.db import database as db
 from app.services import tshark
 from app.services.jobs import JobContext
 
-log = get_logger("apackets.http")
+log = get_logger("shadowpackets.http")
 
 # Column order of the INSERT below - keep the two in sync.
 COLUMNS: tuple[str, ...] = (

@@ -23,7 +23,7 @@ from app.core.logging import get_logger
 from app.db import database as db
 from app.services import stream_analyzer
 
-log = get_logger("apackets.api.conversations")
+log = get_logger("shadowpackets.api.conversations")
 
 router = APIRouter(prefix="/api/analyses/{analysis_id}", tags=["conversations"])
 

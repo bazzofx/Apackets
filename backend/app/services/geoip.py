@@ -74,7 +74,7 @@ from app import __version__
 from app.core.config import settings
 from app.core.logging import get_logger
 
-log = get_logger("apackets.geoip")
+log = get_logger("shadowpackets.geoip")
 
 # --------------------------------------------------------------------------
 # caps and constants (docs/GEOGRAPHY.md §8)
@@ -99,7 +99,7 @@ SOURCE_NAME = "source.json"
 
 #: A reader can see who asked for the dataset: the tool, its version and why.
 USER_AGENT = (
-    f"APackets/{__version__} (local PCAP forensics; "
+    f"ShadowPackets/{__version__} (local PCAP forensics; "
     "one monthly DB-IP Lite country download; https://db-ip.com)"
 )
 DOWNLOAD_TIMEOUT_S = 180.0

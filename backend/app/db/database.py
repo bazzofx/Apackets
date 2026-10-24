@@ -15,7 +15,7 @@ from pathlib import Path
 from app.core.config import settings
 from app.core.logging import get_logger
 
-log = get_logger("apackets.db")
+log = get_logger("shadowpackets.db")
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 
@@ -49,12 +49,40 @@ def get_conn() -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+def _adopt_legacy_database() -> None:
+    """Carry the library over from the pre-rename database file, once.
+
+    The application was renamed, so its database file was too. On the first start
+    after that rename the new file does not exist while the old one does, and
+    opening a fresh database would present an empty library to someone whose
+    analyses are all still on disk. SQLite's own backup API copies the old file
+    into the new one - consistently, including a live WAL - and the old file is
+    left exactly where it was, as a backup.
+    """
+    target = settings.db_path
+    legacy = target.with_name("apackets.db")
+    if target.exists() or not legacy.exists():
+        return
+    target.parent.mkdir(parents=True, exist_ok=True)
+    source = sqlite3.connect(f"file:{legacy}?mode=ro", uri=True)
+    try:
+        destination = sqlite3.connect(str(target))
+        try:
+            source.backup(destination)
+        finally:
+            destination.close()
+    finally:
+        source.close()
+    log.info("copied the pre-rename database %s to %s", legacy, target)
+
+
 def init_db() -> None:
     global _initialised
     with _init_lock:
         if _initialised:
             return
         settings.ensure_dirs()
+        _adopt_legacy_database()
         sql = SCHEMA_PATH.read_text(encoding="utf-8")
         conn = connect()
         try:

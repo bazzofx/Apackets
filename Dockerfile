@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1
 #
-# ShinboShark — one image, one container, one command.
+# ShadowPackets — one image, one container, one command.
 #
-#   docker build -t shinobishark .
-#   docker run --rm -p 127.0.0.1:8080:8000 -v shinobishark-data:/data shinobishark
+#   docker build -t shadowpackets .
+#   docker run --rm -p 127.0.0.1:8080:8000 -v shadowpackets-data:/data shadowpackets
 #
 # The image contains the whole application: the Python API, the dissector it drives
 # (TShark, from the distribution), and the built single-page interface. FastAPI serves
@@ -73,9 +73,9 @@ USER shinobi
 
 # /data is the volume: uploads, the SQLite index, extracted objects and the GeoIP
 # dataset all live under it. Everything else in the image is read-only at runtime.
-ENV APACKETS_DATA_DIR=/data \
-    APACKETS_HOST=0.0.0.0 \
-    APACKETS_PORT=8000 \
+ENV SHADOWPACKETS_DATA_DIR=/data \
+    SHADOWPACKETS_HOST=0.0.0.0 \
+    SHADOWPACKETS_PORT=8000 \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 

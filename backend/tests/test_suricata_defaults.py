@@ -32,6 +32,16 @@ def _rule(client, sid: int) -> dict:
     return response.json()
 
 
+def test_startup_seed_only_fills_an_empty_store(fresh_db) -> None:  # noqa: ARG001
+    first = sr.seed_bundled_rules_if_empty()
+    assert first is not None
+    assert first["files"] > 0
+    assert first["imported"] > 0
+
+    # A second startup must not re-seed: that would overwrite an analyst's edits.
+    assert sr.seed_bundled_rules_if_empty() is None
+
+
 def test_a_seeded_rule_is_at_its_default(client, seeded) -> None:  # noqa: ARG001
     rule = _rule(client, 50200005)
     assert rule["modified"] is False

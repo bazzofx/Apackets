@@ -37,7 +37,7 @@ from app.core.logging import get_logger
 from app.db import database as db
 from app.services.jobs import JobContext
 
-log = get_logger("apackets.conversations")
+log = get_logger("shadowpackets.conversations")
 
 BATCH_SIZE = 1000
 CANCEL_CHECK_EVERY = 5000

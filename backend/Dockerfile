@@ -1,4 +1,4 @@
-# ShinboShark backend / API image.
+# ShadowPackets backend / API image.
 #
 # TShark is a system dependency: it is installed here from the distribution and
 # is the only packet decoder used by the application. The service runs as an
@@ -29,16 +29,16 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY app ./app
 
 # Unprivileged runtime user; /data is the only writable location it needs.
-RUN groupadd --system --gid 10001 apackets \
-    && useradd --system --uid 10001 --gid apackets --home-dir /app --shell /usr/sbin/nologin apackets \
+RUN groupadd --system --gid 10001 shadowpackets \
+    && useradd --system --uid 10001 --gid shadowpackets --home-dir /app --shell /usr/sbin/nologin shadowpackets \
     && mkdir -p /data \
-    && chown -R apackets:apackets /app /data
+    && chown -R shadowpackets:shadowpackets /app /data
 
-USER apackets
+USER shadowpackets
 
-ENV APACKETS_DATA_DIR=/data \
-    APACKETS_HOST=0.0.0.0 \
-    APACKETS_PORT=8000 \
+ENV SHADOWPACKETS_DATA_DIR=/data \
+    SHADOWPACKETS_HOST=0.0.0.0 \
+    SHADOWPACKETS_PORT=8000 \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 

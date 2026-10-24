@@ -1,4 +1,4 @@
-"""Deterministic PCAP capture generators for the APackets test suite.
+"""Deterministic PCAP capture generators for the ShadowPackets test suite.
 
 Every builder in this module writes a real, TShark-readable capture file and
 returns its :class:`pathlib.Path`. The library is **self-contained, offline and
@@ -74,7 +74,7 @@ _CACHE_DIR = REPO_ROOT / ".cache"
 try:
     _CACHE_DIR.mkdir(parents=True, exist_ok=True)
 except OSError:  # pragma: no cover - read-only checkout
-    _CACHE_DIR = Path(tempfile.gettempdir()) / "apackets-cache"
+    _CACHE_DIR = Path(tempfile.gettempdir()) / "shadowpackets-cache"
     _CACHE_DIR.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("XDG_CACHE_HOME", str(_CACHE_DIR))
 
@@ -139,7 +139,7 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 BASE_EPOCH: float = 1_700_000_000.0  # 2023-11-14T22:13:20Z, fixed forever
-TMP_ROOT: Path = Path(tempfile.gettempdir()) / "apackets-captures"
+TMP_ROOT: Path = Path(tempfile.gettempdir()) / "shadowpackets-captures"
 
 CLIENT_IP = "10.0.0.10"
 CLIENT_MAC = "02:00:00:00:00:0a"
@@ -374,7 +374,7 @@ def _icmp_frame(
     clock: _Clock,
 ) -> Packet:
     icmp = ICMP(type=0 if echo_reply else 8, id=ident, seq=seq)
-    return _net(src, dst, icmp / Raw(load=b"APACKETS-ICMP-PAYLOAD-0123456"), clock)
+    return _net(src, dst, icmp / Raw(load=b"SHADOWPACKETS-ICMP-PAYLOAD-0123456"), clock)
 
 
 def _icmpv6_frame(
@@ -389,7 +389,7 @@ def _icmpv6_frame(
     icmp6: Packet = (
         ICMPv6EchoReply(id=ident, seq=seq) if echo_reply else ICMPv6EchoRequest(id=ident, seq=seq)
     )
-    return _net(src, dst, icmp6 / Raw(load=b"APACKETS-ICMPV6-PAYLOAD-0123"), clock, ipv6=True)
+    return _net(src, dst, icmp6 / Raw(load=b"SHADOWPACKETS-ICMPV6-PAYLOAD-0123"), clock, ipv6=True)
 
 
 def _fill(size: int, tag: bytes) -> bytes:
@@ -723,7 +723,7 @@ _CRLF = b"\r\n"
 
 _UA_LONG = (
     "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/118.0 "
-    "APackets-Synthetic-Agent/1.0 (unusual; long; +http://agent.invalid/notes) "
+    "ShadowPackets-Synthetic-Agent/1.0 (unusual; long; +http://agent.invalid/notes) "
     "build=20231114-extremely-long-user-agent-value-for-parser-tests"
 )
 
@@ -802,7 +802,7 @@ def _http_response(
 
 
 _INDEX_HTML = (
-    b"<!DOCTYPE html>\n<html><head><title>APackets Test Server</title></head>\n"
+    b"<!DOCTYPE html>\n<html><head><title>ShadowPackets Test Server</title></head>\n"
     b"<body><h1>It works</h1>\n<p>Synthetic page generated for deterministic capture tests.</p>\n"
     b"</body></html>\n"
 )
@@ -814,7 +814,7 @@ _SERVER_ERROR_HTML = (
     b"<!DOCTYPE html>\n<html><head><title>500 Internal Server Error</title></head>\n"
     b"<body><h1>Internal Server Error</h1></body></html>\n"
 )
-_LOGIN_JSON = b'{"ok":true,"user":"admin","token":"APACKETS-SYNTHETIC-TOKEN"}'
+_LOGIN_JSON = b'{"ok":true,"user":"admin","token":"SHADOWPACKETS-SYNTHETIC-TOKEN"}'
 _DAV_XML = (
     b'<?xml version="1.0" encoding="utf-8"?>\n'
     b'<D:multistatus xmlns:D="DAV:"><D:response><D:href>/dav/</D:href>'
@@ -830,9 +830,9 @@ def _minimal_pdf() -> bytes:
     the file opens in a viewer and is big enough for object extraction to have
     something meaningful to store.
     """
-    padding = b"% APACKETS-PADDING-" + _fill(3000, b"apackets-pdf-padding") + b"\n"
+    padding = b"% SHADOWPACKETS-PADDING-" + _fill(3000, b"shadowpackets-pdf-padding") + b"\n"
     content = (
-        b"BT /F1 18 Tf 72 720 Td (APackets synthetic object test payload) Tj ET\n"
+        b"BT /F1 18 Tf 72 720 Td (ShadowPackets synthetic object test payload) Tj ET\n"
         + padding
     )
     objects: list[bytes] = [
@@ -869,12 +869,12 @@ HTTP_OBJECT_FILENAME = "payload.bin"
 HTTP_OBJECT_HOST = "files.example.com"
 HTTP_OBJECT_URI = "/objects/payload.bin"
 HTTP_OBJECT_BYTES: bytes = (
-    b"APACKETS-EXTRACTABLE-OBJECT-BEGIN\n"
+    b"SHADOWPACKETS-EXTRACTABLE-OBJECT-BEGIN\n"
     + b"".join(
         f"line-{index:03d}-".encode("ascii") + _fill(24, f"obj{index}".encode("ascii")) + b"\n"
         for index in range(6)
     )
-    + b"APACKETS-EXTRACTABLE-OBJECT-END\n"
+    + b"SHADOWPACKETS-EXTRACTABLE-OBJECT-END\n"
 )
 HTTP_OBJECT_SHA256: str = hashlib.sha256(HTTP_OBJECT_BYTES).hexdigest()
 
@@ -894,7 +894,7 @@ def _http_transaction_table() -> list[dict[str, Any]]:
     and the three unusual ones use client port 51001 (``tcp.stream == 1``).
     """
     agent = (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) APacketsTest/1.0"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ShadowPacketsTest/1.0"
     )
     return [
         {
@@ -945,7 +945,7 @@ def _http_transaction_table() -> list[dict[str, Any]]:
             "description": "500 Internal Server Error",
             "request": _http_request(
                 "GET", "/broken", "www.example.com",
-                headers=[("User-Agent", "APacketsProbe/0.9"), ("Accept", "*/*")],
+                headers=[("User-Agent", "ShadowPacketsProbe/0.9"), ("Accept", "*/*")],
             ),
             "response": _http_response(
                 500, "Internal Server Error",
@@ -963,7 +963,7 @@ def _http_transaction_table() -> list[dict[str, Any]]:
             "description": "plaintext credentials in a form body",
             "request": _http_request(
                 "POST", "/login", "www.example.com",
-                headers=[("User-Agent", "APacketsProbe/0.9"),
+                headers=[("User-Agent", "ShadowPacketsProbe/0.9"),
                          ("Content-Type", "application/x-www-form-urlencoded")],
                 body=b"username=admin&password=secret123",
             ),
@@ -983,7 +983,7 @@ def _http_transaction_table() -> list[dict[str, Any]]:
             "description": "path-traversal-shaped request URI",
             "request": _http_request(
                 "GET", "/../../etc/passwd", "www.example.com",
-                headers=[("User-Agent", "APacketsProbe/0.9")],
+                headers=[("User-Agent", "ShadowPacketsProbe/0.9")],
             ),
             "response": _http_response(
                 400, "Bad Request",
@@ -1062,7 +1062,7 @@ def _http_transaction_table() -> list[dict[str, Any]]:
                 "GET", "/long-agent.txt", "www.example.com",
                 headers=[("User-Agent", _UA_LONG),
                          ("Accept", "text/plain"),
-                         ("X-APackets-Test", "unusual-user-agent")],
+                         ("X-ShadowPackets-Test", "unusual-user-agent")],
             ),
             "response": _http_response(
                 200, "OK",
@@ -1358,10 +1358,10 @@ OID_ORGANIZATIONAL_UNIT = "2.5.4.11"
 OID_COUNTRY = "2.5.4.6"
 
 CERT_SUBJECT_CN = "secure.example.com"
-CERT_SUBJECT_O = "APackets Test Lab"
+CERT_SUBJECT_O = "ShadowPackets Test Lab"
 CERT_SUBJECT_OU = "Synthetic Captures"
 CERT_SUBJECT_C = "US"
-CERT_SUBJECT_SERIAL_RDN = "APACKETS-TEST-0001"
+CERT_SUBJECT_SERIAL_RDN = "SHADOWPACKETS-TEST-0001"
 CERT_NOT_BEFORE = "230101000000Z"  # 2023-01-01T00:00:00Z
 CERT_NOT_AFTER = "330101000000Z"  # 2033-01-01T00:00:00Z
 CERT_SERIAL = 0x0A0B0C0D0E0F1011
@@ -1374,7 +1374,7 @@ CERT_SUBJECT_DN = (
 )
 
 
-def _rsa_modulus(seed: bytes = b"apackets-test-modulus", bits: int = 2048) -> int:
+def _rsa_modulus(seed: bytes = b"shadowpackets-test-modulus", bits: int = 2048) -> int:
     """A fixed 2048-bit odd modulus (not a real key — nothing is encrypted)."""
     material = bytearray()
     counter = 0
@@ -1437,7 +1437,7 @@ def x509_self_signed_der() -> bytes:
         name,  # subject
         spki,
     )
-    signature = _fill(256, b"apackets-test-signature")
+    signature = _fill(256, b"shadowpackets-test-signature")
     return der_sequence(tbs, algorithm, der_bit_string(signature))
 
 
@@ -1678,7 +1678,7 @@ def _syn_scan_packets(base: float = BASE_EPOCH) -> list[Packet]:
     packets += normal.handshake()
     packets.append(
         normal.data(True, _http_request("GET", "/scan-contrast", SERVER_IP,
-                                        headers=[("User-Agent", "APacketsPortScanner/1.0")]))
+                                        headers=[("User-Agent", "ShadowPacketsPortScanner/1.0")]))
     )
     packets.append(
         normal.data(False, _http_response(200, "OK",
@@ -2047,7 +2047,7 @@ def _truncated_packets(base: float = BASE_EPOCH) -> list[Packet]:
                    isn_client=0x33330000, isn_server=0x44440000)
     packets = flow.handshake()
     packets.append(flow.data(True, _http_request("GET", "/truncated.html", "www.example.com",
-                                                 headers=[("User-Agent", "APacketsTruncation/1.0")])))
+                                                 headers=[("User-Agent", "ShadowPacketsTruncation/1.0")])))
     packets.append(flow.data(False, _http_response(200, "OK",
                                                    headers=[("Content-Type", "text/html")],
                                                    body=b"<html><body>truncated</body></html>\n")))
@@ -2080,7 +2080,7 @@ def http_object_request() -> bytes:
     """The exact ``GET`` request bytes sent in :func:`http_object_capture`."""
     return _http_request(
         "GET", HTTP_OBJECT_URI, HTTP_OBJECT_HOST,
-        headers=[("User-Agent", "APacketsObjectTest/1.0"), ("Accept", "*/*")],
+        headers=[("User-Agent", "ShadowPacketsObjectTest/1.0"), ("Accept", "*/*")],
     )
 
 
@@ -2188,7 +2188,7 @@ def _large_packets(count: int, base: float = BASE_EPOCH) -> list[Frame | Packet]
                 client, sport, server, HTTP_PORT, 0x10000000 + index, 0,
                 _TCP_PSH | _TCP_ACK,
                 _http_request("GET", f"/bulk/{index}.html", "bulk.example.com",
-                              headers=[("User-Agent", "APacketsBulk/1.0")]),
+                              headers=[("User-Agent", "ShadowPacketsBulk/1.0")]),
                 stamp, ip_id=ip_id,
             )
         elif kind == 3:  # HTTP response on port 80

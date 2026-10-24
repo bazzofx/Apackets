@@ -1,4 +1,4 @@
-# ShinboShark — Frozen Interface Contract
+# ShadowPackets — Frozen Interface Contract
 
 This document is **normative**. Every module in this repository must conform to it.
 Do not change this file to match your code; change your code to match this file.
@@ -333,7 +333,7 @@ are idempotent.
 ## 4. Backend module contracts
 
 ### `app.core.config.Settings`
-pydantic-settings, env prefix `APACKETS_`, reads `.env`. Fields:
+pydantic-settings, env prefix `SHADOWPACKETS_`, reads `.env`. Fields:
 
 `data_dir: Path` (default `<repo>/data`), `max_upload_mb: int = 512`,
 `tshark_path: str = "tshark"` (resolved), `capinfos_path: str = ""` (resolved),
@@ -862,7 +862,7 @@ and documented in [Baseline.md](../Documentation/Baseline.md); the contract is:
   the capture file. Measured over the 13-analysis library in `data/`: 3.8 s,
   157 baseline findings, 0 errors. It runs off the request path, single-flight (a change
   during a sweep marks it to run again), and is switched off by
-  `APACKETS_BASELINE_AUTO_RECALC=false` (the test suite sets that).
+  `SHADOWPACKETS_BASELINE_AUTO_RECALC=false` (the test suite sets that).
 * **Caps.** 40 findings per rule, 40 samples per evidence list, 10 frame numbers per
   finding, and four memoised profiles and comparisons per process (dropped on every
   configuration write).

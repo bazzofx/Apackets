@@ -23,7 +23,7 @@ const queryClient = new QueryClient({
 })
 
 const container = document.getElementById('root')
-if (!container) throw new Error('ShinboShark: #root container is missing from index.html')
+if (!container) throw new Error('ShadowPackets: #root container is missing from index.html')
 
 createRoot(container).render(
   <StrictMode>

@@ -104,7 +104,7 @@ Two consequences matter on screen:
 
 Availability on real captures is genuinely mixed rather than uniformly green.
 Running the engine with `window=60, top=12` over the 22 analyses indexed in
-`data/apackets.db` (measured, read-only), the count of `ok` indicators per
+`data/shadowpackets.db` (measured, read-only), the count of `ok` indicators per
 analysis ranged from **0 of 17** on the empty fixture capture `edge_empty.pcap` to
 **11 of 17** on `sf19us-MTA-lab-09.pcap`; `sf19us-MTA-lab-01.pcap` returned 8,
 `sf19us-MTA-lab-07.pcap` and `SpaceX_111025.pcapng` 7 each, and

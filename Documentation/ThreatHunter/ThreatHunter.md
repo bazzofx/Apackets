@@ -2,7 +2,7 @@
 
 The Threat Map section is the investigative front page of an analysis. It asks
 seventeen fixed questions of the capture — the ones an analyst asks first — and
-answers each one from the tables ShinboShark already indexed, with the threshold it
+answers each one from the tables ShadowPackets already indexed, with the threshold it
 applied, the chart behind the number, links to the rows themselves, and a
 statement of what the pattern does *not* prove.
 

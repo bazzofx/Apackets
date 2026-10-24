@@ -129,7 +129,7 @@ after a change*):
 | Sweeping | *Recalculating the baseline findings.* `N` of `M` analyses done — `<file>` — and that the findings on every page update when it finishes. The icon spins and the line polls `GET /api/baseline` once a second. |
 | Finished | *Baseline findings recalculated* for `M` analyses — `X` findings in `Y` s, then how long ago. A sweep that could not process some analyses says so and lists them in the tooltip. |
 | Never swept | *Choosing a baseline recomputes the baseline findings for every analysis automatically.* |
-| Automatic sweep disabled | Names `APACKETS_BASELINE_AUTO_RECALC=0`, the switch that turns it off. |
+| Automatic sweep disabled | Names `SHADOWPACKETS_BASELINE_AUTO_RECALC=0`, the switch that turns it off. |
 
 The line's **Recalculate** button (`POST /api/baseline/recalculate`) runs the sweep again
 on demand; it is disabled while a sweep is running, and while automatic recalculation is
@@ -266,7 +266,7 @@ Deleting an analysis removes its rows from `packets`, `conversations`, `streams`
 then the analysis directory and the `<analysis_id>.*` file in `data/uploads/`. It waits up
 to 5 s for a running job to notice the cancellation first.
 
-Nothing calls `VACUUM`, so `data/apackets.db` **does not shrink** when an analysis is
+Nothing calls `VACUUM`, so `data/shadowpackets.db` **does not shrink** when an analysis is
 deleted — the rows go, the file keeps its high-water mark. For scale: the database file is
 currently 24,440,832 bytes (≈ 23.3 MiB) and the `data/` tree is `analyses` 9,345,795 B +
 `uploads` 14,114,078 B + `exports` 0 B.
@@ -314,7 +314,7 @@ page's rescan rewrites this capture's `findings` rows.
 * **The Size column is the upload, not the footprint.** The row that says 4.7 MiB on
   `sf19us-MTA-lab-03.pcap` occupies about 9.2 MiB once its index-directory files are
   counted, and the database rows are additional again. The page computes neither for you.
-* **The database never shrinks.** Deleting every analysis leaves `data/apackets.db` at its
+* **The database never shrinks.** Deleting every analysis leaves `data/shadowpackets.db` at its
   largest size. There is no compaction step in the application.
 * **The uploads directory can hold files nothing tracks.** `delete_analysis` globs
   `<analysis_id>.*`, and `analysis_disk_usage` sums the same pattern, so a file in
@@ -325,7 +325,7 @@ page's rescan rewrites this capture's `findings` rows.
   check uses the runtime value (editable on Settings); `capture_parser.inspect()` re-checks
   the same file against `settings.max_upload_bytes`, the environment-derived value, whose
   default is 512 MB. So raising *Max upload* above the environment's
-  `APACKETS_MAX_UPLOAD_MB` makes the drop zone accept the number and stream the file, and
+  `SHADOWPACKETS_MAX_UPLOAD_MB` makes the drop zone accept the number and stream the file, and
   then fails validation with a `413` quoting the *old* limit. Lowering it works as expected.
   Raise it with the environment variable, not only in the UI.
 * **Extensions are a first filter, not the check.** A `.pcap` file that is not a capture is

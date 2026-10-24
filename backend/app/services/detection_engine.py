@@ -46,7 +46,7 @@ from app.core.logging import get_logger
 from app.db import database as db
 from app.services import baseline
 
-log = get_logger("apackets.detection")
+log = get_logger("shadowpackets.detection")
 
 # --------------------------------------------------------------------------
 # constants

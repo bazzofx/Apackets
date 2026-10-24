@@ -32,7 +32,7 @@ from app.core.logging import get_logger
 from app.db import database as db
 from app.services import detection_engine, object_extractor, storage
 
-log = get_logger("apackets.api.objects")
+log = get_logger("shadowpackets.api.objects")
 
 router = APIRouter(prefix="/api/analyses", tags=["objects"])
 

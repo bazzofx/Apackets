@@ -85,7 +85,7 @@ Steel Blue. It mirrors **only** `bg`, `surface` and `surface2` for the four ids,
 value is not one of the four. The full palette is deliberately not duplicated there;
 `ThemeProvider` replaces the hints on mount.
 
-Because the preference lives in `localStorage['apackets.theme']`, it is per browser and per
+Because the preference lives in `localStorage['shadowpackets.theme']`, it is per browser and per
 machine. It is not sent to the backend, not stored in the database, and not shared with
 anyone else looking at the same capture.
 
@@ -174,8 +174,8 @@ the page, so it is worth stating exactly:
 So four of the five fields behave as documentation of intent rather than as controls: the
 value is saved, echoed back into the Effective settings panel as though it were live, and
 ignored by the analysers. Changing object size, body preview or the TShark timeout for real
-means setting `APACKETS_MAX_OBJECT_BYTES`, `APACKETS_BODY_PREVIEW_BYTES` or
-`APACKETS_TSHARK_TIMEOUT_S` in the environment (or `.env`) and restarting the backend — the
+means setting `SHADOWPACKETS_MAX_OBJECT_BYTES`, `SHADOWPACKETS_BODY_PREVIEW_BYTES` or
+`SHADOWPACKETS_TSHARK_TIMEOUT_S` in the environment (or `.env`) and restarting the backend — the
 mechanism documented in [Getting-Started.md](Getting-Started.md). See §5 for the rest of the
 start-up-only settings.
 

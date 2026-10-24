@@ -37,7 +37,7 @@ from app.core.logging import get_logger
 from app.db import database as db
 from app.services import geoip
 
-log = get_logger("apackets.api.geo")
+log = get_logger("shadowpackets.api.geo")
 
 router = APIRouter(tags=["geoip"])
 

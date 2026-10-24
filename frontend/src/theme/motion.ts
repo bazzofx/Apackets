@@ -19,7 +19,10 @@
 export type MotionPreference = 'calm' | 'off'
 
 /** Per-browser preference. Kept on the application's existing storage prefix. */
-export const MOTION_STORAGE_KEY = 'apackets.motion'
+export const MOTION_STORAGE_KEY = 'shadowpackets.motion'
+
+/** The key this preference used before the rename; read once, when the new one is empty. */
+const LEGACY_MOTION_STORAGE_KEY = 'apackets.motion'
 
 export const DEFAULT_MOTION: MotionPreference = 'calm'
 
@@ -38,7 +41,15 @@ export function readStoredMotion(): MotionPreference {
   if (typeof window === 'undefined') return DEFAULT_MOTION
   try {
     const stored = window.localStorage.getItem(MOTION_STORAGE_KEY)
-    return isMotionPreference(stored) ? stored : DEFAULT_MOTION
+    if (isMotionPreference(stored)) return stored
+    const legacy = window.localStorage.getItem(LEGACY_MOTION_STORAGE_KEY)
+    if (!isMotionPreference(legacy)) return DEFAULT_MOTION
+    try {
+      window.localStorage.setItem(MOTION_STORAGE_KEY, legacy)
+    } catch {
+      // Storage is read-only here; the migrated value still applies for this view.
+    }
+    return legacy
   } catch {
     return DEFAULT_MOTION
   }

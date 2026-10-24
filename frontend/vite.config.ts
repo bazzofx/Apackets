@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import path from 'node:path'
 
 // Local-only: the dev server proxies /api to the FastAPI backend on loopback.
-const backend = process.env.APACKETS_BACKEND_URL ?? 'http://127.0.0.1:8000'
+const backend = process.env.SHADOWPACKETS_BACKEND_URL ?? 'http://127.0.0.1:8000'
 
 export default defineConfig({
   plugins: [react()],

@@ -1,16 +1,16 @@
-# ShinboShark database layer — what breaks at 1M packets
+# ShadowPackets database layer — what breaks at 1M packets
 
-Analysis of the SQLite/schema/read-path/write-path layer at `C:\_deepSeekApps\ShinboShark`.
-**Nothing in the repository or in `data/apackets.db` was modified.** All write-side and
+Analysis of the SQLite/schema/read-path/write-path layer at `C:\_deepSeekApps\ShadowPackets`.
+**Nothing in the repository or in `data/shadowpackets.db` was modified.** All write-side and
 large-scale measurements were taken on throwaway databases built under
-`%TEMP%\dsh-*/apackets_scale\`; the real database was opened read-only
+`%TEMP%\dsh-*/shadowpackets_scale\`; the real database was opened read-only
 (`file:...?immutable=1`, never `mode=ro`).
 
 ## How the numbers were produced
 
 | Source | What it is |
 |---|---|
-| `data/apackets.db` | the real DB: 23 analyses, 74,012 packets, 895 conversations, 497 DNS, 155 HTTP, 276 TLS, 299 hosts, 891 streams, 312 findings, 129 objects, 1,615 Suricata rules. 74.6 MB, `page_size=4096`, 18,231 pages, `freelist_count=0`, **no `sqlite_stat1` (never `ANALYZE`d)**. 39 explicit indexes + 10 implicit PK autoindexes. |
+| `data/shadowpackets.db` | the real DB: 23 analyses, 74,012 packets, 895 conversations, 497 DNS, 155 HTTP, 276 TLS, 299 hosts, 891 streams, 312 findings, 129 objects, 1,615 Suricata rules. 74.6 MB, `page_size=4096`, 18,231 pages, `freelist_count=0`, **no `sqlite_stat1` (never `ANALYZE`d)**. 39 explicit indexes + 10 implicit PK autoindexes. |
 | `full.db` | 1,000,000 packet rows built by taking the 55,434 real rows of the largest analysis (`48076897292d4663b5fb4938537d4dc6`, `SpaceX_loads_of_tabs.pcapng`), cycling them with incremented `number`/`time_epoch`/stream ids, inserted **with the exact DDL and the exact batching `packet_indexer.py` uses** (1,000/commit, `BEGIN` … `commit()`), all 11 explicit indexes + PK present. |
 | `lean.db` | same 1,000,000 rows, same table, **PK only**. |
 | `side2.db` | `conversations` 50,000 / `streams` 50,000 / `dns_queries` 25,000 / `http_transactions` 12,000 / `tls_sessions` 20,000 / `hosts` 3,000 / `findings` 800 rows, real column values cycled from the real DB (counts are an assumption — see *Could not determine*). |

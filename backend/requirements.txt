@@ -1,4 +1,4 @@
-# Runtime dependencies for the ShinboShark backend.
+# Runtime dependencies for the ShadowPackets backend.
 # Versions are pinned to what has actually been tested in this project.
 # TShark itself is a system dependency, not a Python package — see README.
 

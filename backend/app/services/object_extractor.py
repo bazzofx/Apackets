@@ -43,7 +43,7 @@ from app.core.logging import get_logger
 from app.db import database as db
 from app.services import storage, tshark
 
-log = get_logger("apackets.objects")
+log = get_logger("shadowpackets.objects")
 
 STAGING_DIRNAME = "objects_staging"
 

@@ -1,6 +1,6 @@
 # Reference — the REST API
 
-A map of ShinboShark's HTTP surface: which router module owns which prefix, the
+A map of ShadowPackets's HTTP surface: which router module owns which prefix, the
 envelopes and conventions every endpoint shares, and where CSV and file exports
 live. The normative shapes are in [`docs/CONTRACT.md`](../../docs/CONTRACT.md) —
 this page summarises and links, it does not define.
@@ -97,7 +97,7 @@ Two dependencies in `backend/app/api/deps.py` are applied across the routers:
   still processing cannot return a half-filled page.
 
 `capture_path(row)` additionally raises `410 capture_missing` when the retained
-upload is gone (`APACKETS_RETAIN_UPLOADS=false`, or the file was deleted), and
+upload is gone (`SHADOWPACKETS_RETAIN_UPLOADS=false`, or the file was deleted), and
 `analysis_ready_row()` combines both for the endpoints that must re-read the
 capture.
 
@@ -159,7 +159,7 @@ be used.
 
 | Endpoint | Format | Notes |
 |---|---|---|
-| `GET /api/analyses/{id}/packets/export.csv` | `text/csv; charset=utf-8` | Same filters and sort parameters as `GET /packets`, but no pagination: it emits the whole filtered result up to `APACKETS_MAX_EXPORT_ROWS` (200000 by default). Columns exactly `number,time,src_ip,src_port,dst_ip,dst_port,protocol,length,tcp_flags,info`; `time` is an ISO-8601 UTC stamp with microseconds, and newlines inside `info` are replaced with spaces so a row is always one line. |
+| `GET /api/analyses/{id}/packets/export.csv` | `text/csv; charset=utf-8` | Same filters and sort parameters as `GET /packets`, but no pagination: it emits the whole filtered result up to `SHADOWPACKETS_MAX_EXPORT_ROWS` (200000 by default). Columns exactly `number,time,src_ip,src_port,dst_ip,dst_port,protocol,length,tcp_flags,info`; `time` is an ISO-8601 UTC stamp with microseconds, and newlines inside `info` are replaced with spaces so a row is always one line. |
 | `GET /api/analyses/{id}/streams/{stream_id}/export` | `txt`, `hex`, `csv` or `raw` (`?format=`) | Per-chunk CSV (`index,direction,byte_len,hex`), hex text, ASCII text, or the byte-exact payload in capture order as `application/octet-stream`. An unknown format is `400 invalid_format` with the allowed list. |
 | `GET /api/analyses/{id}/objects/{object_id}/export` | whatever the object is | One recovery from the capture, as a download. Served with `X-Content-Type-Options: nosniff` and `Cache-Control: no-store`, under a sanitised filename; the file on disk is named after the server-generated object id. |
 
@@ -196,8 +196,8 @@ small object per area — `analysesApi`, `packetsApi`, `conversationsApi`,
 `XMLHttpRequest` in `uploadAnalysis()` so the progress bar has real byte counts.
 
 The Vite dev server proxies `/api` to `http://127.0.0.1:8000` (override with
-`APACKETS_BACKEND_URL`), so no CORS negotiation happens in development; the
-backend's `APACKETS_CORS_ORIGINS` default only matters if you point a browser at
+`SHADOWPACKETS_BACKEND_URL`), so no CORS negotiation happens in development; the
+backend's `SHADOWPACKETS_CORS_ORIGINS` default only matters if you point a browser at
 the API from another origin.
 
 ---

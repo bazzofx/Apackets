@@ -591,7 +591,7 @@ Files changed: `backend/rules/README.md` (documents the `local/` layer),
 Files not changed: every file under `backend/rules/daffainfo/` and
 `backend/rules/oisf/`.
 
-The rule store in `data/apackets.db` was re-seeded so the corrected text is what
+The rule store in `data/shadowpackets.db` was re-seeded so the corrected text is what
 the application actually runs; the upsert deliberately leaves each rule's
 enabled/disabled state alone.
 

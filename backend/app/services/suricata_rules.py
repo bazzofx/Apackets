@@ -38,7 +38,7 @@ from app.core.errors import bad_request
 from app.core.logging import get_logger
 from app.db import database as db
 
-log = get_logger("apackets.suricata")
+log = get_logger("shadowpackets.suricata")
 
 # --------------------------------------------------------------------------
 # constants
@@ -53,7 +53,7 @@ ACTIONS: frozenset[str] = frozenset(
 TRANSPORT_PROTOCOLS: frozenset[str] = frozenset(
     {"tcp", "udp", "icmp", "icmpv6", "ip", "ipv6", "any"}
 )
-# App-layer protocols are only supported for the dissectors APackets indexes.
+# App-layer protocols are only supported for the dissectors ShadowPackets indexes.
 APP_PROTOCOLS: frozenset[str] = frozenset({"http", "dns", "tls"})
 SUPPORTED_PROTOCOLS: frozenset[str] = TRANSPORT_PROTOCOLS | APP_PROTOCOLS
 
@@ -283,7 +283,7 @@ class ParsedRule:
 
 
 def severity_for(classtype: str | None, priority: int | None) -> str:
-    """Map a rule onto the four APackets severities.
+    """Map a rule onto the four ShadowPackets severities.
 
     ``classtype`` wins when it is known: it states what the rule detects, which
     is more informative than the numeric priority. Otherwise the Suricata
@@ -1194,6 +1194,19 @@ def seed_bundled_rules(*, enabled: int = 1) -> dict[str, Any]:
     }
 
 
+def seed_bundled_rules_if_empty(*, enabled: int = 1) -> dict[str, Any] | None:
+    """Seed the vendored rules only when no rule has been stored yet.
+
+    Returns ``None`` when the store already holds rules. A full seed upserts every
+    vendored row, so running it on every start would overwrite analyst edits; an
+    empty store is the only state where seeding cannot discard one.
+    """
+    row = db.query_one("SELECT COUNT(*) AS n FROM suricata_rules")
+    if row is not None and int(row["n"]) > 0:
+        return None
+    return seed_bundled_rules(enabled=enabled)
+
+
 def get_rule(sid: int) -> dict[str, Any] | None:
     row = db.query_one("SELECT * FROM suricata_rules WHERE sid = ?", (sid,))
     return dict(row) if row else None
@@ -1551,6 +1564,7 @@ __all__ = [
     "save_config",
     "save_rule",
     "seed_bundled_rules",
+    "seed_bundled_rules_if_empty",
     "severity_for",
     "variables_from_config",
 ]

@@ -34,7 +34,7 @@ from app.core.logging import get_logger
 from app.db import database as db
 from app.services import detection_engine
 
-log = get_logger("apackets.baseline_recalc")
+log = get_logger("shadowpackets.baseline_recalc")
 
 #: The rule family this module owns. Every rule the baseline contributes is named this way.
 RULE_IDS: tuple[str, ...] = tuple(
@@ -148,7 +148,7 @@ def start(trigger: str = "baseline changed") -> dict[str, Any]:
     """Schedule a sweep (or a second one) and return the current state.
 
     Returns immediately: the caller is an HTTP request. When auto-recalculation is
-    switched off - ``APACKETS_BASELINE_AUTO_RECALC=0``, which the test suite sets -
+    switched off - ``SHADOWPACKETS_BASELINE_AUTO_RECALC=0``, which the test suite sets -
     nothing is scheduled and the state says so.
     """
     global _pending, _thread

@@ -32,7 +32,7 @@ from app.db import database as db
 from app.services import geoip, ip_lookup
 from app.services.host_analyzer import address_scope, is_private_address
 
-log = get_logger("apackets.api.hosts")
+log = get_logger("shadowpackets.api.hosts")
 
 router = APIRouter(prefix="/api/analyses/{analysis_id}", tags=["hosts"])
 

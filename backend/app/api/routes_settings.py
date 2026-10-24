@@ -19,7 +19,7 @@ from app.db import database as db
 from app.schemas import IndicatorCreate, SettingsUpdate
 from app.services import tshark
 
-log = get_logger("apackets.api.settings")
+log = get_logger("shadowpackets.api.settings")
 
 router = APIRouter(prefix="/api", tags=["settings"])
 

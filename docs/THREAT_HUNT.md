@@ -267,7 +267,7 @@ computed". A visual with no data is simply not drawn, whatever the availability.
 
 ## 8. Verification required before either half is called done
 
-Backend, against the **real** analyses in `data/apackets.db`, not only fixtures:
+Backend, against the **real** analyses in `data/shadowpackets.db`, not only fixtures:
 
 * the endpoint returns 17 indicators, ids in the order of §1;
 * every indicator validates against §3/§4 — in particular `availability_reason` is

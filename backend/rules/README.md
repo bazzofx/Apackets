@@ -10,7 +10,7 @@ engine. See `PROVENANCE.md` for upstream URLs, commit SHAs, licenses, counts.
   (Apache-2.0), upstream layout preserved (`http/cves/<year>/`, `http/cnvd/...`).
 - `oisf/` — the Suricata engine's own app-layer and decoder event rules from
   [OISF/suricata](https://github.com/OISF/suricata) (GPL-2.0), copied flat.
-- `local/` — **not vendored**: rules ShinboShark maintains itself. See
+- `local/` — **not vendored**: rules ShadowPackets maintains itself. See
   [`local/` — the locally maintained correction layer](#local--the-locally-maintained-correction-layer).
 
 The two vendored directories are **data files**, copied verbatim for offline
@@ -34,7 +34,7 @@ network.
 
 ## `local/` — the locally maintained correction layer
 
-`local/` holds rules that ShinboShark maintains itself. It is the only place a
+`local/` holds rules that ShadowPackets maintains itself. It is the only place a
 correction to a vendored rule belongs, and the only place that survives a
 re-seed.
 

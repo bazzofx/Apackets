@@ -52,7 +52,7 @@ from app.core.errors import bad_request
 from app.core.logging import get_logger
 from app.db import database as db
 
-log = get_logger("apackets.baseline")
+log = get_logger("shadowpackets.baseline")
 
 CONFIG_KEY = "baseline_config"
 

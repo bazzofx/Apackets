@@ -1,4 +1,4 @@
-# ShinboShark — local PCAP/PCAPNG analysis, in one container.
+# ShadowPackets — local PCAP/PCAPNG analysis, in one container.
 #
 #   docker compose up --build
 #   open http://127.0.0.1:8080
@@ -6,46 +6,49 @@
 # The container serves the interface *and* the API on one port; nothing else is
 # published, and the port is bound to loopback so the capture data never leaves this
 # machine. All state — uploads, the SQLite index, extracted objects, the GeoIP
-# dataset — lives in the named volume `shinobishark-data`.
+# dataset — lives in the named volume `shadowpackets-data`.
 #
-# Configuration: copy .env.example to .env and edit. Every APACKETS_* value below has
+# Configuration: copy .env.example to .env and edit. Every SHADOWPACKETS_* value below has
 # a default, so an empty .env is a working installation.
 
-name: shinobishark
+name: shadowpackets
 
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    image: shinobishark:0.1.0
-    container_name: shinobishark
+    image: shadowpackets:0.1.0
+    container_name: shadowpackets
     restart: unless-stopped
 
     environment:
       # Inside the container the server must listen on all interfaces; the *published*
       # mapping below is what keeps it on loopback.
-      APACKETS_DATA_DIR: /data
-      APACKETS_HOST: 0.0.0.0
-      APACKETS_PORT: "8000"
-      APACKETS_MAX_UPLOAD_MB: "${APACKETS_MAX_UPLOAD_MB:-512}"
-      APACKETS_TSHARK_TIMEOUT_S: "${APACKETS_TSHARK_TIMEOUT_S:-300}"
-      APACKETS_MAX_OBJECT_BYTES: "${APACKETS_MAX_OBJECT_BYTES:-52428800}"
-      APACKETS_BODY_PREVIEW_BYTES: "${APACKETS_BODY_PREVIEW_BYTES:-262144}"
-      APACKETS_MAX_EXPORT_ROWS: "${APACKETS_MAX_EXPORT_ROWS:-200000}"
-      APACKETS_WORKER_THREADS: "${APACKETS_WORKER_THREADS:-2}"
-      APACKETS_RETAIN_UPLOADS: "${APACKETS_RETAIN_UPLOADS:-true}"
-      APACKETS_BASELINE_AUTO_RECALC: "${APACKETS_BASELINE_AUTO_RECALC:-true}"
-      APACKETS_LOG_LEVEL: "${APACKETS_LOG_LEVEL:-INFO}"
+      SHADOWPACKETS_DATA_DIR: /data
+      SHADOWPACKETS_HOST: 0.0.0.0
+      SHADOWPACKETS_PORT: "8000"
+      # The URL printed at startup is the host URL, not the container's port 8000.
+      SHADOWPACKETS_PUBLIC_URL: "http://127.0.0.1:${SHADOWPACKETS_PORT_HOST:-8080}"
+      SHADOWPACKETS_MAX_UPLOAD_MB: "${SHADOWPACKETS_MAX_UPLOAD_MB:-512}"
+      SHADOWPACKETS_TSHARK_TIMEOUT_S: "${SHADOWPACKETS_TSHARK_TIMEOUT_S:-300}"
+      SHADOWPACKETS_MAX_OBJECT_BYTES: "${SHADOWPACKETS_MAX_OBJECT_BYTES:-52428800}"
+      SHADOWPACKETS_BODY_PREVIEW_BYTES: "${SHADOWPACKETS_BODY_PREVIEW_BYTES:-262144}"
+      SHADOWPACKETS_MAX_EXPORT_ROWS: "${SHADOWPACKETS_MAX_EXPORT_ROWS:-200000}"
+      SHADOWPACKETS_WORKER_THREADS: "${SHADOWPACKETS_WORKER_THREADS:-2}"
+      SHADOWPACKETS_RETAIN_UPLOADS: "${SHADOWPACKETS_RETAIN_UPLOADS:-true}"
+      SHADOWPACKETS_BASELINE_AUTO_RECALC: "${SHADOWPACKETS_BASELINE_AUTO_RECALC:-true}"
+      SHADOWPACKETS_SURICATA_AUTO_SEED: "${SHADOWPACKETS_SURICATA_AUTO_SEED:-true}"
+      SHADOWPACKETS_LOG_LEVEL: "${SHADOWPACKETS_LOG_LEVEL:-INFO}"
 
     # Loopback only. The interface and the API share this one port.
     ports:
-      - "127.0.0.1:${APACKETS_PORT_HOST:-8080}:8000"
+      - "127.0.0.1:${SHADOWPACKETS_PORT_HOST:-8080}:8000"
 
     volumes:
-      - shinobishark-data:/data
+      - shadowpackets-data:/data
       # Or keep the captures in a directory you can see from the host:
-      # - ${APACKETS_DATA_HOST:-./data}:/data
+      # - ${SHADOWPACKETS_DATA_HOST:-./data}:/data
 
     # A hostile capture cannot exhaust the host.
     security_opt:
@@ -71,5 +74,5 @@ services:
       retries: 3
 
 volumes:
-  shinobishark-data:
-    name: shinobishark-data
+  shadowpackets-data:
+    name: shadowpackets-data

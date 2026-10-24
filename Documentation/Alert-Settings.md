@@ -198,7 +198,7 @@ When at least one rule is not at its default, an amber strip appears above the t
 rule(s) are not running their vendored default - their text, revision or enabled state differs
 from the file under the bundled rule tree. They are tinted below; Restore puts one back.*
 
-**Engine note**, from `GET /api/suricata/config`: *Engine: `apackets-native-matcher` — Rules
+**Engine note**, from `GET /api/suricata/config`: *Engine: `shadowpackets-native-matcher` — Rules
 are matched against TShark-extracted fields. The Suricata binary is not required and is not
 used. Patterns are matched against TShark-extracted fields (URI, host, method, headers,
 bodies, DNS name, TLS SNI); rules that need raw packet payloads are skipped rather than
@@ -418,7 +418,7 @@ the state of both families is visible from any page without opening this one.
 * **The count only knows about rules that exist.** A deleted signature has no row to report, so it
   is neither modified nor restorable; **Import bundled** brings it back as a new rule.
 * **Rule evaluation runs over the index, not the wire.** The matcher reads TShark-extracted
-  fields, never raw payload bytes: a signature that depends on a buffer ShinboShark does not extract
+  fields, never raw payload bytes: a signature that depends on a buffer ShadowPackets does not extract
   - a raw payload, a flowbit, a threshold across a stream - is either skipped outright or matched
   on its remaining options, and `field match` chips mark the rules evaluated against fields
   rather than payload. As shipped, **1,115 of the 1,615** rules are evaluable and **500** are

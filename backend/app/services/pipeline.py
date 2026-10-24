@@ -21,7 +21,7 @@ from app.db import database as db
 from app.services import capture_parser, packet_indexer, storage, tshark
 from app.services.jobs import JobContext
 
-log = get_logger("apackets.pipeline")
+log = get_logger("shadowpackets.pipeline")
 
 # Progress bands per stage: (stage_label, start_percent, span_percent)
 BANDS: dict[str, tuple[float, float]] = {

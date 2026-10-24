@@ -53,7 +53,7 @@ from app.db import database as db
 from app.services import tshark
 from app.services.jobs import JobContext
 
-log = get_logger("apackets.protocols")
+log = get_logger("shadowpackets.protocols")
 
 # --------------------------------------------------------------------------
 # caps (docs/PROTOCOLS.md §6)

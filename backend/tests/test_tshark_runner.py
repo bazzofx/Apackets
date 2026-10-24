@@ -462,7 +462,7 @@ def test_arguments_are_never_shell_interpreted(scratch_dir: Path):
     """
     import generators
 
-    canary = "APACKETS_INJECTION_CANARY"
+    canary = "SHADOWPACKETS_INJECTION_CANARY"
     name = f"a; echo {canary} && touch {canary}.pcap"
     weird = scratch_dir / name
     weird.write_bytes(generators.pcap_bytes([]))

@@ -1,5 +1,5 @@
 /**
- * Typed fetch wrapper for the ShinboShark API (docs/CONTRACT.md §2, §5).
+ * Typed fetch wrapper for the ShadowPackets API (docs/CONTRACT.md §2, §5).
  *
  * - Base path `/api`; the origin is taken from `VITE_API_BASE` so a built
  *   bundle can be served directly by the FastAPI backend, and falls back to a
@@ -186,7 +186,7 @@ export class ApiError extends Error {
 }
 
 export const NETWORK_ERROR_MESSAGE =
-  'Could not reach the ShinboShark backend. Start it with `python -m uvicorn app.main:app --port 8000` and check that it is listening on 127.0.0.1:8000.'
+  'Could not reach the ShadowPackets backend. Start it with `python -m uvicorn app.main:app --port 8000` and check that it is listening on 127.0.0.1:8000.'
 
 /** Coerce any thrown value into an `ApiError` for uniform display. */
 export function toApiError(error: unknown): ApiError {
@@ -1058,7 +1058,7 @@ export const protocolsApi = {
  * The three calls the geographic view makes.
  *
  * `status` answers whether the location dataset is installed at all, `refresh` is the only
- * thing in ShinboShark that downloads anything (a public CC BY 4.0 dataset, on an explicit
+ * thing in ShadowPackets that downloads anything (a public CC BY 4.0 dataset, on an explicit
  * request, never at render time), and `geography` is the capture's own per-country totals.
  */
 export const geoApi = {

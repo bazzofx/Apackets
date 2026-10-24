@@ -1,17 +1,17 @@
-# APackets — files that must never be committed.
+# ShadowPackets — files that must never be committed.
 #
 # Rule of thumb: capture data, derived analysis output, local configuration and
 # build artefacts stay on the machine that produced them. The repository holds
 # source, tests and docs only.
 
 # --- runtime data: never commit captures, objects or databases ---------------
-# data/ holds uploads/, analyses/, exports/, objects/ and apackets.db.
+# data/ holds uploads/, analyses/, exports/, objects/ and shadowpackets.db.
 data/
 *.pcap
 *.pcapng
 *.cap
 !backend/tests/fixtures/*.pcap
-# Safety net in case APACKETS_DATA_DIR is ever pointed inside the repository.
+# Safety net in case SHADOWPACKETS_DATA_DIR is ever pointed inside the repository.
 *.db
 *.db-wal
 *.db-shm

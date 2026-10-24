@@ -19,7 +19,7 @@ from app.core.config import settings
 from app.core.errors import bad_request
 from app.core.logging import get_logger
 
-log = get_logger("apackets.storage")
+log = get_logger("shadowpackets.storage")
 
 ANALYSIS_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 

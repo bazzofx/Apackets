@@ -21,7 +21,7 @@ from app.services import capture_parser, pipeline, storage, tshark
 from app.services.host_analyzer import address_scope
 from app.services.jobs import jobs
 
-log = get_logger("apackets.api.analyses")
+log = get_logger("shadowpackets.api.analyses")
 
 router = APIRouter(prefix="/api", tags=["analyses"])
 
